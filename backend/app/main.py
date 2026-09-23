@@ -12,7 +12,7 @@ from fastapi.responses import StreamingResponse, Response
 from pydantic import BaseModel
 
 app = FastAPI(title="Codebase Workbench API", version="0.1.0")
-app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173","http://127.0.0.1:5173",], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 TEXT_EXTENSIONS = {".js", ".jsx", ".ts", ".tsx", ".vue", ".py", ".java", ".kt", ".go", ".rs", ".php", ".cs", ".cpp", ".c", ".h", ".html", ".css", ".scss", ".json", ".md", ".txt", ".xml", ".yaml", ".yml", ".sql", ".sh", ".bat", ".ps1", ".env"}
 IGNORE_DIRS = {".git", "node_modules", ".venv", "venv", "dist", "build", "__pycache__", ".idea", ".vscode"}
