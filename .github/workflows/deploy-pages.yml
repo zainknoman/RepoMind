@@ -41,6 +41,9 @@ jobs:
       - name: Verify Pages entry point
         run: test -f frontend/dist/index.html
 
+      - name: Add SPA fallback
+        run: cp frontend/dist/index.html frontend/dist/404.html
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
@@ -60,3 +63,17 @@ jobs:
       - name: Deploy Pages artifact
         id: deployment
         uses: actions/deploy-pages@v4
+
+      - name: Verify published site
+        env:
+          PAGES_URL: ${{ steps.deployment.outputs.page_url }}
+        run: |
+          for i in 1 2 3 4 5; do
+            if curl --fail --silent --show-error --location "$PAGES_URL" | grep -q '<div id="root">'; then
+              echo "GitHub Pages is serving RepoMind at $PAGES_URL"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "GitHub Pages did not return the expected RepoMind entry point: $PAGES_URL"
+          exit 1
