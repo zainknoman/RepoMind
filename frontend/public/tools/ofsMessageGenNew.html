@@ -34,7 +34,7 @@
         @media(max-width:900px){body{padding:10px!important}.container{padding:16px!important}.data-field-row{grid-template-columns:1fr 80px 80px 1fr auto!important}}
         .hidden-section{display:none}
         .is-open{display:block}
-        .data-field-row, .transaction-block-row{display:flex;gap:.5rem;align-items:center}
+        .transaction-block-row{display:flex;gap:.5rem;align-items:center}
         .data-field-row input,.transaction-block-row input{flex-grow:1}
         .modal-backdrop{background-color:rgba(0,0,0,.5)}
         .modal-content{transform:scale(.8);opacity:0;transition:transform .3s ease-in-out,opacity .3s ease-in-out}
@@ -763,18 +763,13 @@
                             userIdInput.value = userParts[0] || '';
                             passwordInput.value = userParts[1] || '';
                         }
-                        // Check for optional company field as the next part
-                        const possibleCompany = parts[3];
-                        const isCompany = possibleCompany && !possibleCompany.includes('=') && !possibleCompany.includes(':');
-                        if (isCompany) {
-                            companyInput.value = possibleCompany;
-                            document.getElementById('transactionId').value = parts[4] || '';
-                        } else {
-                            document.getElementById('transactionId').value = parts[3] || '';
-                        }
+                        // Company is part of the OFS user-information segment: USER/PASSWORD/COMPANY
+                        const userParts = userInfoPart ? userInfoPart.split('/') : [];
+                        companyInput.value = userParts[2] || '';
+                        document.getElementById('transactionId').value = parts[3] || '';
 
                         // Parse Data Fields
-                        const dataFieldsStartIndex = isCompany ? 5 : 4;
+                        const dataFieldsStartIndex = 4;
                         const dataFields = parts.slice(dataFieldsStartIndex);
                         if (dataFields.length > 0) {
                             toggleMessageDataCheckbox.checked = true;
@@ -784,12 +779,11 @@
                                 const eqIndex = field.indexOf('=');
                                 const namePart = eqIndex >= 0 ? field.slice(0, eqIndex) : field;
                                 const value = eqIndex >= 0 ? field.slice(eqIndex + 1) : '';
-                                const match = namePart.match(/^(.*?)(?::(\\d+))?(?::(\\d+))?$/);
+                                const match = namePart.match(/^(.*?)(?::(\d+))?(?::(\d+))?$/);
                                 const name = match ? match[1] : namePart;
                                 const multiValue = match?.[2] || '';
                                 const subValue = match?.[3] || '';
                                 if (name) addDataFieldRow(name, value, multiValue, subValue);
-                                }
                             });
                         }
                     }
