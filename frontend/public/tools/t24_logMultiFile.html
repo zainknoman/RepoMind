@@ -358,6 +358,34 @@
             }
         }
     
+        /* RepoMind attractive analyzer workspace */
+        body{background:linear-gradient(180deg,#f8fafc 0%,#eef4f8 100%)!important}
+        .main-content-wrapper{max-width:1400px!important;margin:0 auto!important;padding:24px 28px!important;gap:16px}
+        .container,.filter-section-container,.output-section{border:1px solid #dbe5ee!important;border-radius:16px!important;box-shadow:0 8px 30px rgba(15,23,42,.07)!important}
+        .container{padding:24px!important}
+        .container h1{font-size:28px!important;font-weight:800!important;color:#0f172a!important}
+        .container>p{color:#64748b!important;max-width:900px;line-height:1.6}
+        .container .grid{background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:16px}
+        label{font-size:12px;font-weight:700;color:#475569}
+        input[type=file],textarea,#filterInput{transition:border-color .2s,box-shadow .2s}
+        input[type=file]:focus,textarea:focus,#filterInput:focus{outline:none!important;border-color:#0369a1!important;box-shadow:0 0 0 3px rgba(3,105,161,.12)!important}
+        .clear-button{margin-top:12px!important;background:#fff!important;color:#b42318!important;border:1px solid #f1b5b1!important;font-weight:700}
+        .clear-button:hover{background:#fff5f5!important}
+        #filterSectionContainer{padding:16px!important;background:#fff!important}
+        #filterSectionContainer label{display:block;margin-bottom:8px}
+        #output-grid-container{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px!important}
+        .output-section{padding:0!important;max-height:68vh!important;overflow:hidden!important}
+        .output-section h2{margin:0!important;padding:14px 16px!important;background:#f8fafc;border-bottom:1px solid #e2e8f0!important;font-size:15px!important;font-weight:800!important;color:#0f172a!important}
+        .output-section>.log-entry,.output-section>p{margin-left:12px;margin-right:12px}
+        .output-section{overflow-y:auto!important}
+        .log-entry{border:1px solid #e2e8f0!important;border-radius:10px!important;background:#fff!important;margin:10px 12px!important;padding:13px!important;box-shadow:0 2px 8px rgba(15,23,42,.04)!important}
+        .log-entry:hover{border-color:#9cc7df!important;background:#f8fcff!important;transform:translateY(-1px);transition:.15s ease}
+        .log-header{gap:8px!important}
+        .log-message{border:1px solid #e2e8f0!important;background:#f8fafc!important;max-height:180px;overflow:auto}
+        .ofs-details-section{border-radius:10px!important}
+        .utility-button{box-shadow:0 3px 8px rgba(3,105,161,.18)!important}
+        @media(max-width:1100px){#output-grid-container{grid-template-columns:1fr}.output-section{max-height:560px!important}}
+
         /* RepoMind workspace theme */
         :root{font-family:Inter,system-ui,sans-serif;color:#172033;background:#f5f7fa}
         *{box-sizing:border-box}
@@ -388,22 +416,6 @@
     </style>
 </head>
 <body>
-    <header class="bg-blue-800 text-white p-2 shadow-md">
-        <nav class="mx-auto flex justify-between items-center px-4">
-            <div class="text-xl font-bold">
-                My File Tools
-            </div>
-            <ul class="flex space-x-4">
-                <li><a href="search_Text.html" class="hover:text-blue-400 transition-colors">File Searcher</a></li>
-                <li><a href="consolidateFiles.html" class="hover:text-blue-400 transition-colors">File Combiner</a></li>
-                <li><a href="t24_logMultiFile.html" class="hover:text-blue-400 transition-colors">T24 Log MultiFile</a></li>
-                <li><a href="t24_analyzerMB.html" class="hover:text-blue-400 transition-colors">T24 Log Detail View</a></li>
-                <li><a href="logFileSorter.html" class="hover:text-blue-400 transition-colors">Log File Sorter</a></li>
-
-            </ul>
-        </nav>
-    </header>
-
     <div class="main-content-wrapper">
         <div class="container">
             <h1>T24 Log Analyzer</h1>
