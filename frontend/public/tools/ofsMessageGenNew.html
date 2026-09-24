@@ -104,7 +104,7 @@ textarea{resize:vertical;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,
         <div class="grid">
           <div class="field w6"><label>Application / Operation</label><input id="application" placeholder="e.g. FUNDS.TRANSFER"></div>
           <div class="field w6"><label>Version</label><input id="version" placeholder="e.g. FT.STANDARD"></div>
-          <div class="field"><label>Function</label><select id="function"><option>I — Input</option><option>A — Authorise</option><option>D — Delete</option><option>R — Reverse</option><option>V — Verify</option><option value="">Blank / default I</option></select></div>
+          <div class="field"><label>Function</label><select id="function"><option value="I">I — Input</option><option value="A">A — Authorise</option><option value="D">D — Delete</option><option value="R">R — Reverse</option><option value="V">V — Verify</option><option value="">Blank / default I</option></select></div>
           <div class="field"><label>Processing Flag</label><select id="processing"><option>PROCESS</option><option>VALIDATE</option><option>BUILD</option><option value="">Blank / default PROCESS</option></select></div>
           <div class="field"><label>GTS Control</label><input id="gts" placeholder="Optional: 1, 2, 3, 4"></div>
           <div class="field"><label>No. of Authorisers</label><input id="authCount" placeholder="Optional"></div>
@@ -305,10 +305,14 @@ textarea{resize:vertical;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,
     splitData(raw).forEach(function(token){
       var eq=token.indexOf('=');
       var left=eq>=0?token.slice(0,eq).trim():token.trim();
-      var value=eq>=0?decodeValue(token.slice(eq+1)):''; 
+      var value=eq>=0?decodeValue(token.slice(eq+1)):'';
       if(!left)return;
-      var m=left.match(/^(.*?)(?::(\d+))?(?::(\d+))?$/);
-      result.push({name:m?m[1]:left,mv:m&&m[2]||'',sv:m&&m[3]||'',value:value});
+      var parts=left.split(':');
+      var name=parts[0]||'';
+      var mv=parts.length>1?parts[1]:'';
+      var sv=parts.length>2?parts[2]:'';
+      if(parts.length>3){name=parts.slice(0,parts.length-2).join(':');mv=parts[parts.length-2];sv=parts[parts.length-1];}
+      result.push({name:name,mv:mv,sv:sv,value:value});
     });
     var grouped=[];
     result.forEach(function(x){
