@@ -87,7 +87,7 @@ This milestone hardens the browser-first architecture and connects Git changes t
 | Codebase Intelligence v1 | `fa2182bdf8eaa01ddc214d0365ace95a4358827c` | Completed |
 | Developer Intelligence v1 | `b21dfcbdf09c0e3fefba8fc224f461ce2ed61c25` | Completed |
 | Git + AI Workspace v1 | `db20ba73463ded382af3d55201883d783f2a8664` | Completed |
-| Production Hardening + Intelligence Performance | Pending | Current |
+| Production Hardening + Intelligence Performance | `1c8bb834c928a92b70142a93fddfde94b11c3c8e` | Completed |
 
 ## Product evolution
 
@@ -113,3 +113,18 @@ Production-grade Local Code Intelligence
 - Architecture health and dependency risk signals.
 - Plugin/analyzer architecture.
 - More complete Git history and change-impact analysis where browser-safe APIs permit it.
+
+## Milestone 5 — AI + Advanced Code Intelligence v1
+
+**Implementation branch:** `milestone/ai-advanced-intelligence-v1`
+
+Planned for this milestone:
+
+- Direct browser-side AI provider adapters for OpenAI, OpenAI-compatible endpoints, Anthropic and Google Gemini.
+- Local AI settings with provider/model/endpoint/API key controls.
+- AI Workspace responses generated from the selected RepoMind context.
+- Architecture health signals for unresolved imports/references, cycles, parser errors, external imports and dependency hotspots.
+- Dedicated Architecture Health workspace.
+- Continued conservative, browser-local analysis and explicit provider-call boundaries.
+- Documentation of direct-provider privacy/CORS limitations.
+
