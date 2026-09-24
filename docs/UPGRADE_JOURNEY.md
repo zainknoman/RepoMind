@@ -166,3 +166,22 @@ Planned for this milestone:
 `Scan → Search → Inspect → Analyze → Transform → Document → Understand → Export`
 
 RepoMind now has a first-class **Document** stage that converts local codebase intelligence into reusable Markdown artifacts without uploading repository source.
+
+
+## Milestone 8 — Visualization + Cache Hardening v1
+
+**Implementation branch:** `milestone/visualization-cache-hardening-v1`
+
+- Fixed IndexedDB cache serialization for symbol/reference graphs that contain object back-references.
+- Added cache-link rehydration so cached references and imported-by relationships point back to canonical index objects after restore.
+- Prevented circular graph structures from breaking cache persistence.
+- Replaced the Diagram tab's source-only preview with an actual Mermaid.js SVG renderer.
+- Mermaid.js is loaded lazily only when the Diagram tab is opened; repository source remains local.
+- Added explicit render status/error handling and re-render controls.
+- Bumped frontend version to 0.8.0.
+
+### Product direction after Milestone 8
+
+`Scan → Search → Inspect → Analyze → Visualize → Transform → Document → Understand → Export`
+
+RepoMind now treats architecture visualization as a first-class workspace rather than only exporting Mermaid source.
