@@ -773,19 +773,24 @@
             if (!entryData?.ofsDetails?.rawXml) return;
             try {
                 const data = parseOFSXml(entryData.ofsDetails.rawXml);
-                if (!data?.application) return;
+                if (!data?.application) {
+                    alert('Could not extract an OFS application from this log entry.');
+                    return;
+                }
                 localStorage.setItem('repomind.t24.ofsContext', JSON.stringify({
                     application: data.application || '',
                     version: data.version || '',
-                    ofsFunction: data.ofsFunction || '',
+                    ofsFunction: data.ofsFunction || 'I',
                     ofsOperation: data.ofsOperation || '',
                     transactionId: data.transactionId || '',
                     companyId: data.companyId || '',
-                    fields: data.fields || []
+                    fields: data.fields || [],
+                    rawXml: entryData.ofsDetails.rawXml || ''
                 }));
-                window.top.location.href = '/RepoMind/?tool=ofs';
+                window.top.location.assign('/RepoMind/?tool=ofs');
             } catch (e) {
                 console.error('Unable to hand off OFS context:', e);
+                alert('Unable to open this OFS message in the generator: ' + e.message);
             }
         }
 
@@ -1005,42 +1010,53 @@
             try {
                 const parser = new DOMParser();
                 const xmlDoc = parser.parseFromString(ofsXmlString, "application/xml");
-                const ofsApplication = xmlDoc.querySelector('ofsApplication');
+                const parserError = xmlDoc.querySelector('parsererror');
+                if (parserError) return null;
 
-                if (!ofsApplication) {
-                    return null;
-                }
+                const allElements = Array.from(xmlDoc.getElementsByTagName('*'));
+                const firstByName = (name, root) => {
+                    const source = root ? Array.from(root.getElementsByTagName('*')) : allElements;
+                    return source.find(el => el.localName === name || el.nodeName === name || el.nodeName.endsWith(':' + name)) || null;
+                };
+
+                const ofsApplication = firstByName('ofsApplication');
+                if (!ofsApplication) return null;
 
                 const ofsData = {};
-                const fieldsToExtract = [
-                    'activeTab', 'companyId', 'requestType', 'application', 'version',
-                    'ofsFunction', 'ofsOperation', 'transactionId', 'windowName', 'title',
-                    'decrypt', 'RecordRead'
-                ];
-
-                fieldsToExtract.forEach(fieldName => {
-                    const element = ofsApplication.querySelector(fieldName);
-                    if (element && element.textContent !== undefined && element.textContent !== null) {
-                        ofsData[fieldName] = element.textContent;
-                    }
+                [
+                    'activeTab','companyId','requestType','application','version',
+                    'ofsFunction','ofsOperation','transactionId','windowName','title',
+                    'decrypt','RecordRead','gtsControl','authCount'
+                ].forEach(fieldName => {
+                    const element = firstByName(fieldName, ofsApplication);
+                    if (element && element.textContent != null) ofsData[fieldName] = element.textContent.trim();
                 });
 
-                const messageElement = ofsApplication.querySelector('message');
+                const messageElement = firstByName('message', ofsApplication);
+                ofsData.fields = [];
                 if (messageElement) {
-                    ofsData.fields = [];
-                    const fieldElements = messageElement.querySelectorAll('field');
+                    const fieldElements = Array.from(messageElement.getElementsByTagName('*'))
+                        .filter(el => el.localName === 'field' || el.nodeName === 'field' || el.nodeName.endsWith(':field'));
+
                     fieldElements.forEach(field => {
+                        const get = name => {
+                            const el = Array.from(field.getElementsByTagName('*'))
+                                .find(x => x.localName === name || x.nodeName === name || x.nodeName.endsWith(':' + name));
+                            return el?.textContent?.trim() || '';
+                        };
+                        const fieldName = get('fieldName');
+                        if (!fieldName) return;
                         ofsData.fields.push({
-                            fieldName: field.querySelector('fieldName')?.textContent || 'N/A',
-                            value: field.querySelector('value')?.textContent || '',
-                            displayType: field.querySelector('displayType')?.textContent || 'N/A',
-                            multiValueNumber: field.querySelector('multiValueNumber')?.textContent || '',
-                            subValueNumber: field.querySelector('subValueNumber')?.textContent || ''
+                            fieldName,
+                            value: get('value'),
+                            displayType: get('displayType'),
+                            multiValueNumber: get('multiValueNumber'),
+                            subValueNumber: get('subValueNumber')
                         });
                     });
                 }
-                return ofsData;
 
+                return ofsData;
             } catch (e) {
                 console.error("Error parsing OFS XML for data storage:", e);
                 return null;
