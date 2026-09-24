@@ -757,6 +757,26 @@
             filterLogEntries();
         }
 
+        function openOFSGeneratorFromLog(entryData) {
+            if (!entryData?.ofsDetails?.rawXml) return;
+            try {
+                const data = parseOFSXml(entryData.ofsDetails.rawXml);
+                if (!data?.application) return;
+                localStorage.setItem('repomind.t24.ofsContext', JSON.stringify({
+                    application: data.application || '',
+                    version: data.version || '',
+                    ofsFunction: data.ofsFunction || '',
+                    ofsOperation: data.ofsOperation || '',
+                    transactionId: data.transactionId || '',
+                    companyId: data.companyId || '',
+                    fields: data.fields || []
+                }));
+                window.top.location.href = '/RepoMind/?tool=ofs';
+            } catch (e) {
+                console.error('Unable to hand off OFS context:', e);
+            }
+        }
+
         function displayLogDetails(globalIndex) {
             const entryData = parsedLogEntries[globalIndex];
             modalBody.innerHTML = ''; // Clear previous content
@@ -801,6 +821,11 @@
             if (entryData.ofsDetails) {
                 const ofsDetailsDiv = renderOFSDetails(entryData.ofsDetails.rawXml);
                 modalBody.appendChild(ofsDetailsDiv);
+                const ofsContextButton = document.createElement('button');
+                ofsContextButton.textContent = '📨 Open in RepoMind OFS Generator';
+                ofsContextButton.style.cssText = 'margin-top:12px;padding:9px 14px;border:0;border-radius:7px;background:#0369a1;color:#fff;cursor:pointer;font-weight:600;';
+                ofsContextButton.onclick = () => openOFSGeneratorFromLog(entryData);
+                modalBody.appendChild(ofsContextButton);
             }
 
             // Other XML Messages Section
