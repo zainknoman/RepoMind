@@ -74,3 +74,7 @@
 .mini-row{padding:7px 9px;border-bottom:1px solid #eef2f7;font:12px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace}
 .cycle-row{padding:9px;margin:7px 0;border-radius:7px;background:#fff7ed;border:1px solid #fed7aa;font:12px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;overflow:auto}
 .codebase-intelligence .analytics-panel>select,.symbol-inspector select{width:100%;padding:10px;border:1px solid #d5dce7;border-radius:7px;background:#fff}
+
+/* Developer Intelligence v1 */
+.codebase-intelligence .analyzer-row{grid-template-columns:repeat(5,minmax(0,1fr));font-size:12px}.analyzer-row span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.diagram-output{min-height:360px!important;font-family:ui-monospace,SFMono-Regular,Consolas,monospace}.diagram-preview{margin-top:14px;border:1px dashed #cbd5e1;border-radius:10px;padding:16px;background:#f8fafc;overflow:auto}.diagram-preview pre{margin:0;white-space:pre-wrap;font:12px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace}.codebase-intelligence .search label{display:flex;align-items:center;gap:5px;font-size:12px}.codebase-intelligence .clickable{cursor:pointer}
+@media(max-width:900px){.codebase-intelligence .analyzer-row{grid-template-columns:1fr 1fr}.codebase-intelligence .analyzer-row span:nth-child(n+3){grid-column:1/-1}}
