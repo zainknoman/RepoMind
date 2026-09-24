@@ -781,9 +781,14 @@
                             toggleFields();
                             dataFieldsContainer.innerHTML = '';
                             dataFields.forEach(field => {
-                                const [name, value] = field.split('=');
-                                if (name) {
-                                    addDataFieldRow(name, value);
+                                const eqIndex = field.indexOf('=');
+                                const namePart = eqIndex >= 0 ? field.slice(0, eqIndex) : field;
+                                const value = eqIndex >= 0 ? field.slice(eqIndex + 1) : '';
+                                const match = namePart.match(/^(.*?)(?::(\\d+))?(?::(\\d+))?$/);
+                                const name = match ? match[1] : namePart;
+                                const multiValue = match?.[2] || '';
+                                const subValue = match?.[3] || '';
+                                if (name) addDataFieldRow(name, value, multiValue, subValue);
                                 }
                             });
                         }
@@ -937,7 +942,7 @@
                         transactionBlocksContainer.innerHTML = '';
 
                         if (config.dataFields && config.dataFields.length > 0) {
-                            config.dataFields.forEach(field => addDataFieldRow(field.fieldName, field.fieldValue));
+                            config.dataFields.forEach(field => addDataFieldRow(field.fieldName, field.fieldValue, field.multiValue || '', field.subValue || ''));
                         } else {
                             addDataFieldRow();
                         }
