@@ -557,6 +557,37 @@ export async function buildContext(index, files, options = {}) {
 export function attachFileHandles(index, project) {
   if (!index) return index;
   index._fileHandles = new Map(project.files.filter(isTextFile).map(file => [file.path, file]));
+
+  const symbolByKey = new Map((index.symbols || []).map(symbol => [
+    symbol.definitionKey || keyOf(symbol.path, symbol.name, symbol.kind, symbol.line), symbol
+  ]));
+  const resolveSymbols = value => (value || []).map(item => {
+    if (typeof item === 'object') return item;
+    return symbolByKey.get(item) || null;
+  }).filter(Boolean);
+
+  index.references = (index.references || []).map(reference => ({
+    ...reference,
+    resolvedSymbols: resolveSymbols(reference.resolvedSymbols)
+  }));
+  index.importBindings = (index.importBindings || []).map(binding => ({
+    ...binding,
+    resolvedSymbols: resolveSymbols(binding.resolvedSymbols)
+  }));
+
+  for (const symbol of index.symbols || []) {
+    const key = symbol.definitionKey || keyOf(symbol.path, symbol.name, symbol.kind, symbol.line);
+    symbol.definitionKey = key;
+    symbol.references = (symbol.references || []).map(item => {
+      if (typeof item === 'object' && item.from) return item;
+      return (index.references || []).find(reference => reference.definitionKey === item) || null;
+    }).filter(Boolean);
+    symbol.importedBy = (symbol.importedBy || []).map(item => {
+      if (typeof item === 'object' && item.from) return item;
+      return (index.importBindings || []).find(binding => binding.definitionKey === item) || null;
+    }).filter(Boolean);
+  }
+
   return index;
 }
 
