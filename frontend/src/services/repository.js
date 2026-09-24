@@ -77,7 +77,143 @@ function addExportMatches(content, exports) {
   }
 }
 
+
+import { parse } from '@babel/parser';
+
+const BABEL_PLUGINS = [
+  'jsx','typescript','classProperties','classPrivateProperties','classPrivateMethods',
+  'decorators-legacy','dynamicImport','optionalChaining','nullishCoalescingOperator',
+  'topLevelAwait','objectRestSpread'
+];
+
+function walk(node, visitor, parent = null) {
+  if (!node || typeof node !== 'object') return;
+  if (Array.isArray(node)) {
+    node.forEach(child => walk(child, visitor, parent));
+    return;
+  }
+  if (node.type) visitor(node, parent);
+  for (const key of Object.keys(node)) {
+    if (key === 'loc' || key === 'start' || key === 'end' || key === 'tokens' || key === 'comments') continue;
+    const value = node[key];
+    if (value && typeof value === 'object') walk(value, visitor, node);
+  }
+}
+
+function locLine(node) {
+  return node?.loc?.start?.line || 1;
+}
+
+function pushUnique(items, item) {
+  const key = JSON.stringify(item);
+  if (!items.some(existing => JSON.stringify(existing) === key)) items.push(item);
+}
+
+function parseJavaScript(content, file) {
+  const ast = parse(content, {
+    sourceType: 'unambiguous',
+    plugins: BABEL_PLUGINS,
+    errorRecovery: true
+  });
+
+  const symbols = [];
+  const imports = [];
+  const exports = [];
+
+  walk(ast, (node, parent) => {
+    const line = locLine(node);
+
+    if (node.type === 'ImportDeclaration') {
+      imports.push({
+        module: node.source?.value || '',
+        line,
+        kind: 'import',
+        bindings: node.specifiers?.map(spec => spec.local?.name).filter(Boolean) || []
+      });
+    }
+
+    if (node.type === 'ExportNamedDeclaration' || node.type === 'ExportDefaultDeclaration' || node.type === 'ExportAllDeclaration') {
+      const declaration = node.declaration;
+      if (node.type === 'ExportAllDeclaration') {
+        exports.push({ name: '*', line, kind: 're-export', source: node.source?.value || '' });
+      } else if (declaration?.id?.name) {
+        exports.push({ name: declaration.id.name, line, kind: 'export' });
+      } else {
+        for (const spec of node.specifiers || []) {
+          if (spec.local?.name) exports.push({ name: spec.exported?.name || spec.local.name, line, kind: 'export' });
+        }
+      }
+    }
+
+    if (node.type === 'FunctionDeclaration' && node.id?.name) {
+      symbols.push({ name: node.id.name, kind: 'function', line });
+    }
+
+    if (node.type === 'ClassDeclaration' && node.id?.name) {
+      symbols.push({ name: node.id.name, kind: 'class', line });
+    }
+
+    if (node.type === 'TSInterfaceDeclaration' && node.id?.name) {
+      symbols.push({ name: node.id.name, kind: 'interface', line });
+    }
+
+    if (node.type === 'TSTypeAliasDeclaration' && node.id?.name) {
+      symbols.push({ name: node.id.name, kind: 'type', line });
+    }
+
+    if (node.type === 'VariableDeclarator' && node.id?.type === 'Identifier' && node.init) {
+      const init = node.init;
+      if (init.type === 'ArrowFunctionExpression' || init.type === 'FunctionExpression') {
+        symbols.push({ name: node.id.name, kind: 'function', line });
+      }
+    }
+
+    if (node.type === 'MethodDefinition' && node.key?.type === 'Identifier') {
+      symbols.push({ name: node.key.name, kind: 'method', line });
+    }
+
+    if (node.type === 'ClassMethod' && node.key?.type === 'Identifier') {
+      symbols.push({ name: node.key.name, kind: 'method', line });
+    }
+  });
+
+  return {
+    ...fallbackAnalyzeSource(file, content),
+    parser: 'babel-ast',
+    symbols: dedupeSymbols(symbols),
+    imports: dedupeImports(imports),
+    exports: dedupeExports(exports),
+    parseErrors: (ast.errors || []).map(error => ({ message: error.message, line: error.loc?.line || 1 }))
+  };
+}
+
+function dedupeSymbols(items) {
+  return items.filter((item, index, all) => all.findIndex(x => x.name === item.name && x.kind === item.kind && x.line === item.line) === index);
+}
+
+function dedupeImports(items) {
+  return items.filter((item, index, all) => all.findIndex(x => x.module === item.module && x.line === item.line) === index);
+}
+
+function dedupeExports(items) {
+  return items.filter((item, index, all) => all.findIndex(x => x.name === item.name && x.line === item.line) === index);
+}
+
 export function analyzeSource(file, content) {
+  const fallback = fallbackAnalyzeSource(file, content);
+  if (!isBabelSupported(file.ext)) return fallback;
+  try {
+    return parseJavaScript(content, file);
+  } catch (error) {
+    return {
+      ...fallback,
+      parser: 'fallback',
+      parseErrors: [{ message: error.message, line: error.loc?.line || 1 }]
+    };
+  }
+}
+
+function fallbackAnalyzeSource(file, content) {
   const symbols = [], imports = [], exports = [];
   addSymbolMatches(content, symbols);
   addImportMatches(content, imports);
@@ -91,8 +227,14 @@ export function analyzeSource(file, content) {
     tokens: estimateTokens(content),
     symbols,
     imports,
-    exports
+    exports,
+    parser: 'pattern',
+    parseErrors: []
   };
+}
+
+function isBabelSupported(ext) {
+  return ['.js','.jsx','.ts','.tsx'].includes(ext);
 }
 
 function candidatePaths(path) {

@@ -156,7 +156,7 @@ export default function CodebasePanel({ project }) {
           <div className="index-row"><b>Unresolved relative imports</b><span>{index.unresolvedImports.length}</span><small>{index.unresolvedImports.length ? 'Review' : 'None detected'}</small></div>
           <div className="index-row"><b>External imports</b><span>{index.externalDependencies.length}</span><small>Packages / modules</small></div>
           <div className="index-row"><b>Circular dependency paths</b><span>{cycles.length}</span><small>{cycles.length ? 'Review' : 'None detected'}</small></div>
-          <div className="index-row"><b>Indexed at</b><span>{new Date(index.generatedAt).toLocaleTimeString()}</span><small>Local</small></div>
+          <div className="index-row"><b>AST parsed files</b><span>{index.files.filter(file => file.parser === 'babel-ast').length}</span><small>JavaScript / TypeScript</small></div><div className="index-row"><b>Parser errors</b><span>{index.files.reduce((sum, file) => sum + (file.parseErrors?.length || 0), 0)}</span><small>Files remain searchable via fallback</small></div><div className="index-row"><b>Indexed at</b><span>{new Date(index.generatedAt).toLocaleTimeString()}</span><small>Local</small></div>
         </div>
       </div>}
 
