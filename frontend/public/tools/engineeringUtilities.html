@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Engineering Utilities</title>
+<style>
+:root{font-family:Inter,system-ui,sans-serif;color:#172033;background:#f5f7fa}*{box-sizing:border-box}
+body{margin:0;padding:18px;background:#f5f7fa}.wrap{max-width:1200px;margin:auto}.card{background:#fff;border:1px solid #dfe5ec;border-radius:12px;padding:18px;margin-bottom:14px}
+h1{font-size:24px;margin:0 0 6px}h2{font-size:16px;margin:0 0 12px}.muted{color:#667085;font-size:13px}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}label{display:block;font-size:13px;color:#475467;margin-bottom:5px}
+input,select,textarea{width:100%;padding:9px;border:1px solid #d5dce7;border-radius:7px;background:#fff;color:#172033}
+textarea{min-height:80px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace}.result{margin-top:10px;padding:10px;border:1px solid #dfe5ec;border-radius:8px;background:#f8fafc;min-height:40px;word-break:break-word}
+button{border:0;border-radius:7px;padding:9px 13px;background:#0369a1;color:#fff;cursor:pointer}.row{display:flex;gap:8px;align-items:end}.row>*{flex:1}
+@media(max-width:850px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body><div class="wrap">
+<div class="card"><h1>🧮 Engineering Utilities</h1><div class="muted">Offline daily-use utilities for developers and engineers. No external API or live-rate dependency.</div></div>
+
+<div class="grid">
+<section class="card"><h2>🌍 Time Zone</h2><label>Date / time</label><input id="dt" type="datetime-local"><label>From</label><select id="from"></select><label>To</label><select id="to"></select><button id="convertTime">Convert</button><div id="timeOut" class="result"></div></section>
+<section class="card"><h2>📏 Unit Converter</h2><label>Category</label><select id="unitCat"><option value="length">Length</option><option value="weight">Weight</option><option value="temperature">Temperature</option><option value="data">Data</option><option value="time">Time</option></select><div class="row"><div><label>Value</label><input id="unitValue" type="number" value="1"></div><div><label>From</label><select id="unitFrom"></select></div><div><label>To</label><select id="unitTo"></select></div></div><button id="convertUnit">Convert</button><div id="unitOut" class="result"></div></section>
+<section class="card"><h2>⏱ Epoch / Timestamp</h2><label>Unix timestamp (seconds or milliseconds)</label><input id="epoch" placeholder="e.g. 1758700000"><button id="epochToDate">Timestamp → Date</button><button id="dateToEpoch" style="margin-left:6px">Now → Timestamp</button><div id="epochOut" class="result"></div></section>
+</div>
+
+<div class="grid">
+<section class="card"><h2>🔢 Number / Percentage</h2><div class="row"><div><label>Value</label><input id="pctValue" type="number"></div><div><label>Percentage</label><input id="pct" type="number"></div></div><button id="pctOf">Calculate % of value</button><button id="pctChange" style="margin-left:6px">Change %</button><div id="pctOut" class="result"></div></section>
+<section class="card"><h2>🧾 Base Converter</h2><label>Number</label><input id="baseValue" placeholder="255"><label>Input base</label><select id="baseFrom"><option>2</option><option selected>10</option><option>16</option><option>8</option></select><button id="baseConvert">Convert</button><div id="baseOut" class="result"></div></section>
+<section class="card"><h2>📦 Data Size</h2><div class="row"><div><label>Value</label><input id="dataValue" type="number" value="1"></div><div><label>From</label><select id="dataFrom"><option>B</option><option>KB</option><option selected>MB</option><option>GB</option><option>TB</option></select></div><div><label>To</label><select id="dataTo"><option>B</option><option selected>KB</option><option>MB</option><option>GB</option><option>TB</option></select></div></div><button id="dataConvert">Convert</button><div id="dataOut" class="result"></div></section>
+</div>
+
+<div class="card"><h2>Engineering calculators — deliberately not included yet</h2><div class="muted">Complex calculations (loan amortization, electrical formulas, network throughput, storage sizing, date/business-day calculations, etc.) should be added only as validated, named calculators rather than as a generic expression evaluator. This keeps RepoMind predictable and avoids incorrect engineering results.</div></div>
+</div>
+<script>
+const zones=['UTC','Asia/Karachi','Asia/Dubai','Asia/Riyadh','Asia/Kolkata','Asia/Singapore','Europe/London','Europe/Berlin','America/New_York','America/Chicago','America/Los_Angeles','Australia/Sydney','Asia/Tokyo'];
+for(const id of ['from','to']){const s=document.getElementById(id);zones.forEach(z=>s.add(new Option(z,z)));}document.getElementById('from').value='Asia/Karachi';document.getElementById('to').value='UTC';
+function localToParts(value,tz){const d=new Date(value);const f=new Intl.DateTimeFormat('en-CA',{timeZone:tz,dateStyle:'medium',timeStyle:'long'});return isNaN(d)?'Invalid date':f.format(d)}
+document.getElementById('convertTime').onclick=()=>{const v=document.getElementById('dt').value;if(!v){document.getElementById('timeOut').textContent='Enter a date/time.';return}const d=new Date(v);document.getElementById('timeOut').textContent=localToParts(d,document.getElementById('from').value)+' → '+localToParts(d,document.getElementById('to').value)};
+const units={length:{m:1,km:1000,ft:.3048,in:.0254,mi:1609.344},weight:{g:1,kg:1000,lb:453.59237,oz:28.349523125},data:{B:1,KB:1024,MB:1048576,GB:1073741824,TB:1099511627776},time:{ms:.001,s:1,min:60,h:3600,day:86400}};
+function fillUnits(){const cat=document.getElementById('unitCat').value, a=Object.keys(units[cat]||{C:1,F:1});for(const id of ['unitFrom','unitTo']){const s=document.getElementById(id);s.innerHTML='';a.forEach(x=>s.add(new Option(x,x)))}if(cat==='temperature'){['C','F','K'].forEach((x,i)=>document.getElementById('unitFrom').add(new Option(x,x)));document.getElementById('unitTo').innerHTML='';['C','F','K'].forEach(x=>document.getElementById('unitTo').add(new Option(x,x)))}}
+function temp(v,f,t){let c=f==='C'?v:f==='F'?(v-32)*5/9:v-273.15;return t==='C'?c:t==='F'?c*9/5+32:c+273.15}
+document.getElementById('unitCat').onchange=fillUnits;fillUnits();
+document.getElementById('convertUnit').onclick=()=>{const cat=document.getElementById('unitCat').value,v=Number(document.getElementById('unitValue').value),f=document.getElementById('unitFrom').value,t=document.getElementById('unitTo').value;const r=cat==='temperature'?temp(v,f,t):v*units[cat][f]/units[cat][t];document.getElementById('unitOut').textContent=v+' '+f+' = '+r+' '+t};
+document.getElementById('epochToDate').onclick=()=>{const n=Number(document.getElementById('epoch').value),ms=String(Math.trunc(n)).length>10?n:n*1000;document.getElementById('epochOut').textContent=isNaN(ms)?'Invalid timestamp':new Date(ms).toISOString()};
+document.getElementById('dateToEpoch').onclick=()=>document.getElementById('epochOut').textContent=Math.floor(Date.now()/1000)+' seconds / '+Date.now()+' milliseconds';
+document.getElementById('pctOf').onclick=()=>document.getElementById('pctOut').textContent=Number(document.getElementById('pctValue').value)*Number(document.getElementById('pct').value)/100;
+document.getElementById('pctChange').onclick=()=>{const a=Number(document.getElementById('pctValue').value),b=Number(document.getElementById('pct').value);document.getElementById('pctOut').textContent=a===0?'Undefined':((b-a)/a*100)+'% change'};
+document.getElementById('baseConvert').onclick=()=>{try{const n=parseInt(document.getElementById('baseValue').value,Number(document.getElementById('baseFrom').value));document.getElementById('baseOut').textContent='Binary: '+n.toString(2)+' | Decimal: '+n.toString(10)+' | Octal: '+n.toString(8)+' | Hex: '+n.toString(16).toUpperCase()}catch(e){document.getElementById('baseOut').textContent='Invalid number'}};
+const dm={B:1,KB:1024,MB:1048576,GB:1073741824,TB:1099511627776};document.getElementById('dataConvert').onclick=()=>{const v=Number(document.getElementById('dataValue').value),f=document.getElementById('dataFrom').value,t=document.getElementById('dataTo').value;document.getElementById('dataOut').textContent=v+' '+f+' = '+(v*dm[f]/dm[t])+' '+t};
+</script></body></html>
