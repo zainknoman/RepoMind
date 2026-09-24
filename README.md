@@ -51,6 +51,19 @@ The repository index is now the central local intelligence layer.
                 ↓
              Export
 
+## Milestone 3 — Git + AI Workspace
+
+- [x] Local Git metadata detection without indexing `.git` contents
+- [x] Branch, HEAD, remote and working-tree status signals
+- [x] Recent local Git activity from reflog metadata
+- [x] Provider-neutral Ask RepoMind prompt builder
+- [x] Context snapshots stored locally in browser storage
+- [x] Context export/copy for external AI providers
+- [x] Shared context selection between Codebase Intelligence and AI Workspace
+- [x] Git and AI workspace refresh/error handling
+
+> Git status is intentionally conservative: browser File System Access exposes repository files but does not provide a native `git status` command. RepoMind reads `.git` metadata locally, never indexes `.git` contents, and uses filesystem timestamps only as a probable-modified signal.
+
 ## Existing workspaces
 
 - Explorer
@@ -106,13 +119,16 @@ Use a current Chromium-based browser such as Chrome or Edge and click **Open Fol
 - [x] API/route discovery
 - [x] Security/content scanning
 - [x] Framework/package detection
-- [ ] Git status and history
+- [x] Git metadata, branch and working-tree intelligence
+- [x] Recent Git activity metadata
 
-### Milestone 3 — AI Workspace
-- [ ] Provider-neutral AI integration
-- [ ] Ask RepoMind
-- [ ] Symbol-aware context selection
-- [ ] Saved snapshots/reports
+### Milestone 3 — Git + AI Workspace
+- [x] Provider-neutral AI integration surface
+- [x] Ask RepoMind prompt builder
+- [x] Symbol/file-aware context selection
+- [x] Saved context snapshots
+- [x] Git repository intelligence
+- [ ] Direct hosted AI provider connections
 - [ ] Plugin/analyzer architecture
 
 **Scan → Search → Inspect → Analyze → Transform → Document → Understand → Export**
