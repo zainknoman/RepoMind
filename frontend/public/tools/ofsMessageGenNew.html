@@ -9,48 +9,38 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f3f4f6;
-        }
-        .container {
-            max-width: 800px;
-        }
-        .hidden-section {
-            display: none;
-        }
-        .is-open {
-            display: block;
-        }
-        .data-field-row, .transaction-block-row {
-            display: flex;
-            gap: 0.5rem;
-            align-items: center;
-        }
-        .data-field-row input, .transaction-block-row input {
-            flex-grow: 1;
-        }
-        .modal-backdrop {
-            background-color: rgba(0, 0, 0, 0.5);
-        }
-        .modal-content {
-            transform: scale(0.8);
-            opacity: 0;
-            transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
-        }
-        .fade-in {
-            transform: scale(1);
-            opacity: 1;
-        }
-        .copy-success {
-            opacity: 1;
-            transform: translateY(0);
-            transition: opacity 0.5s, transform 0.5s;
-        }
-        .copy-success.hide {
-            opacity: 0;
-            transform: translateY(-10px);
-        }
+        :root{font-family:Inter,system-ui,sans-serif;color:#172033;background:#f5f7fa}
+        *{box-sizing:border-box}
+        body{font-family:Inter,system-ui,sans-serif;background:#f5f7fa!important;color:#172033!important;margin:0!important;padding:18px!important;display:block!important}
+        .container{max-width:1350px!important;margin:0 auto!important;background:#fff!important;padding:24px!important;border:1px solid #dfe5ec!important;border-radius:14px!important;box-shadow:0 6px 24px rgba(15,23,42,.06)!important}
+        h1{text-align:left!important;font-size:25px!important;color:#172033!important;margin:0 0 20px!important}
+        h2{font-size:16px!important}
+        label span{color:#475467!important;font-size:13px}
+        input,select,textarea{border:1px solid #d5dce7!important;border-radius:7px!important;box-shadow:none!important;color:#172033!important;background:#fff!important}
+        button{border-radius:7px!important;box-shadow:none!important}
+        .data-field-row{display:grid!important;grid-template-columns:minmax(180px,1.4fr) 90px 90px minmax(220px,2fr) auto!important;gap:8px!important;align-items:center!important;padding:8px!important;background:#f8fafc!important;border:1px solid #e2e8f0!important;border-radius:8px!important}
+        .data-field-row input{width:100%!important}
+        .data-field-row .remove-field{white-space:nowrap}
+        .ofs-hint{margin:0 0 10px;padding:9px 11px;background:#eef7fc;border:1px solid #cfe0ed;border-radius:8px;color:#075985;font-size:12px}
+        .section-card{background:#fff!important;border:1px solid #dfe5ec!important;border-radius:12px!important}
+        .bg-blue-50,.bg-purple-50,.bg-yellow-50,.bg-gray-50{background:#fff!important}
+        .border-blue-200,.border-purple-200,.border-yellow-200{border-color:#dfe5ec!important}
+        .text-blue-800,.text-yellow-800{color:#075985!important}
+        .bg-green-600,.bg-purple-600,.bg-indigo-600,.bg-blue-500{background:#0369a1!important}
+        .bg-gray-500{background:#475569!important}
+        .bg-red-500{background:#b91c1c!important}
+        .hover\\:bg-green-700:hover,.hover\\:bg-blue-600:hover,.hover\\:bg-purple-700:hover,.hover\\:bg-indigo-700:hover{filter:brightness(.92)}
+        #ofsOutputModalBackdrop{background:rgba(15,23,42,.58)!important}
+        @media(max-width:900px){body{padding:10px!important}.container{padding:16px!important}.data-field-row{grid-template-columns:1fr 80px 80px 1fr auto!important}}
+        .hidden-section{display:none}
+        .is-open{display:block}
+        .data-field-row, .transaction-block-row{display:flex;gap:.5rem;align-items:center}
+        .data-field-row input,.transaction-block-row input{flex-grow:1}
+        .modal-backdrop{background-color:rgba(0,0,0,.5)}
+        .modal-content{transform:scale(.8);opacity:0;transition:transform .3s ease-in-out,opacity .3s ease-in-out}
+        .fade-in{transform:scale(1);opacity:1}
+        .copy-success{opacity:1;transform:translateY(0);transition:opacity .5s,transform .5s}
+        .copy-success.hide{opacity:0;transform:translateY(-10px)}
     </style>
 </head>
 <body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
@@ -153,7 +143,8 @@
                             <span class="ml-2 text-gray-700">Include Message Data</span>
                         </label>
                         <div id="messageDataSection" class="hidden-section border border-gray-300 rounded-md p-4 bg-gray-50">
-                            <h3 class="text-md font-semibold text-gray-700 mb-2">Data Fields</h3>
+                            <h3 class="text-md font-semibold text-gray-700 mb-2">Message Data</h3>
+                            <div class="ofs-hint"><strong>OFS syntax:</strong> FIELD=VALUE &nbsp; | &nbsp; FIELD:MV=VALUE &nbsp; | &nbsp; FIELD:MV:SV=VALUE. Example: M.PHONE.1:1=03331231232,M.PHONE.1:2=02222322212</div>
                             <div id="dataFieldsContainer" class="space-y-2"></div>
                             <button id="addField" type="button" class="mt-4 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors">Add Field</button>
                         </div>
@@ -397,13 +388,15 @@
             }
 
             // --- Helper Functions for Data Fields and Transaction Blocks ---
-            function addDataFieldRow(fieldName = '', fieldValue = '') {
+            function addDataFieldRow(fieldName = '', fieldValue = '', multiValue = '', subValue = '') {
                 const row = document.createElement('div');
                 row.classList.add('data-field-row');
                 row.innerHTML = `
-                    <input type="text" class="fieldName w-full p-2 rounded-md border-gray-300 shadow-sm" placeholder="Field Name (e.g., ORIGINAL.TEXT)" value="${fieldName}">
-                    <input type="text" class="fieldValue w-full p-2 rounded-md border-gray-300 shadow-sm" placeholder="Field Value (e.g., SECTOR)" value="${fieldValue}">
-                    <button type="button" class="remove-field px-2 py-1 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors">Remove</button>
+                    <input type="text" class="fieldName" placeholder="Field (e.g., M.PHONE.1)" value="${fieldName}">
+                    <input type="text" class="fieldMV" placeholder="MV" value="${multiValue}">
+                    <input type="text" class="fieldSV" placeholder="SV" value="${subValue}">
+                    <input type="text" class="fieldValue" placeholder="Value (e.g., 03331231232)" value="${fieldValue}">
+                    <button type="button" class="remove-field px-2 py-1 bg-red-500 text-white rounded-md">Remove</button>
                 `;
                 dataFieldsContainer.appendChild(row);
 
@@ -545,7 +538,7 @@
                 const password = passwordInput.value.trim();
                 const commonCompany = companyInput.value.trim();
 
-                const userInfoBlock = `${userId}/${password}` + (commonCompany ? `,${commonCompany}` : '');
+                const userInfoBlock = `${userId}/${password}` + (commonCompany ? `/${commonCompany}` : '');
 
                 if (messageType === 'Transaction') {
                     const appVersionInput = document.getElementById('appVersion').value.trim();
@@ -564,7 +557,10 @@
                             const fieldName = row.querySelector('.fieldName').value.trim();
                             const fieldValue = row.querySelector('.fieldValue').value.trim();
                             if (fieldName) {
-                                dataFields.push(`${fieldName}=${fieldValue}`);
+                                const multiValue = row.querySelector('.fieldMV').value.trim();
+                                const subValue = row.querySelector('.fieldSV').value.trim();
+                                const position = multiValue ? `:${multiValue}${subValue ? `:${subValue}` : ''}` : '';
+                                dataFields.push(`${fieldName}${position}=${fieldValue}`);
                             }
                         });
                         messageDataPart = dataFields.join(',');
@@ -586,13 +582,13 @@
                         messageDataPart
                     ];
 
-                    generatedOFS = parts.filter(part => part !== '').join(',');
+                    generatedOFS = parts.join(',');
 
                 } else if (messageType === 'Enquiry') {
                     const enquiryName = document.getElementById('enquiryName').value.trim();
                     const enquiryMessageData = document.getElementById('enquiryMessageData').value.trim();
 
-                    generatedOFS = `${enquiryName},,${userInfoBlock},,${enquiryMessageData}`;
+                    generatedOFS = `ENQUIRY.SELECT,,${userInfoBlock},${enquiryName},${enquiryMessageData}`;
 
                 } else if (messageType === 'XMLReport') {
                     const xmlReportApp = document.getElementById('xmlReportApp').value.trim();
@@ -874,8 +870,10 @@
                 document.querySelectorAll('#dataFieldsContainer .data-field-row').forEach(row => {
                     const fieldName = row.querySelector('.fieldName').value;
                     const fieldValue = row.querySelector('.fieldValue').value;
+                    const multiValue = row.querySelector('.fieldMV').value;
+                    const subValue = row.querySelector('.fieldSV').value;
                     if(fieldName) {
-                        config.dataFields.push({ fieldName, fieldValue });
+                        config.dataFields.push({ fieldName, fieldValue, multiValue, subValue });
                     }
                 });
 
