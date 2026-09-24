@@ -5,7 +5,7 @@ import{readGitRepository,gitStatusSummary,gitActivity}from'../../services/git';
 import{loadCachedIndex,saveCachedIndex,clearCachedIndex}from'../../services/indexCache';
 import{loadAISettings,saveAISettings,AI_PROVIDERS,askAI,buildAIMessages}from'../../services/ai';
 import{buildArchitectureHealth}from'../../services/health';
-import{getAnalyzers,runAnalyzer,analyzerSummary}from'../../services/analyzers';
+import{getAnalyzers,runAnalyzer as runRegisteredAnalyzerService,analyzerSummary}from'../../services/analyzers';
 
 const cp=v=>v&&navigator.clipboard?.writeText(v);
 const dl=(n,t)=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([t],{type:'text/plain'}));a.download=n;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),500)};
@@ -17,7 +17,7 @@ export default function CodebasePanel({project,onOpenFile}){
 
  async function indexProject(){if(!project)return;abortRef.current?.abort();const controller=new AbortController();abortRef.current=controller;setBusy(true);setProgress({phase:'start',current:0,total:project.files.filter(f=>f.text).length,path:null});setError('');try{const next=attachFileHandles(await buildRepositoryIndex(project,{signal:controller.signal,onProgress:setProgress}),project);next.project.packages=await detectProjectPackages(next);setIndex(next);setIndexSource('fresh');setPackages(next.project.packages);setSelected(new Set(next.files.slice(0,25).map(f=>f.path)));setContext('');setSelectedSymbol(null);await saveCachedIndex(project,next);await refreshGit()}catch(e){if(e?.name==='AbortError')setError('Indexing cancelled');else setError(e?.message||'Unable to index repository')}finally{if(abortRef.current===controller)abortRef.current=null;setBusy(false);setProgress(null)}}
  function cancelIndex(){abortRef.current?.abort()}
- useEffect(()=>{let active=true;(async()=>{if(!project||index)return;try{const cached=await loadCachedIndex(project);if(active&&cached){setIndex(attachFileHandles(cached,project));setIndexSource('cached');setPackages(cached.project?.packages||[]);setSelected(new Set((cached.files||[]).slice(0,25).map(f=>f.path)))}})();return()=>{active=false}})()},[project]);
+ useEffect(()=>{let active=true;(async()=>{if(!project||index)return;try{const cached=await loadCachedIndex(project);if(active&&cached){setIndex(attachFileHandles(cached,project));setIndexSource('cached');setPackages(cached.project?.packages||[]);setSelected(new Set((cached.files||[]).slice(0,25).map(f=>f.path)))}}catch(e){if(active)setError(e?.message||'Unable to restore cached index')})();return()=>{active=false}})()},[project]);
  async function refreshGit(){if(!project?.rootHandle)return;setGitBusy(true);try{const meta=await readGitRepository(project.rootHandle,project.files);const status=await gitStatusSummary(project.rootHandle,project.files);const activity=await gitActivity(project.rootHandle);setGit({...meta,status,activity})}catch(e){setGit({available:false,error:e?.message||'Git metadata unavailable'})}finally{setGitBusy(false)}}
  useEffect(()=>{if(project?.rootHandle&&!git)refreshGit()},[project]);
  function saveContext(){if(!context.trim())return;const item={id:crypto.randomUUID(),name:contextName.trim()||'Context '+new Date().toLocaleString(),content:context,tokens:contextTokens,files:contextFiles,createdAt:new Date().toISOString()};const next=[item,...savedContexts].slice(0,20);setSavedContexts(next);localStorage.setItem('repomind.savedContexts',JSON.stringify(next));setContextName('')}
@@ -33,7 +33,7 @@ export default function CodebasePanel({project,onOpenFile}){
 
  async function runSearch(){if(!index||!query.trim())return;setSearchBusy(true);try{const indexed=searchIndex(index,query);const code=await searchCode(index,query,{regex});setSearchResults({indexed,code})}catch(e){setError(e.message)}finally{setSearchBusy(false)}}
  async function runAnalyzer(type){if(!index)return;setDetailBusy(true);try{if(type==='api')setApi(await discoverApis(index));if(type==='security')setSecurity(await scanSecurity(index));if(type==='diagram')setDiagram(buildArchitectureMermaid(index,{limit:150}))}catch(e){setError(e.message)}finally{setDetailBusy(false)}}
- async function runRegisteredAnalyzer(id){if(!index)return;setAnalyzerBusy(true);setError('');try{const result=await runAnalyzer(index,id);setAnalyzerResults(s=>({...s,[id]:result}))}catch(e){setError(e?.message||'Analyzer failed')}finally{setAnalyzerBusy(false)}}
+ async function runRegisteredAnalyzer(id){if(!index)return;setAnalyzerBusy(true);setError('');try{const result=await runRegisteredAnalyzerService(index,id);setAnalyzerResults(s=>({...s,[id]:result}))}catch(e){setError(e?.message||'Analyzer failed')}finally{setAnalyzerBusy(false)}}
  function toggle(path){setSelected(s=>{const n=new Set(s);n.has(path)?n.delete(path):n.add(path);return n})}
  async function generateContext(){if(!index)return;setBusy(true);try{const r=await buildContext(index,[...selected],{includeMetadata:metadata,includeDependencies:includeDeps,includeDependents});setContext(r.content);setContextTokens(r.tokens);setContextFiles(r.files.length)}catch(e){setError(e.message)}finally{setBusy(false)}}
  function selectAll(){setSelected(new Set((index?.files||[]).map(f=>f.path)))}
