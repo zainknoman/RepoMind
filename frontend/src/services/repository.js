@@ -10,7 +10,6 @@ export const IGNORE_DIRS = new Set([
 ]);
 
 export const isTextFile = file => file?.text === true;
-
 export const estimateTokens = text => Math.max(0, Math.ceil(String(text || '').length / 4));
 
 export const languageFor = ext => ({
@@ -22,27 +21,27 @@ export const languageFor = ext => ({
 }[ext] || 'Text');
 
 const symbolPatterns = [
-  [/\b(?:async\\s+)?function\\s+([A-Za-z_$][\\w$]*)/g,'function'],
-  [/\b(?:const|let|var)\\s+([A-Za-z_$][\\w$]*)\\s*=\\s*(?:async\\s*)?(?:\\([^)]*\\)|[A-Za-z_$][\\w$]*)\\s*=>/g,'arrow'],
-  [/\bclass\\s+([A-Za-z_$][\\w$]*)/g,'class'],
-  [/\binterface\\s+([A-Za-z_$][\\w$]*)/g,'interface'],
-  [/\btype\\s+([A-Za-z_$][\\w$]*)\\s*=/g,'type'],
-  [/\b(?:def|async\\s+def)\\s+([A-Za-z_][\\w]*)/g,'function'],
-  [/\b(?:public|private|protected|static|final|abstract|synchronized|native|default|\\s)*class\\s+([A-Za-z_$][\\w$]*)/g,'class']
+  [/\b(?:async\s+)?function\s+([A-Za-z_$][\w$]*)/g,'function'],
+  [/\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s*)?(?:\([^)]*\)|[A-Za-z_$][\w$]*)\s*=>/g,'arrow'],
+  [/\bclass\s+([A-Za-z_$][\w$]*)/g,'class'],
+  [/\binterface\s+([A-Za-z_$][\w$]*)/g,'interface'],
+  [/\btype\s+([A-Za-z_$][\w$]*)\s*=/g,'type'],
+  [/\b(?:def|async\s+def)\s+([A-Za-z_][\w]*)/g,'function'],
+  [/\b(?:public|private|protected|static|final|abstract|synchronized|native|default|\s)*class\s+([A-Za-z_$][\w$]*)/g,'class']
 ];
 
 const importPatterns = [
-  /^\\s*import\\s+(.+?)\\s+from\\s+['"](.+?)['"]/gm,
-  /^\\s*import\\s+['"](.+?)['"]/gm,
-  /^\\s*(?:const|let|var)\\s+.+?=\\s*require\\(\\s*['"](.+?)['"]\\s*\\)/gm,
-  /^\\s*from\\s+(.+?)\\s+import\\s+/gm,
-  /^\\s*import\\s+([A-Za-z_][\\w.]*)/gm
+  /^\s*import\s+(.+?)\s+from\s+['"](.+?)['"]/gm,
+  /^\s*import\s+['"](.+?)['"]/gm,
+  /^\s*(?:const|let|var)\s+.+?=\s*require\(\s*['"](.+?)['"]\s*\)/gm,
+  /^\s*from\s+(.+?)\s+import\s+/gm,
+  /^\s*import\s+([A-Za-z_][\w.]*)/gm
 ];
 
-const exportPattern = /^\\s*export\\s+(?:default\\s+)?(?:async\\s+)?(?:function|class|interface|type|const|let|var)\\s+([A-Za-z_$][\\w$]*)/gm;
+const exportPattern = /^\s*export\s+(?:default\s+)?(?:async\s+)?(?:function|class|interface|type|const|let|var)\s+([A-Za-z_$][\w$]*)/gm;
 
 function lineNumber(text, index) {
-  return text.slice(0, index).split(/\\r?\\n/).length;
+  return text.slice(0, index).split(/\r?\n/).length;
 }
 
 function addSymbolMatches(content, symbols) {
@@ -83,12 +82,11 @@ export function analyzeSource(file, content) {
   addSymbolMatches(content, symbols);
   addImportMatches(content, imports);
   addExportMatches(content, exports);
-  const lines = content.split(/\r?\n/).length;
   return {
     path: file.path,
     language: languageFor(file.ext),
     extension: file.ext,
-    lines,
+    lines: content.split(/\r?\n/).length,
     bytes: new Blob([content]).size,
     tokens: estimateTokens(content),
     symbols,
@@ -136,10 +134,7 @@ export async function buildRepositoryIndex(project) {
     externalDependencies: [],
     unresolvedImports: [],
     languages: {},
-    stats: {
-      files: files.length, lines: 0, bytes: 0, tokens: 0, symbols: 0,
-      imports: 0, exports: 0, internalEdges: 0, externalImports: 0
-    }
+    stats: { files: files.length, lines: 0, bytes: 0, tokens: 0, symbols: 0, imports: 0, exports: 0, internalEdges: 0, externalImports: 0 }
   };
 
   for (const file of files) {
@@ -197,9 +192,12 @@ export function detectCycles(index) {
       return;
     }
     if (visited.has(node)) return;
-    visiting.add(node); stack.push(node);
+    visiting.add(node);
+    stack.push(node);
     for (const next of graph.get(node) || []) visit(next);
-    stack.pop(); visiting.delete(node); visited.add(node);
+    stack.pop();
+    visiting.delete(node);
+    visited.add(node);
   }
   for (const node of graph.keys()) visit(node);
   return cycles;
@@ -211,21 +209,15 @@ export async function buildContext(index, files, options = {}) {
   let tokens = 0;
   for (const item of index?.files || []) {
     if (!selected.has(item.path)) continue;
-    const source = projectFileByPath(index, item.path);
+    const source = index._fileHandles?.get(item.path);
     if (!source) continue;
     const content = await (await source.handle.getFile()).text();
     tokens += estimateTokens(content);
-    chunks.push(
-      options.includeMetadata
-        ? `## ${item.path}\nLanguage: ${item.language}\nLines: ${item.lines}\n\n${content}`
-        : `/* --- Start of file: ${item.path} --- */\n${content}\n/* --- End of file: ${item.path} --- */`
-    );
+    chunks.push(options.includeMetadata
+      ? \`## \${item.path}\\nLanguage: \${item.language}\\nLines: \${item.lines}\\n\\n\${content}\`
+      : \`/* --- Start of file: \${item.path} --- */\\n\${content}\\n/* --- End of file: \${item.path} --- */\`);
   }
-  return { content: chunks.join('\n\n'), tokens };
-}
-
-function projectFileByPath(index, path) {
-  return index?._fileHandles?.get(path) || null;
+  return { content: chunks.join('\\n\\n'), tokens };
 }
 
 export function attachFileHandles(index, project) {
@@ -236,9 +228,5 @@ export function attachFileHandles(index, project) {
 
 export function summarizeIndex(index) {
   if (!index) return null;
-  return {
-    ...index.stats,
-    languages: Object.entries(index.languages).sort((a,b) => b[1] - a[1]),
-    cycles: detectCycles(index)
-  };
+  return { ...index.stats, languages: Object.entries(index.languages).sort((a,b) => b[1] - a[1]), cycles: detectCycles(index) };
 }
