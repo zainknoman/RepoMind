@@ -65,3 +65,12 @@
 .nav-group>span{font-size:10px;text-transform:uppercase;letter-spacing:.08em;font-weight:800;color:#64748b;margin-right:4px}
 .nav-group button{font-size:12px}
 @media(max-width:900px){.workspace-nav{gap:8px}.nav-group{width:100%;overflow-x:auto}.nav-group>span{min-width:max-content}}
+
+/* Codebase Intelligence v1 */
+.codebase-intelligence .clickable{width:100%;text-align:left;background:#fff;border-left:0;border-right:0;border-top:0}
+.codebase-intelligence .clickable:hover{background:#f8fafc}
+.symbol-inspector{margin-top:18px;border:1px solid #cbd5e1;box-shadow:0 8px 24px rgba(15,23,42,.06)}
+.symbol-inspector h3{font-size:13px;margin:16px 0 8px}
+.mini-row{padding:7px 9px;border-bottom:1px solid #eef2f7;font:12px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace}
+.cycle-row{padding:9px;margin:7px 0;border-radius:7px;background:#fff7ed;border:1px solid #fed7aa;font:12px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;overflow:auto}
+.codebase-intelligence .analytics-panel>select,.symbol-inspector select{width:100%;padding:10px;border:1px solid #d5dce7;border-radius:7px;background:#fff}
