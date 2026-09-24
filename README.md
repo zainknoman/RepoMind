@@ -21,6 +21,12 @@ The repository index is now the central local intelligence layer.
 - **Impact analysis** for files and their symbols.
 - **Context Builder** with optional direct dependencies/importers and token estimation.
 - **Local-first privacy model** — repository source is processed in the browser.
+- **Advanced indexed search** across symbols, files, dependencies and source text.
+- **API / route discovery** for common Express, NestJS, FastAPI, Flask, Spring and ASP.NET patterns.
+- **Security / secret scanning** using local heuristics for likely credentials, keys and connection strings.
+- **Package intelligence** from package.json with common framework/library detection.
+- **Mermaid architecture export** for repository dependency graphs.
+- **Architecture hotspot and impact navigation** without a server-side index.
 
 ### Intelligence flow
 
@@ -95,12 +101,12 @@ Use a current Chromium-based browser such as Chrome or Edge and click **Open Fol
 - [x] Context expansion
 
 ### Milestone 2 — Developer Intelligence
-- [ ] Architecture diagram / Mermaid export
-- [ ] Advanced code search and navigation
+- [x] Architecture diagram / Mermaid export
+- [x] Advanced code search and navigation
+- [x] API/route discovery
+- [x] Security/content scanning
+- [x] Framework/package detection
 - [ ] Git status and history
-- [ ] API/route discovery
-- [ ] Security/content scanning
-- [ ] Better framework/package detection
 
 ### Milestone 3 — AI Workspace
 - [ ] Provider-neutral AI integration
