@@ -34,3 +34,6 @@
 
 /* P1 codebase intelligence */
 .analyze-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}.index-row{display:grid;grid-template-columns:minmax(120px,1fr) auto auto;gap:12px;padding:9px 0;border-bottom:1px solid var(--border,#e5e7eb);align-items:center}.index-row span{font-size:12px;opacity:.75}.index-row small{opacity:.65;font-family:monospace}.diff-controls{margin:12px 0}.diff-controls select{min-width:150px}.analytics-panel textarea{min-height:160px}.search select{padding:10px 12px;border:1px solid var(--border,#e5e7eb);border-radius:8px;background:inherit}@media(max-width:900px){.analyze-grid{grid-template-columns:1fr}.index-row{grid-template-columns:1fr auto}.index-row small{grid-column:1/-1}}
+
+/* Workspace category screens */
+.workspace-category{display:flex;flex-direction:column;gap:16px}.workspace-category .embedded-tool{margin:0}.workspace-category .embedded-tool+.embedded-tool{margin-top:4px}
