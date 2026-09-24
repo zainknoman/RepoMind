@@ -37,12 +37,12 @@ RepoMind is designed to help developers understand an unfamiliar codebase, trace
 | **Search** | Search source text and jump to matching files/lines. |
 | **Editor** | Edit supported text files with find/replace and local save. |
 
-### Build
+### Analyze
 
 | Workspace | Purpose |
 |---|---|
 | **Ingest** | Generate a Gitingest-style summary, directory tree and combined source context. |
-| **Analyze** | Run project-level analysis. |
+| **Project Analysis** | Run project-level analysis. |
 | **Transform** | Combine/split text artifacts and export or ZIP results. |
 | **Compare** | Review differences between text content/files. |
 
