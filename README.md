@@ -27,6 +27,9 @@ The repository index is now the central local intelligence layer.
 - **Package intelligence** from package.json with common framework/library detection.
 - **Mermaid architecture export** for repository dependency graphs.\n- **Architecture health** with dependency hotspots, cycles, unresolved references/imports and parser-error signals.\n- **Analyzer registry** with extensible framework, symbol-resolution and architecture analyzers.\n- **Direct AI Workspace providers** for OpenAI, OpenAI-compatible endpoints, Anthropic and Gemini; provider keys remain browser-local.
 - **Architecture hotspot and impact navigation** without a server-side index.
+- **Documentation & Reports** for project architecture, technology profile, dependency hotspots, API surface, security findings and module summaries.
+- **Dedicated Health and Analyzer workspaces** exposed directly from Codebase Intelligence.
+- **Markdown report export** generated entirely from the local index.
 
 ### Intelligence flow
 
@@ -146,3 +149,14 @@ Use a current Chromium-based browser such as Chrome or Edge and click **Open Fol
 - [ ] Plugin/analyzer architecture
 
 **Scan → Search → Inspect → Analyze → Transform → Document → Understand → Export**
+
+## Milestone 7 — Documentation + Reporting v1
+
+- [x] Documentation report service
+- [x] Project architecture/technology report
+- [x] Module-level report generation
+- [x] API and security findings included when available
+- [x] Dependency hotspot and review-area summaries
+- [x] Copy/download Markdown reports
+- [x] Dedicated Health and Analyzer workspace tabs
+- [x] Frontend version 0.7.0
