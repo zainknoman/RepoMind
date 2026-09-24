@@ -160,3 +160,12 @@ Use a current Chromium-based browser such as Chrome or Edge and click **Open Fol
 - [x] Copy/download Markdown reports
 - [x] Dedicated Health and Analyzer workspace tabs
 - [x] Frontend version 0.7.0
+
+
+### Milestone 8 — Visualization + Cache Hardening v1
+
+- Fixed circular object serialization in the IndexedDB codebase cache.
+- Rehydrates cached symbol/reference relationships after restore.
+- Added lazy Mermaid.js rendering for the Codebase → Diagram tab with SVG output.
+- Added render errors, loading state and re-render controls.
+- Repository source remains browser-local; Mermaid is fetched only when visualization is requested.
