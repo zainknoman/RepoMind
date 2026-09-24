@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OFS Message Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+        .container {
+            max-width: 800px;
+        }
+        .hidden-section {
+            display: none;
+        }
+        .is-open {
+            display: block;
+        }
+        .data-field-row, .transaction-block-row {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+        .data-field-row input, .transaction-block-row input {
+            flex-grow: 1;
+        }
+        .modal-backdrop {
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+        .modal-content {
+            transform: scale(0.8);
+            opacity: 0;
+            transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
+        }
+        .fade-in {
+            transform: scale(1);
+            opacity: 1;
+        }
+        .copy-success {
+            opacity: 1;
+            transform: translateY(0);
+            transition: opacity 0.5s, transform 0.5s;
+        }
+        .copy-success.hide {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
+
+    <div class="container bg-white p-6 rounded-xl shadow-lg w-full">
+        <h1 class="text-3xl font-bold text-center text-gray-800 mb-6">OFS Message Generator</h1>
+        
+        <div class="space-y-6">
+            <!-- Authentication & User Info -->
+            <div class="bg-blue-50 p-4 rounded-xl shadow-inner border border-blue-200">
+                <h2 class="text-xl font-semibold mb-2 text-blue-800">Authentication</h2>
+                <div id="authStatus" class="text-sm text-gray-600 mb-2">
+                    <div class="flex items-center space-x-2">
+                        <svg class="animate-spin h-4 w-4 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span>Connecting...</span>
+                    </div>
+                </div>
+                <p id="userIdDisplay" class="text-xs text-gray-500 truncate mt-1"></p>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                    <label class="block">
+                        <span class="text-gray-700">Username:</span>
+                        <input id="userId" type="text" placeholder="User ID" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2">
+                    </label>
+                    <label class="block">
+                        <span class="text-gray-700">Password:</span>
+                        <input id="password" type="password" placeholder="Password" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2">
+                    </label>
+                    <label class="block">
+                        <span class="text-gray-700">Company (Optional):</span>
+                        <input id="company" type="text" placeholder="Company" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2">
+                    </label>
+                </div>
+            </div>
+
+            <!-- OFS Type Selector -->
+            <div class="bg-purple-50 p-4 rounded-xl shadow-inner border border-purple-200">
+                <label class="block">
+                    <span class="text-gray-700 font-semibold">OFS Message Type:</span>
+                    <select id="ofsMessageType" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2">
+                        <option value="Transaction">Transaction</option>
+                        <option value="Enquiry">Enquiry</option>
+                        <option value="XMLReport">XML Report</option>
+                        <option value="TEC">TEC</option>
+                        <option value="Clearing">Clearing</option>
+                    </select>
+                </label>
+            </div>
+
+            <!-- Validation Message -->
+            <div id="validationMessage" class="hidden-section px-4 py-3 rounded-xl relative" role="alert">
+                <strong id="validationTitle" class="font-bold"></strong>
+                <span id="validationText" class="block sm:inline"></span>
+            </div>
+
+            <!-- Dynamic Sections based on OFS Type -->
+            <div id="dynamicFields">
+                <!-- Transaction Fields -->
+                <div id="transactionFields">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <label class="block">
+                            <span class="text-gray-700">Application,Version:</span>
+                            <input id="appVersion" type="text" placeholder="e.g., FUNDS.TRANSFER,I" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2">
+                        </label>
+                        <label class="block">
+                            <span class="text-gray-700">Function:</span>
+                            <input id="function" type="text" value="I" placeholder="e.g., I, C, D" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2">
+                        </label>
+                        <label class="block">
+                            <span class="text-gray-700">GTS Control:</span>
+                            <input id="gtsControl" type="text" placeholder="e.g., GSS" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2">
+                        </label>
+                        <label class="block">
+                            <span class="text-gray-700">Num of Auth:</span>
+                            <input id="numOfAuth" type="text" placeholder="e.g., 1" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2">
+                        </label>
+                        <label class="block">
+                            <span class="text-gray-700">Transaction ID:</span>
+                            <input id="transactionId" type="text" placeholder="ID or empty" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2">
+                        </label>
+                        <div class="mt-1">
+                            <span class="text-gray-700">Process/Validate:</span>
+                            <div class="flex items-center gap-4 mt-1">
+                                <label class="flex items-center space-x-2">
+                                    <input type="radio" name="processValidate" value="PROCESS" checked class="rounded-full text-indigo-600 focus:ring-indigo-500">
+                                    <span class="text-gray-700">Process</span>
+                                </label>
+                                <label class="flex items-center space-x-2">
+                                    <input type="radio" name="processValidate" value="VALIDATE" class="rounded-full text-indigo-600 focus:ring-indigo-500">
+                                    <span class="text-gray-700">Validate</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-6">
+                        <label class="flex items-center mb-2">
+                            <input id="toggleMessageDataCheckbox" type="checkbox" class="rounded-md text-indigo-600 focus:ring-indigo-500">
+                            <span class="ml-2 text-gray-700">Include Message Data</span>
+                        </label>
+                        <div id="messageDataSection" class="hidden-section border border-gray-300 rounded-md p-4 bg-gray-50">
+                            <h3 class="text-md font-semibold text-gray-700 mb-2">Data Fields</h3>
+                            <div id="dataFieldsContainer" class="space-y-2"></div>
+                            <button id="addField" type="button" class="mt-4 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors">Add Field</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Enquiry Fields -->
+                <div id="enquiryFields" class="hidden-section">
+                    <div class="space-y-4">
+                        <label class="block">
+                            <span class="text-gray-700">Enquiry Name:</span>
+                            <input id="enquiryName" type="text" placeholder="e.g., LIST.FUNDS.TRANSFER" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2">
+                        </label>
+                        <label class="block">
+                            <span class="text-gray-700">Message Data:</span>
+                            <textarea id="enquiryMessageData" placeholder="Field values to query" rows="2" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2"></textarea>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- XML Report Fields -->
+                <div id="xmlReportFields" class="hidden-section">
+                    <div class="space-y-4">
+                        <label class="block">
+                            <span class="text-gray-700">App Name:</span>
+                            <input id="xmlReportApp" type="text" value="XML.REPORT" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2">
+                        </label>
+                        <label class="block">
+                            <span class="text-gray-700">Options:</span>
+                            <input id="xmlReportOptions" type="text" value="ID" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2">
+                        </label>
+                        <label class="block">
+                            <span class="text-gray-700">Report Name:</span>
+                            <input id="xmlReportName" type="text" placeholder="e.g., XML.PAYMENT.INSTRUCTION" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2">
+                        </label>
+                    </div>
+                </div>
+
+                <!-- TEC Fields -->
+                <div id="tecFields" class="hidden-section">
+                    <div class="space-y-4">
+                        <label class="block">
+                            <span class="text-gray-700">App Name:</span>
+                            <input id="tecApp" type="text" value="TEC" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2">
+                        </label>
+                        <label class="block">
+                            <span class="text-gray-700">Command Type:</span>
+                            <select id="tecCommandType" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2">
+                                <option value="FLUSH">FLUSH</option>
+                                <option value="API.RESPONSE">API.RESPONSE</option>
+                            </select>
+                        </label>
+                        <div id="tecApiResponseFields" class="hidden-section space-y-4 border border-gray-300 rounded-md p-4 bg-gray-50">
+                            <h3 class="text-md font-semibold text-gray-700 mb-2">API Response Fields</h3>
+                            <label class="block">
+                                <span class="text-gray-700">API Name:</span>
+                                <input id="tecApiName" type="text" placeholder="e.g., PAYMENTS.API.V1" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2">
+                            </label>
+                            <label class="block">
+                                <span class="text-gray-700">Version & Routine:</span>
+                                <input id="tecVersionRoutine" type="text" placeholder="e.g., V1,GET.ALL.PAYMENTS" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2">
+                            </label>
+                            <label class="block">
+                                <span class="text-gray-700">Parameter:</span>
+                                <input id="tecParam" type="text" placeholder="e.g., STATUS.EQUALS=POSTED" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2">
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Clearing Fields -->
+                <div id="clearingFields" class="hidden-section">
+                    <div class="space-y-4">
+                        <label class="block">
+                            <span class="text-gray-700">App Name:</span>
+                            <input id="clearingApp" type="text" value="CLEANING.RTN" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2">
+                        </label>
+                        <label class="block">
+                            <span class="text-gray-700" id="clearingCompanyLabel">Company (Required for Clearing):</span>
+                            <input id="clearingCompany" type="text" placeholder="e.g., UK.COB" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2">
+                        </label>
+                        <div>
+                            <h3 class="text-md font-semibold text-gray-700 mb-2">Transaction Blocks</h3>
+                            <div id="transactionBlocksContainer" class="space-y-2"></div>
+                            <button id="addTransactionBlock" type="button" class="mt-4 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors">Add Block</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex flex-col sm:flex-row items-center justify-between gap-4 mt-8">
+                <button id="generateOFS" class="w-full sm:w-auto px-6 py-3 bg-green-600 text-white rounded-full font-bold shadow-lg hover:bg-green-700 transition-colors">Generate OFS</button>
+                <div class="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
+                    <button id="saveConfig" class="w-full sm:w-auto px-4 py-2 bg-indigo-600 text-white rounded-md shadow hover:bg-indigo-700 transition-colors">Save Config</button>
+                    <button id="loadConfig" class="w-full sm:w-auto px-4 py-2 bg-gray-500 text-white rounded-md shadow hover:bg-gray-600 transition-colors">Load Config</button>
+                </div>
+            </div>
+
+            <!-- New OFS Parsing Section -->
+            <div class="bg-yellow-50 p-4 rounded-xl shadow-inner border border-yellow-200 mt-6">
+                <h2 class="text-xl font-semibold mb-2 text-yellow-800">Parse OFS Message</h2>
+                <div class="space-y-4">
+                    <label class="block">
+                        <span class="text-gray-700">Paste OFS Message Here:</span>
+                        <textarea id="ofsInputToParse" rows="3" placeholder="Paste a complete OFS message string to parse" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2"></textarea>
+                    </label>
+                    <button id="parseOFS" class="w-full sm:w-auto px-6 py-3 bg-purple-600 text-white rounded-full font-bold shadow-lg hover:bg-purple-700 transition-colors">Parse OFS</button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- OFS Output Modal -->
+    <div id="ofsOutputModalBackdrop" class="fixed inset-0 z-50 flex items-center justify-center modal-backdrop hidden">
+        <div id="ofsOutputModal" class="bg-white p-6 rounded-xl shadow-xl w-11/12 md:w-2/3 lg:w-1/2 modal-content">
+            <h2 class="text-2xl font-bold mb-4 text-gray-800">Generated OFS Message</h2>
+            <div class="relative">
+                <textarea id="ofsOutput" rows="8" readonly class="w-full p-4 border border-gray-300 rounded-md bg-gray-50 font-mono text-sm"></textarea>
+                <div id="copyMessage" class="absolute top-2 right-2 px-2 py-1 bg-green-500 text-white text-xs rounded-full opacity-0 transform translate-y-2 pointer-events-none transition-all duration-300">Copied!</div>
+            </div>
+            <div class="flex justify-between items-center mt-4">
+                <button id="copyToClipboard" class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors">Copy to Clipboard</button>
+                <button id="closeModalButton" class="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global variables provided by the Canvas environment
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        let db, auth, userId = null;
+        let isAuthReady = false;
+
+        // Message display function instead of alert()
+        function showMessage(text, type = 'error') {
+            const validationMessage = document.getElementById('validationMessage');
+            const validationTitle = document.getElementById('validationTitle');
+            const validationText = document.getElementById('validationText');
+            
+            validationMessage.classList.remove('hidden-section', 'bg-red-100', 'border-red-400', 'text-red-700', 'bg-green-100', 'border-green-400', 'text-green-700');
+            
+            if (type === 'success') {
+                validationMessage.classList.add('bg-green-100', 'border-green-400', 'text-green-700');
+                validationTitle.textContent = "Success:";
+            } else {
+                validationMessage.classList.add('bg-red-100', 'border-red-400', 'text-red-700');
+                validationTitle.textContent = "Error:";
+            }
+            validationText.textContent = text;
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const ofsMessageTypeSelector = document.getElementById('ofsMessageType');
+
+            // Main section containers
+            const transactionFieldsDiv = document.getElementById('transactionFields');
+            const enquiryFieldsDiv = document.getElementById('enquiryFields');
+            const xmlReportFieldsDiv = document.getElementById('xmlReportFields');
+            const tecFieldsDiv = document.getElementById('tecFields');
+            const clearingFieldsDiv = document.getElementById('clearingFields');
+            const tecApiResponseFieldsDiv = document.getElementById('tecApiResponseFields');
+
+            // Sections that move for Transaction type
+            const messageDataSection = document.getElementById('messageDataSection');
+            const toggleMessageDataCheckbox = document.getElementById('toggleMessageDataCheckbox');
+
+            const dataFieldsContainer = document.getElementById('dataFieldsContainer');
+            const addFieldButton = document.getElementById('addField');
+
+            const tecCommandTypeSelector = document.getElementById('tecCommandType');
+
+            const transactionBlocksContainer = document.getElementById('transactionBlocksContainer');
+            const addTransactionBlockButton = document.getElementById('addTransactionBlock');
+
+            const userIdInput = document.getElementById('userId');
+            const passwordInput = document.getElementById('password');
+            const companyInput = document.getElementById('company');
+
+            const generateOFSButton = document.getElementById('generateOFS');
+            const saveConfigButton = document.getElementById('saveConfig');
+            const loadConfigButton = document.getElementById('loadConfig');
+            
+            const parseOFSButton = document.getElementById('parseOFS');
+            const ofsInputToParse = document.getElementById('ofsInputToParse');
+
+            // Popup elements
+            const ofsOutputModalBackdrop = document.getElementById('ofsOutputModalBackdrop');
+            const ofsOutputModal = document.getElementById('ofsOutputModal');
+            const ofsOutput = document.getElementById('ofsOutput');
+            const copyToClipboardButton = document.getElementById('copyToClipboard');
+            const closeModalButton = document.getElementById('closeModalButton');
+            const copyMessage = document.getElementById('copyMessage');
+
+            const validationMessage = document.getElementById('validationMessage');
+            const authStatus = document.getElementById('authStatus');
+            const userIdDisplay = document.getElementById('userIdDisplay');
+
+            // --- Firebase Initialization and Auth ---
+            if (Object.keys(firebaseConfig).length > 0) {
+                const app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+
+                onAuthStateChanged(auth, async (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        isAuthReady = true;
+                        authStatus.innerHTML = '<span class="text-green-600 font-semibold">Connected</span>';
+                        userIdDisplay.textContent = `User ID: ${userId}`;
+                        loadConfiguration(); // Load config after auth is ready
+                    } else {
+                        try {
+                            if (initialAuthToken) {
+                                await signInWithCustomToken(auth, initialAuthToken);
+                            } else {
+                                await signInAnonymously(auth);
+                            }
+                        } catch (error) {
+                            console.error("Firebase Auth Error:", error);
+                            authStatus.innerHTML = '<span class="text-red-600 font-semibold">Auth Failed</span>';
+                            userIdDisplay.textContent = 'Auth failed. See console for details.';
+                        }
+                    }
+                });
+            } else {
+                console.error("Firebase config is missing. App will run in a limited, non-persistent mode.");
+                isAuthReady = true;
+                authStatus.innerHTML = '<span class="text-orange-600 font-semibold">Offline Mode</span>';
+                userIdDisplay.textContent = 'User ID not available.';
+                loadConfiguration(); // Proceed with local storage
+            }
+
+            // --- Helper Functions for Data Fields and Transaction Blocks ---
+            function addDataFieldRow(fieldName = '', fieldValue = '') {
+                const row = document.createElement('div');
+                row.classList.add('data-field-row');
+                row.innerHTML = `
+                    <input type="text" class="fieldName w-full p-2 rounded-md border-gray-300 shadow-sm" placeholder="Field Name (e.g., ORIGINAL.TEXT)" value="${fieldName}">
+                    <input type="text" class="fieldValue w-full p-2 rounded-md border-gray-300 shadow-sm" placeholder="Field Value (e.g., SECTOR)" value="${fieldValue}">
+                    <button type="button" class="remove-field px-2 py-1 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors">Remove</button>
+                `;
+                dataFieldsContainer.appendChild(row);
+
+                row.querySelector('.remove-field').addEventListener('click', () => {
+                    row.remove();
+                });
+            }
+
+            function addTransactionBlockRow(blockContent = '') {
+                const row = document.createElement('div');
+                row.classList.add('transaction-block-row');
+                row.innerHTML = `
+                    <input type="text" class="transactionBlockContent w-full p-2 rounded-md border-gray-300 shadow-sm" placeholder="e.g., TXNREF1,33537,USD,10000,C,SALARY" value="${blockContent}">
+                    <button type="button" class="remove-block px-2 py-1 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors">Remove</button>
+                `;
+                transactionBlocksContainer.appendChild(row);
+
+                row.querySelector('.remove-block').addEventListener('click', () => {
+                    row.remove();
+                });
+            }
+
+            // Event listeners for "Add Data Field" and "Add Transaction Block" buttons
+            addFieldButton.addEventListener('click', () => addDataFieldRow());
+            addTransactionBlockButton.addEventListener('click', () => addTransactionBlockRow());
+
+            // --- Field Visibility Toggling ---
+            function toggleFields() {
+                const selectedType = ofsMessageTypeSelector.value;
+
+                // Hide all specific sections first
+                transactionFieldsDiv.classList.add('hidden-section');
+                enquiryFieldsDiv.classList.add('hidden-section');
+                xmlReportFieldsDiv.classList.add('hidden-section');
+                tecFieldsDiv.classList.add('hidden-section');
+                clearingFieldsDiv.classList.add('hidden-section');
+                tecApiResponseFieldsDiv.classList.add('hidden-section'); // Hide TEC specific sub-fields
+
+                // Hide message data section by default
+                messageDataSection.classList.add('hidden-section');
+                toggleMessageDataCheckbox.checked = false;
+
+                // Adjust company input label
+                const companyLabel = companyInput.labels[0] || document.getElementById('company').previousElementSibling;
+                companyLabel.textContent = 'Company (Optional):';
+
+                // Show relevant sections based on selection
+                if (selectedType === 'Transaction') {
+                    transactionFieldsDiv.classList.remove('hidden-section');
+                    if (toggleMessageDataCheckbox.checked) {
+                         messageDataSection.classList.remove('hidden-section');
+                    }
+                } else if (selectedType === 'Enquiry') {
+                    enquiryFieldsDiv.classList.remove('hidden-section');
+                } else if (selectedType === 'XMLReport') {
+                    xmlReportFieldsDiv.classList.remove('hidden-section');
+                } else if (selectedType === 'TEC') {
+                    tecFieldsDiv.classList.remove('hidden-section');
+                    if (tecCommandTypeSelector.value === 'API.RESPONSE') {
+                        tecApiResponseFieldsDiv.classList.remove('hidden-section');
+                    }
+                } else if (selectedType === 'Clearing') {
+                    clearingFieldsDiv.classList.remove('hidden-section');
+                    companyLabel.textContent = 'Company (Required for Clearing):'; // Adjust label for Clearing
+                }
+            }
+
+            // Event listeners for field toggles
+            ofsMessageTypeSelector.addEventListener('change', toggleFields);
+            tecCommandTypeSelector.addEventListener('change', () => {
+                if (tecCommandTypeSelector.value === 'API.RESPONSE') {
+                    tecApiResponseFieldsDiv.classList.remove('hidden-section');
+                } else {
+                    tecApiResponseFieldsDiv.classList.add('hidden-section');
+                }
+            });
+
+            toggleMessageDataCheckbox.addEventListener('change', () => {
+                if (toggleMessageDataCheckbox.checked) {
+                    messageDataSection.classList.remove('hidden-section');
+                } else {
+                    messageDataSection.classList.add('hidden-section');
+                }
+            });
+
+            // --- Client-side Validation Function ---
+            function validateInputs(messageType) {
+                validationMessage.classList.add('hidden-section');
+
+                const userId = userIdInput.value.trim();
+                const password = passwordInput.value.trim();
+
+                if (!userId || !password) {
+                    showMessage("Username and Password are required.");
+                    return false;
+                }
+
+                if (messageType === 'Transaction') {
+                    const appVersionInput = document.getElementById('appVersion').value.trim();
+                    const [appName] = appVersionInput.split(',');
+
+                    if (!appName) {
+                        showMessage("Transaction Application Name is required.");
+                        return false;
+                    }
+                } else if (messageType === 'XMLReport') {
+                    const xmlReportName = document.getElementById('xmlReportName').value.trim();
+                    if (!xmlReportName) {
+                        showMessage("XML Report Name is required.");
+                        return false;
+                    }
+                } else if (messageType === 'Clearing') {
+                    const clearingCompany = document.getElementById('clearingCompany').value.trim();
+                    if (!clearingCompany) {
+                        showMessage("Clearing Company is required.");
+                        return false;
+                    }
+                    const transactionBlocks = document.querySelectorAll('.transactionBlockContent');
+                    if (transactionBlocks.length === 0 || Array.from(transactionBlocks).every(input => input.value.trim() === '')) {
+                        showMessage("At least one Clearing Transaction Block is required.");
+                        return false;
+                    }
+                }
+                return true;
+            }
+
+            // --- OFS Message Generation Logic ---
+            generateOFSButton.addEventListener('click', () => {
+                const messageType = ofsMessageTypeSelector.value;
+
+                if (!validateInputs(messageType)) {
+                    ofsOutput.value = '';
+                    return;
+                }
+
+                let generatedOFS = '';
+
+                const userId = userIdInput.value.trim();
+                const password = passwordInput.value.trim();
+                const commonCompany = companyInput.value.trim();
+
+                const userInfoBlock = `${userId}/${password}` + (commonCompany ? `,${commonCompany}` : '');
+
+                if (messageType === 'Transaction') {
+                    const appVersionInput = document.getElementById('appVersion').value.trim();
+                    const [appName, version] = appVersionInput.split(',').map(s => s.trim());
+                    
+                    const func = document.getElementById('function').value.trim();
+                    const processValidate = document.querySelector('input[name="processValidate"]:checked').value.trim();
+                    const gtsControl = document.getElementById('gtsControl').value.trim();
+                    const numOfAuth = document.getElementById('numOfAuth').value.trim();
+                    const transactionId = document.getElementById('transactionId').value.trim();
+
+                    let messageDataPart = '';
+                    if (toggleMessageDataCheckbox.checked) {
+                        const dataFields = [];
+                        document.querySelectorAll('#dataFieldsContainer .data-field-row').forEach(row => {
+                            const fieldName = row.querySelector('.fieldName').value.trim();
+                            const fieldValue = row.querySelector('.fieldValue').value.trim();
+                            if (fieldName) {
+                                dataFields.push(`${fieldName}=${fieldValue}`);
+                            }
+                        });
+                        messageDataPart = dataFields.join(',');
+                    }
+
+                    let optionsSegment = '';
+                    const rawOptionsParts = [version, func, processValidate, gtsControl, numOfAuth];
+                    const isOptionsSegmentCompletelyEmpty = rawOptionsParts.every(part => !part);
+
+                    if (!isOptionsSegmentCompletelyEmpty) {
+                        optionsSegment = `${version || ''}/${func || ''}/${processValidate || ''}/${gtsControl || ''}/${numOfAuth || ''}`;
+                    }
+
+                    const parts = [
+                        appName,
+                        optionsSegment,
+                        userInfoBlock,
+                        transactionId,
+                        messageDataPart
+                    ];
+
+                    generatedOFS = parts.filter(part => part !== '').join(',');
+
+                } else if (messageType === 'Enquiry') {
+                    const enquiryName = document.getElementById('enquiryName').value.trim();
+                    const enquiryMessageData = document.getElementById('enquiryMessageData').value.trim();
+
+                    generatedOFS = `${enquiryName},,${userInfoBlock},,${enquiryMessageData}`;
+
+                } else if (messageType === 'XMLReport') {
+                    const xmlReportApp = document.getElementById('xmlReportApp').value.trim();
+                    const xmlReportOptions = document.getElementById('xmlReportOptions').value.trim();
+                    const xmlReportName = document.getElementById('xmlReportName').value.trim();
+
+                    generatedOFS = `${xmlReportApp},${xmlReportOptions},${userInfoBlock},,${xmlReportName}`;
+
+                } else if (messageType === 'TEC') {
+                    const tecApp = document.getElementById('tecApp').value.trim();
+                    const tecCommandType = document.getElementById('tecCommandType').value.trim();
+
+                    let tecDataPart = tecCommandType;
+                    if (tecCommandType === 'API.RESPONSE') {
+                        const tecApiName = document.getElementById('tecApiName').value.trim();
+                        const tecVersionRoutine = document.getElementById('tecVersionRoutine').value.trim();
+                        const tecParam = document.getElementById('tecParam').value.trim();
+                        tecDataPart += `,${tecApiName},${tecVersionRoutine},${tecParam}`;
+                    }
+
+                    generatedOFS = `${tecApp},,${userInfoBlock},,${tecDataPart}`;
+
+                } else if (messageType === 'Clearing') {
+                    const clearingApp = document.getElementById('clearingApp').value.trim();
+                    const clearingCompany = document.getElementById('clearingCompany').value.trim();
+
+                    const transactionBlocks = [];
+                    document.querySelectorAll('#transactionBlocksContainer .transaction-block-row').forEach(row => {
+                        const blockContent = row.querySelector('.transactionBlockContent').value.trim();
+                        if (blockContent) {
+                            transactionBlocks.push(blockContent);
+                        }
+                    });
+                    const clearingTransactionData = transactionBlocks.join('_');
+
+                    const clearingUserInfoBlock = `${userId}/${password}`;
+
+                    generatedOFS = `${clearingApp},,${clearingUserInfoBlock},${clearingCompany},${clearingTransactionData}`;
+                }
+                
+                // Populate the popup with the generated message and show it
+                ofsOutput.value = generatedOFS;
+                showModal();
+            });
+
+            // --- OFS Message Parsing Logic (Reverse) ---
+            parseOFSButton.addEventListener('click', () => {
+                const ofsMessage = ofsInputToParse.value.trim();
+                if (!ofsMessage) {
+                    showMessage("Please paste a message to parse.");
+                    return;
+                }
+
+                try {
+                    const parts = ofsMessage.split(',');
+                    const appName = parts[0];
+                    let messageType = '';
+
+                    // Reset fields first
+                    userIdInput.value = '';
+                    passwordInput.value = '';
+                    companyInput.value = '';
+                    dataFieldsContainer.innerHTML = '';
+                    transactionBlocksContainer.innerHTML = '';
+                    addDataFieldRow();
+                    addTransactionBlockRow();
+                    toggleMessageDataCheckbox.checked = false;
+
+                    // A more robust approach to determine type and parse
+                    if (appName.toUpperCase().includes('ENQUIRY')) {
+                        messageType = 'Enquiry';
+                        ofsMessageTypeSelector.value = messageType;
+                        toggleFields();
+                        document.getElementById('enquiryName').value = appName;
+                        document.getElementById('enquiryMessageData').value = parts[4] || '';
+
+                        const userInfoPart = parts[2];
+                        if (userInfoPart) {
+                            const userParts = userInfoPart.split('/');
+                            userIdInput.value = userParts[0] || '';
+                            passwordInput.value = userParts[1] || '';
+                            if (userParts.length > 2) {
+                                companyInput.value = userParts[2] || '';
+                            }
+                        }
+
+                    } else if (appName.toUpperCase() === 'XML.REPORT') {
+                        messageType = 'XMLReport';
+                        ofsMessageTypeSelector.value = messageType;
+                        toggleFields();
+                        document.getElementById('xmlReportOptions').value = parts[1] || '';
+                        document.getElementById('xmlReportName').value = parts[4] || '';
+
+                        const userInfoPart = parts[2];
+                        if (userInfoPart) {
+                            const userParts = userInfoPart.split('/');
+                            userIdInput.value = userParts[0] || '';
+                            passwordInput.value = userParts[1] || '';
+                            if (userParts.length > 2) {
+                                companyInput.value = userParts[2] || '';
+                            }
+                        }
+
+                    } else if (appName.toUpperCase() === 'TEC') {
+                        messageType = 'TEC';
+                        ofsMessageTypeSelector.value = messageType;
+                        toggleFields();
+                        const tecData = parts[4];
+                        if (tecData) {
+                            const tecDataParts = tecData.split(',');
+                            const commandType = tecDataParts[0];
+                            document.getElementById('tecCommandType').value = commandType;
+                            if (commandType === 'API.RESPONSE') {
+                                tecCommandTypeSelector.dispatchEvent(new Event('change'));
+                                document.getElementById('tecApiName').value = tecDataParts[1] || '';
+                                document.getElementById('tecVersionRoutine').value = tecDataParts[2] || '';
+                                document.getElementById('tecParam').value = tecDataParts[3] || '';
+                            }
+                        }
+                        const userInfoPart = parts[2];
+                        if (userInfoPart) {
+                            const userParts = userInfoPart.split('/');
+                            userIdInput.value = userParts[0] || '';
+                            passwordInput.value = userParts[1] || '';
+                            if (userParts.length > 2) {
+                                companyInput.value = userParts[2] || '';
+                            }
+                        }
+
+                    } else if (appName.toUpperCase() === 'CLEANING.RTN') {
+                        messageType = 'Clearing';
+                        ofsMessageTypeSelector.value = messageType;
+                        toggleFields();
+                        document.getElementById('clearingCompany').value = parts[3] || '';
+                        const transactionBlocksData = parts[4];
+                        if (transactionBlocksData) {
+                            transactionBlocksContainer.innerHTML = '';
+                            transactionBlocksData.split('_').forEach(block => addTransactionBlockRow(block));
+                        }
+                        const userInfoPart = parts[2];
+                        if (userInfoPart) {
+                            const userParts = userInfoPart.split('/');
+                            userIdInput.value = userParts[0] || '';
+                            passwordInput.value = userParts[1] || '';
+                            if (userParts.length > 2) {
+                                companyInput.value = userParts[2] || '';
+                            }
+                        }
+
+                    } else { // Assume Transaction by default
+                        messageType = 'Transaction';
+                        ofsMessageTypeSelector.value = messageType;
+                        toggleFields();
+
+                        // Parse Application and Version from the first part
+                        const [app, version] = appName.split(',');
+                        document.getElementById('appVersion').value = `${app},${version || ''}`;
+
+                        // Parse Options block
+                        const options = parts[1].split('/');
+                        document.getElementById('function').value = options[1] || '';
+                        const processValidateValue = options[2] || '';
+                        const radio = document.querySelector(`input[name="processValidate"][value="${processValidateValue}"]`);
+                        if (radio) radio.checked = true;
+                        document.getElementById('gtsControl').value = options[3] || '';
+                        document.getElementById('numOfAuth').value = options[4] || '';
+
+                        // Parse User Info and optional Company
+                        const userInfoPart = parts[2];
+                        if (userInfoPart) {
+                            const userParts = userInfoPart.split('/');
+                            userIdInput.value = userParts[0] || '';
+                            passwordInput.value = userParts[1] || '';
+                        }
+                        // Check for optional company field as the next part
+                        const possibleCompany = parts[3];
+                        const isCompany = possibleCompany && !possibleCompany.includes('=') && !possibleCompany.includes(':');
+                        if (isCompany) {
+                            companyInput.value = possibleCompany;
+                            document.getElementById('transactionId').value = parts[4] || '';
+                        } else {
+                            document.getElementById('transactionId').value = parts[3] || '';
+                        }
+
+                        // Parse Data Fields
+                        const dataFieldsStartIndex = isCompany ? 5 : 4;
+                        const dataFields = parts.slice(dataFieldsStartIndex);
+                        if (dataFields.length > 0) {
+                            toggleMessageDataCheckbox.checked = true;
+                            toggleFields();
+                            dataFieldsContainer.innerHTML = '';
+                            dataFields.forEach(field => {
+                                const [name, value] = field.split('=');
+                                if (name) {
+                                    addDataFieldRow(name, value);
+                                }
+                            });
+                        }
+                    }
+                    
+                    showMessage("OFS message parsed successfully.", 'success');
+
+                } catch (e) {
+                    console.error("Parsing Error:", e);
+                    showMessage(`Failed to parse OFS message. Please check the format. Details: ${e.message}`);
+                }
+            });
+
+            // --- Popup Modal Logic ---
+            function showModal() {
+                ofsOutputModalBackdrop.classList.remove('hidden');
+                setTimeout(() => {
+                    ofsOutputModal.classList.add('fade-in');
+                }, 10);
+            }
+
+            function hideModal() {
+                ofsOutputModal.classList.remove('fade-in');
+                setTimeout(() => {
+                    ofsOutputModalBackdrop.classList.add('hidden');
+                }, 300);
+            }
+
+            closeModalButton.addEventListener('click', hideModal);
+            ofsOutputModalBackdrop.addEventListener('click', (event) => {
+                if (event.target === ofsOutputModalBackdrop) {
+                    hideModal();
+                }
+            });
+
+            // --- Copy to Clipboard ---
+            copyToClipboardButton.addEventListener('click', () => {
+                ofsOutput.select();
+                ofsOutput.setSelectionRange(0, 99999);
+                document.execCommand('copy');
+                
+                copyMessage.classList.remove('hide');
+                copyMessage.classList.add('copy-success');
+                setTimeout(() => {
+                    copyMessage.classList.remove('copy-success');
+                    copyMessage.classList.add('hide');
+                }, 1500);
+            });
+
+            // --- Save/Load Configuration ---
+            const CONFIG_COLLECTION_PATH = (uid) => `artifacts/${appId}/users/${uid}/configs`;
+            const CONFIG_DOC_ID = 'ofsGenerator';
+
+            async function saveConfiguration() {
+                if (!isAuthReady || !userId) {
+                    showMessage("Please wait, authentication is not ready yet.", 'error');
+                    return;
+                }
+
+                const config = {
+                    ofsMessageType: ofsMessageTypeSelector.value,
+                    appVersion: document.getElementById('appVersion')?.value || '',
+                    function: document.getElementById('function')?.value || 'I',
+                    processValidate: document.querySelector('input[name="processValidate"]:checked')?.value || '',
+                    gtsControl: document.getElementById('gtsControl')?.value || '',
+                    numOfAuth: document.getElementById('numOfAuth')?.value || '',
+                    transactionId: document.getElementById('transactionId')?.value || '',
+                    enquiryMessageData: document.getElementById('enquiryMessageData')?.value || '',
+                    xmlReportOptions: document.getElementById('xmlReportOptions')?.value || 'ID',
+                    xmlReportName: document.getElementById('xmlReportName')?.value || '',
+                    tecCommandType: tecCommandTypeSelector?.value || 'FLUSH',
+                    tecApiName: document.getElementById('tecApiName')?.value || '',
+                    tecVersionRoutine: document.getElementById('tecVersionRoutine')?.value || '',
+                    tecParam: document.getElementById('tecParam')?.value || '',
+                    clearingCompany: document.getElementById('clearingCompany')?.value || '',
+                    userId: userIdInput.value,
+                    password: passwordInput.value,
+                    company: companyInput.value,
+                    toggleMessageDataChecked: toggleMessageDataCheckbox.checked,
+                    dataFields: [],
+                    transactionBlocks: []
+                };
+
+                document.querySelectorAll('#dataFieldsContainer .data-field-row').forEach(row => {
+                    const fieldName = row.querySelector('.fieldName').value;
+                    const fieldValue = row.querySelector('.fieldValue').value;
+                    if(fieldName) {
+                        config.dataFields.push({ fieldName, fieldValue });
+                    }
+                });
+
+                document.querySelectorAll('#transactionBlocksContainer .transaction-block-row').forEach(row => {
+                    const blockContent = row.querySelector('.transactionBlockContent').value;
+                    if(blockContent) {
+                        config.transactionBlocks.push(blockContent);
+                    }
+                });
+
+                try {
+                    const configRef = doc(db, CONFIG_COLLECTION_PATH(userId), CONFIG_DOC_ID);
+                    await setDoc(configRef, { config: JSON.stringify(config) });
+                    showMessage('Configuration saved to Firestore!', 'success');
+                } catch (e) {
+                    console.error("Error saving document: ", e);
+                    showMessage('Failed to save configuration.');
+                }
+            }
+
+            async function loadConfiguration() {
+                if (!isAuthReady || !userId) {
+                    console.log("Waiting for authentication to load configuration.");
+                    return;
+                }
+
+                try {
+                    const configRef = doc(db, CONFIG_COLLECTION_PATH(userId), CONFIG_DOC_ID);
+                    const docSnap = await getDoc(configRef);
+
+                    if (docSnap.exists()) {
+                        const savedConfig = JSON.parse(docSnap.data().config);
+                        const config = savedConfig;
+                        
+                        // Restore values
+                        ofsMessageTypeSelector.value = config.ofsMessageType || 'Transaction';
+                        toggleMessageDataCheckbox.checked = config.toggleMessageDataChecked || false;
+                        
+                        toggleFields(); // Call this first to set up the correct sections
+                        
+                        if (document.getElementById('appVersion')) document.getElementById('appVersion').value = config.appVersion || '';
+                        if (document.getElementById('function')) document.getElementById('function').value = config.function || 'I';
+                        const processValidateRadio = document.querySelector(`input[name="processValidate"][value="${config.processValidate || 'PROCESS'}"]`);
+                        if (processValidateRadio) processValidateRadio.checked = true;
+                        if (document.getElementById('gtsControl')) document.getElementById('gtsControl').value = config.gtsControl || '';
+                        if (document.getElementById('numOfAuth')) document.getElementById('numOfAuth').value = config.numOfAuth || '';
+                        if (document.getElementById('transactionId')) document.getElementById('transactionId').value = config.transactionId || '';
+                        if (document.getElementById('enquiryMessageData')) document.getElementById('enquiryMessageData').value = config.enquiryMessageData || '';
+                        if (document.getElementById('xmlReportOptions')) document.getElementById('xmlReportOptions').value = config.xmlReportOptions || 'ID';
+                        if (document.getElementById('xmlReportName')) document.getElementById('xmlReportName').value = config.xmlReportName || '';
+                        if (tecCommandTypeSelector) tecCommandTypeSelector.value = config.tecCommandType || 'FLUSH';
+                        if (document.getElementById('tecApiName')) document.getElementById('tecApiName').value = config.tecApiName || '';
+                        if (document.getElementById('tecVersionRoutine')) document.getElementById('tecVersionRoutine').value = config.tecVersionRoutine || '';
+                        if (document.getElementById('tecParam')) document.getElementById('tecParam').value = config.tecParam || '';
+                        if (document.getElementById('clearingCompany')) document.getElementById('clearingCompany').value = config.clearingCompany || '';
+                        userIdInput.value = config.userId || '';
+                        passwordInput.value = config.password || '';
+                        companyInput.value = config.company || '';
+
+                        dataFieldsContainer.innerHTML = '';
+                        transactionBlocksContainer.innerHTML = '';
+
+                        if (config.dataFields && config.dataFields.length > 0) {
+                            config.dataFields.forEach(field => addDataFieldRow(field.fieldName, field.fieldValue));
+                        } else {
+                            addDataFieldRow();
+                        }
+
+                        if (config.transactionBlocks && config.transactionBlocks.length > 0) {
+                            config.transactionBlocks.forEach(block => addTransactionBlockRow(block));
+                        } else {
+                            addTransactionBlockRow();
+                        }
+
+                        showMessage('Configuration loaded from Firestore!', 'success');
+                    } else {
+                        console.log("No saved configuration found. Loading default fields.");
+                        dataFieldsContainer.innerHTML = '';
+                        transactionBlocksContainer.innerHTML = '';
+                        addDataFieldRow();
+                        addTransactionBlockRow();
+                        toggleMessageDataCheckbox.checked = false;
+                    }
+                    toggleFields();
+                } catch (e) {
+                    console.error("Error loading document:", e);
+                    showMessage('Failed to load configuration.');
+                }
+            }
+
+            saveConfigButton.addEventListener('click', saveConfiguration);
+            loadConfigButton.addEventListener('click', loadConfiguration);
+
+            // Initial setup on page load
+            toggleFields();
+            addDataFieldRow();
+            addTransactionBlockRow();
+        });
+    </script>
+</body>
+</html>
