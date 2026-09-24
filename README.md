@@ -4,22 +4,63 @@
 
 Open a local repository in the browser and use one workspace to **scan, explore, search, inspect, analyze, compare, transform and package codebase context** without uploading the project.
 
-## P0 capabilities
+## Codebase Intelligence v1
 
-- **Repository Index** — one reusable local index for files, languages, lines, symbols, imports and exports.
-- **Dependency Graph** — resolves relative imports into deterministic file-to-file edges.
-- **Impact Lookup** — inspect a file's direct dependencies and importers.
-- **Cycle Detection** — identifies circular dependency paths in the indexed graph.
-- **Symbol Index** — functions, arrow functions, classes, interfaces and types for supported source formats.
-- **Token Estimation** — approximate context size using a local character/token heuristic.
-- **Context Builder** — select a subset of files, preview token budget, generate Markdown/text context and download/copy it.
-- **Grouped Workspace Navigation** — Workspace, Build and Tools areas keep the application coherent as functionality grows.
-- **Local-first privacy model** — the core repository workflow uses the browser File System Access API; source is not uploaded by RepoMind.
-- Existing capabilities remain available: Explorer, Search, Editor, Code Ingest, Transform, Diff/Compare, Markdown, Developer Tools, OFS Generator, T24 Log Analyzer and Engineering Utilities.
+The repository index is now the central local intelligence layer.
+
+- **AST symbol analysis** for JavaScript, JSX, TypeScript and TSX using Babel parser.
+- **Definitions** for functions, classes, interfaces, types, variables and methods.
+- **Symbol references** with conservative cross-file resolution.
+- **Imported-by intelligence** showing which files/bindings consume a symbol.
+- **Import/export mapping** including named, default and namespace imports.
+- **Dependency graph** resolving relative imports to indexed files.
+- **Architecture hotspots** ranked by incoming/outgoing dependency relationships.
+- **Circular dependency detection**.
+- **Project profile** with basic framework/language signals.
+- **Codebase health** for unresolved imports/references and parser errors.
+- **Impact analysis** for files and their symbols.
+- **Context Builder** with optional direct dependencies/importers and token estimation.
+- **Local-first privacy model** — repository source is processed in the browser.
+
+### Intelligence flow
+
+    Open Folder
+        ↓
+      Scan
+        ↓
+      Index
+        ├── Files / Languages
+        ├── AST Symbols
+        ├── Definitions
+        ├── References
+        ├── Imports / Exports
+        └── Dependency Graph
+                ↓
+       ┌────────┼─────────┐
+       ↓        ↓         ↓
+    Search   Impact   Architecture
+       └────────┼─────────┘
+                ↓
+        Context Builder
+                ↓
+             Export
+
+## Existing workspaces
+
+- Explorer
+- Search
+- Editor
+- Code Ingest
+- Analyze
+- Transform
+- Diff / Compare
+- Markdown
+- Developer Tools
+- Temenos / OFS
+- T24 Log Analyzer
+- Engineering Utilities
 
 ## Architecture
-
-The frontend now has a thin `main.jsx` entry point and a reusable repository intelligence service:
 
     frontend/src/
     ├── main.jsx
@@ -31,22 +72,7 @@ The frontend now has a thin `main.jsx` entry point and a reusable repository int
     │   └── repository.js
     └── styles.css
 
-The intended data flow is:
-
-    Local Folder
-        ↓
-    Repository Index
-        ├── Files
-        ├── Symbols
-        ├── Imports / Exports
-        ├── Dependency Edges
-        └── Token Estimates
-              ↓
-       ┌──────┼────────┬─────────┐
-       ↓      ↓        ↓         ↓
-     Search Symbols Dependencies Context
-
-The P0 parser is deliberately dependency-free and browser-safe. It currently performs deterministic source-structure extraction using language-aware patterns. A future AST engine can replace the extraction layer without changing the index/UI contract.
+The repository service is browser-safe and keeps the core source workflow local. The index is an in-memory graph derived from the selected folder.
 
 ## Local development
 
@@ -56,14 +82,31 @@ The P0 parser is deliberately dependency-free and browser-safe. It currently per
 
 Use a current Chromium-based browser such as Chrome or Edge and click **Open Folder**.
 
-## Deployment
+## Product roadmap
 
-The frontend is designed for static GitHub Pages deployment. Vite uses the `/RepoMind/` base path.
+### Milestone 1 — Codebase Intelligence v1
+- [x] AST-backed indexing
+- [x] Symbol definitions
+- [x] Cross-file references
+- [x] Imported-by analysis
+- [x] Dependency graph
+- [x] Architecture hotspots
+- [x] Impact analysis
+- [x] Context expansion
 
-The FastAPI backend in `backend/` remains available for future optional server-side capabilities.
+### Milestone 2 — Developer Intelligence
+- [ ] Architecture diagram / Mermaid export
+- [ ] Advanced code search and navigation
+- [ ] Git status and history
+- [ ] API/route discovery
+- [ ] Security/content scanning
+- [ ] Better framework/package detection
 
-## Product direction
+### Milestone 3 — AI Workspace
+- [ ] Provider-neutral AI integration
+- [ ] Ask RepoMind
+- [ ] Symbol-aware context selection
+- [ ] Saved snapshots/reports
+- [ ] Plugin/analyzer architecture
 
 **Scan → Search → Inspect → Analyze → Transform → Document → Understand → Export**
-
-RepoMind is intentionally broader than a repository-to-text packer: the long-term goal is a local-first codebase intelligence workspace that understands the structure of a project and can produce focused developer/AI context from it.
