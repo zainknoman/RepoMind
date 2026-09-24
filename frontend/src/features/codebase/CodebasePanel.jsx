@@ -33,7 +33,7 @@ export default function CodebasePanel({project,onOpenFile}){
 
  async function runSearch(){if(!index||!query.trim())return;setSearchBusy(true);try{const indexed=searchIndex(index,query);const code=await searchCode(index,query,{regex});setSearchResults({indexed,code})}catch(e){setError(e.message)}finally{setSearchBusy(false)}}
  async function runAnalyzer(type){if(!index)return;setDetailBusy(true);try{if(type==='api')setApi(await discoverApis(index));if(type==='security')setSecurity(await scanSecurity(index));if(type==='diagram')setDiagram(buildArchitectureMermaid(index,{limit:150}))}catch(e){setError(e.message)}finally{setDetailBusy(false)}}
- async function runRegisteredAnalyzer(id){if(!index)return;setAnalyzerBusy(true);setError('');try{setAnalyzerResults(s=>({...s,[id]:await runAnalyzer(index,id)}))}catch(e){setError(e?.message||'Analyzer failed')}finally{setAnalyzerBusy(false)}}
+ async function runRegisteredAnalyzer(id){if(!index)return;setAnalyzerBusy(true);setError('');try{const result=await runAnalyzer(index,id);setAnalyzerResults(s=>({...s,[id]:result}))}catch(e){setError(e?.message||'Analyzer failed')}finally{setAnalyzerBusy(false)}}
  function toggle(path){setSelected(s=>{const n=new Set(s);n.has(path)?n.delete(path):n.add(path);return n})}
  async function generateContext(){if(!index)return;setBusy(true);try{const r=await buildContext(index,[...selected],{includeMetadata:metadata,includeDependencies:includeDeps,includeDependents});setContext(r.content);setContextTokens(r.tokens);setContextFiles(r.files.length)}catch(e){setError(e.message)}finally{setBusy(false)}}
  function selectAll(){setSelected(new Set((index?.files||[]).map(f=>f.path)))}
