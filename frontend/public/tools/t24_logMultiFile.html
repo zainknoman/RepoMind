@@ -1,0 +1,1100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>T24 Log Analyzer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Shared styles from consolidatedFiles.html */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f7f6;
+            color: #333;
+            box-sizing: border-box;
+        }
+        .main-content-wrapper {
+            display: flex;
+            flex-direction: column; /* Changed to column to stack input and output vertically */
+            align-items: center; /* Center horizontally */
+            min-height: calc(100vh - 64px); /* Account for header height */
+            padding: 20px;
+        }
+        .container {
+            max-width: 100%;
+            margin: 30px auto 20px auto; /* Centering with space below */
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            width: 100%; /* Ensure container fills wrapper width */
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        /* Styles specific to T24 Log Analyzer from the previous responses */
+        .utility-button { /* Reusing the general button style */
+            display: block;
+            width: 100%;
+            padding: 12px 20px;
+            background-color: #007bff; /* Changed to blue for analyzer button */
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 25px;
+            font-size: 1.1em;
+            transition: background-color 0.2s ease-in-out, transform 0.1s ease;
+        }
+        .utility-button:hover {
+            background-color: #0056b3;
+            transform: translateY(-2px);
+        }
+        .utility-button:active {
+            transform: translateY(0);
+        }
+        .utility-button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+
+        /* Filter section styles */
+        .filter-section-container {
+            max-width: 100%;
+            margin: 20px auto; /* Space above and below */
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            box-sizing: border-box;
+            /* Initially hidden, will be shown by JS */
+            /* display: none; */
+        }
+        #filterInput {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 1em;
+            box-sizing: border-box;
+        }
+        
+        /* New: Container for horizontal output sections */
+        #output-grid-container {
+            display: flex;
+            flex-wrap: wrap; /* Allows sections to wrap on smaller screens */
+            gap: 20px; /* Space between sections */
+            width: 100%; /* Occupy full width */
+            margin-top: 20px;
+            justify-content: center; /* Center sections if there's extra space */
+        }
+
+        /* Output Section */
+        .output-section {
+            flex: 1; /* Allows sections to grow and shrink, taking equal space */
+            min-width: 300px; /* Minimum width before wrapping */
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            box-sizing: border-box;
+            overflow-y: auto; /* Enable scrolling for content within output */
+            max-height: 65vh; /* Limit height for output to prevent excessive scrolling */
+        }
+        .output-section h2 {
+            color: #34495e;
+            margin-top: 0; /* Remove top margin for consistency */
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+
+        .log-entry {
+            background-color: #f9f9f9;
+            border: 1px solid #e1e1e1;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+            font-size: 0.9em; /* Slightly smaller for compactness */
+            cursor: pointer; /* Indicate clickable */
+            transition: background-color 0.2s ease;
+        }
+        .log-entry:hover {
+            background-color: #f0f0f0;
+        }
+        .log-header {
+            font-weight: bold;
+            color: #555;
+            margin-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap; /* Allows header items to wrap on smaller screens */
+            font-size: 0.95em;
+        }
+        .log-header span {
+            margin-right: 15px;
+            white-space: nowrap; /* Prevents text from breaking within a span */
+        }
+        .log-message {
+            margin-top: 10px;
+            white-space: pre-wrap;
+            word-break: break-all;
+            font-family: 'Courier New', Courier, monospace;
+            background-color: #ececec;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 0.85em; /* Smaller font for messages */
+        }
+        .error-message {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        .warning-section {
+            background-color: #fff3cd;
+            border: 1px solid #ffeeba;
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 4px;
+            color: #856404;
+            font-size: 0.85em;
+        }
+        details {
+            margin-top: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            padding: 5px;
+            background-color: #e9ecef;
+        }
+        summary {
+            cursor: pointer;
+            font-weight: bold;
+            color: #007bff;
+            font-size: 0.9em;
+        }
+        pre {
+            background-color: #eee;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 0.75em; /* Very small font for raw XML/long messages */
+        }
+        textarea {
+            width: 100%;
+            border: 1px solid #ccc;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            box-sizing: border-box; /* Include padding in width */
+            resize: vertical; /* Allow vertical resizing */
+        }
+        input[type="file"] {
+            display: block;
+            margin-top: 10px;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            background-color: #f8f8f8;
+        }
+        /* New styles for OFS Details */
+        .ofs-details-section {
+            margin-top: 15px;
+            padding: 15px;
+            border: 1px solid #a8dadc;
+            border-radius: 8px;
+            background-color: #e0f2f7;
+            font-size: 0.85em;
+        }
+        .ofs-details-section h4 {
+            color: #1d3557;
+            margin-top: 0;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #a8dadc;
+            padding-bottom: 5px;
+        }
+        .ofs-details-section ul {
+            margin: 0;
+            padding: 0 0 10px 0;
+        }
+        .ofs-details-section ul li {
+            margin-bottom: 5px;
+        }
+        .ofs-details-section table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        .ofs-details-section table th,
+        .ofs-details-section table td {
+            border: 1px solid #b3dee2;
+            padding: 8px;
+            text-align: left;
+            word-break: break-word; /* Ensure long values wrap */
+        }
+        .ofs-details-section table th {
+            background-color: #d0eef1;
+            font-weight: bold;
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none; /* Hidden by default */
+            position: fixed; /* Stay in place */
+            z-index: 1000; /* Sit on top */
+            left: 0;
+            top: 0;
+            width: 100%; /* Full width */
+            height: 100%; /* Full height */
+            overflow: auto; /* Enable scroll if needed */
+            background-color: rgba(0,0,0,0.7); /* Black w/ opacity */
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: auto;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            width: 90%;
+            max-width: 800px;
+            max-height: 90vh; /* Limit height */
+            overflow-y: auto; /* Enable scrolling for content */
+            position: relative;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .close-button {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            position: absolute;
+            top: 10px;
+            right: 20px;
+        }
+
+        .close-button:hover,
+        .close-button:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .modal-body-content .log-header span {
+            display: block;
+            margin-bottom: 5px;
+        }
+        .clear-button {
+            background-color: #f44336; /* Red color */
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+            margin-top: 15px;
+            transition: background-color 0.2s ease;
+        }
+        .clear-button:hover {
+            background-color: #d32f2f;
+        }
+
+        /* Copy feedback message */
+        .copy-feedback {
+            position: fixed;
+            background-color: #4CAF50;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 0.9em;
+            z-index: 1001;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+            pointer-events: none; /* Allows clicks to pass through */
+        }
+        .copy-feedback.show {
+            opacity: 1;
+        }
+        .copy-all-button {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 20px;
+            font-size: 1em;
+            transition: background-color 0.2s ease;
+        }
+        .copy-all-button:hover {
+            background-color: #218838;
+        }
+
+        /* Media queries for responsiveness */
+        @media (max-width: 1024px) {
+            #output-grid-container {
+                flex-direction: column; /* Stack vertically on smaller screens */
+                align-items: center;
+            }
+            .output-section {
+                min-width: unset; /* Remove min-width to allow full width */
+                width: 100%; /* Take full width when stacked */
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="bg-blue-800 text-white p-2 shadow-md">
+        <nav class="mx-auto flex justify-between items-center px-4">
+            <div class="text-xl font-bold">
+                My File Tools
+            </div>
+            <ul class="flex space-x-4">
+                <li><a href="search_Text.html" class="hover:text-blue-400 transition-colors">File Searcher</a></li>
+                <li><a href="consolidateFiles.html" class="hover:text-blue-400 transition-colors">File Combiner</a></li>
+                <li><a href="t24_logMultiFile.html" class="hover:text-blue-400 transition-colors">T24 Log MultiFile</a></li>
+                <li><a href="t24_analyzerMB.html" class="hover:text-blue-400 transition-colors">T24 Log Detail View</a></li>
+                <li><a href="logFileSorter.html" class="hover:text-blue-400 transition-colors">Log File Sorter</a></li>
+
+            </ul>
+        </nav>
+    </header>
+
+    <div class="main-content-wrapper">
+        <div class="container">
+            <h1>T24 Log Analyzer</h1>
+            <p class="text-gray-600 mb-4">Analyze T24 log files by uploading up to 3 files or pasting content directly. Click on any log entry for full details. Double-click within the popup to copy text.</p>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div>
+                    <label for="logFileInput1">Upload Log File 1 (.log, .txt):</label>
+                    <input type="file" id="logFileInput1" accept=".log, .txt">
+                    <label for="logFileInput2">Upload Log File 2 (.log, .txt):</label>
+                    <input type="file" id="logFileInput2" accept=".log, .txt">
+                    <label for="logFileInput3">Upload Log File 3 (.log, .txt):</label>
+                    <input type="file" id="logFileInput3" accept=".log, .txt">
+                </div>
+				
+				<div id="outputTextArea" class="output-section">
+					<h2>Pasted Content Output</h2>
+					<p>Paste content into the text area to see its logs here.</p>
+				</div>
+            </div>
+
+            <div style="margin-top: 15px;">
+                <label for="logInput">Or paste log content here (for single file or additional content):</label><br>
+                <textarea id="logInput" rows="10" placeholder="Paste your T24 log content here..."></textarea>
+            </div>
+            <button class="clear-button" id="clearAllButton">Clear All</button>
+        </div>
+
+        <div id="filterSectionContainer" class="filter-section-container" style="display: none;">
+            <label for="filterInput" class="block text-lg font-semibold mb-2">Filter All Log Entries:</label>
+            <input type="text" id="filterInput" placeholder="Type to filter log entries...">
+        </div>
+
+        <div id="output-grid-container">
+            <div id="output1" class="output-section">
+                <h2>File 1 Output</h2>
+                <p>Upload File 1 to see its logs here.</p>
+            </div>
+            <div id="output2" class="output-section">
+                <h2>File 2 Output</h2>
+                <p>Upload File 2 to see its logs here.</p>
+            </div>
+            <div id="output3" class="output-section">
+                <h2>File 3 Output</h2>
+                <p>Upload File 3 to see its logs here.</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="logDetailsModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button">&times;</span>
+            <h2>Log Entry Details</h2>
+            <div id="modalBody" class="modal-body-content">
+                </div>
+            <button id="copyAllDetailsButton" class="copy-all-button">Copy All Details</button>
+        </div>
+    </div>
+
+    <div id="copyFeedback" class="copy-feedback">Copied!</div>
+
+    <script>
+        const logFileInput1 = document.getElementById('logFileInput1');
+        const logFileInput2 = document.getElementById('logFileInput2');
+        const logFileInput3 = document.getElementById('logFileInput3');
+        const logInput = document.getElementById('logInput'); // Textarea
+        
+        const output1Div = document.getElementById('output1');
+        const output2Div = document.getElementById('output2');
+        const output3Div = document.getElementById('output3');
+        const outputTextAreaDiv = document.getElementById('outputTextArea');
+
+        const filterInput = document.getElementById('filterInput');
+        const filterSectionContainer = document.getElementById('filterSectionContainer');
+        const clearAllButton = document.getElementById('clearAllButton');
+
+        const logDetailsModal = document.getElementById('logDetailsModal');
+        const closeModalButton = logDetailsModal.querySelector('.close-button');
+        const modalBody = document.getElementById('modalBody');
+        const copyAllDetailsButton = document.getElementById('copyAllDetailsButton');
+        const copyFeedback = document.getElementById('copyFeedback');
+
+        // Store content of each file/textarea
+        const fileContents = {
+            file1: '',
+            file2: '',
+            file3: '',
+            textarea: ''
+        };
+
+        // Store parsed log entries globally, along with the source (file1, file2, etc.)
+        // This will be a flat array of all entries from all sources
+        let parsedLogEntries = []; 
+        
+        // Event listeners
+        logFileInput1.addEventListener('change', (e) => loadFile(e, 'file1'));
+        logFileInput2.addEventListener('change', (e) => loadFile(e, 'file2'));
+        logFileInput3.addEventListener('change', (e) => loadFile(e, 'file3'));
+        logInput.addEventListener('input', (e) => {
+            fileContents.textarea = e.target.value;
+            analyzeAndRenderLogs();
+        });
+        filterInput.addEventListener('keyup', filterLogEntries); // Listen for typing in filter
+        closeModalButton.addEventListener('click', () => {
+            logDetailsModal.style.display = 'none';
+        });
+        window.addEventListener('click', (event) => {
+            if (event.target == logDetailsModal) {
+                logDetailsModal.style.display = 'none';
+            }
+        });
+        clearAllButton.addEventListener('click', clearAll);
+
+        // Double-click to copy text inside the modal
+        modalBody.addEventListener('dblclick', async (event) => {
+            let textToCopy = '';
+            const selection = window.getSelection();
+
+            // Prioritize explicitly selected text
+            if (selection.toString().length > 0) {
+                textToCopy = selection.toString();
+            } else if (event.target.textContent) {
+                // Otherwise, get the text content of the element that was double-clicked
+                textToCopy = event.target.textContent;
+            }
+
+            if (textToCopy) {
+                try {
+                    await navigator.clipboard.writeText(textToCopy.trim());
+                    showCopyFeedback(event.clientX, event.clientY);
+                } catch (err) {
+                    console.error('Failed to copy text: ', err);
+                    alert('Failed to copy text. Please ensure you have granted clipboard permissions.');
+                }
+            }
+        });
+
+        // Copy all details button handler
+        copyAllDetailsButton.addEventListener('click', async () => {
+            // Use innerText to get formatted text, as it preserves line breaks and spacing better than textContent for display
+            const allContent = modalBody.innerText;
+            if (allContent) {
+                try {
+                    await navigator.clipboard.writeText(allContent.trim());
+                    // Position feedback centrally on the modal
+                    const modalRect = logDetailsModal.querySelector('.modal-content').getBoundingClientRect();
+                    showCopyFeedback(modalRect.left + modalRect.width / 2, modalRect.top + modalRect.height / 2);
+                } catch (err) {
+                    console.error('Failed to copy all details: ', err);
+                    alert('Failed to copy all details. Please ensure you have granted clipboard permissions.');
+                }
+            }
+        });
+
+
+        function showCopyFeedback(x, y) {
+            copyFeedback.style.left = `${x}px`;
+            copyFeedback.style.top = `${y - 30}px`; // A bit above the cursor
+            copyFeedback.classList.add('show');
+            setTimeout(() => {
+                copyFeedback.classList.remove('show');
+            }, 1000);
+        }
+
+
+        function loadFile(event, fileKey) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    fileContents[fileKey] = e.target.result;
+                    analyzeAndRenderLogs(); // Automatically analyze after loading
+                };
+                reader.readAsText(file);
+            } else {
+                fileContents[fileKey] = ''; // Clear content if file is unselected (e.g., user cancels selection)
+                analyzeAndRenderLogs();
+            }
+        }
+
+        function analyzeAndRenderLogs() {
+            // Clear all current output sections
+            output1Div.innerHTML = '<h2>File 1 Output</h2><p>Upload File 1 to see its logs here.</p>';
+            output2Div.innerHTML = '<h2>File 2 Output</h2><p>Upload File 2 to see its logs here.</p>';
+            output3Div.innerHTML = '<h2>File 3 Output</h2><p>Upload File 3 to see its logs here.</p>';
+            outputTextAreaDiv.innerHTML = '<h2>Pasted Content Output</h2><p>Paste content into the text area to see its logs here.</p>';
+
+            // Reset global storage for parsed entries
+            parsedLogEntries = [];
+            
+            filterSectionContainer.style.display = 'none'; // Hide filter before analysis
+
+            // Check if any content is loaded
+            const hasContent = Object.values(fileContents).some(content => content.trim().length > 0);
+            if (!hasContent) {
+                return;
+            }
+
+            // Show the filter input once analysis starts
+            filterSectionContainer.style.display = 'block';
+
+            // Process each source separately
+            ['file1', 'file2', 'file3', 'textarea'].forEach(sourceKey => {
+                if (fileContents[sourceKey]) {
+                    const lines = fileContents[sourceKey].split('\n');
+                    const targetOutputDiv = {
+                        'file1': output1Div,
+                        'file2': output2Div,
+                        'file3': output3Div,
+                        'textarea': outputTextAreaDiv
+                    }[sourceKey];
+                    
+                    // Clear initial placeholder message if content is present
+                    if (targetOutputDiv.querySelector('p')) {
+                         targetOutputDiv.querySelector('p').remove();
+                    }
+
+                    lines.forEach((line, originalLineIndex) => {
+                        if (!line.trim()) return; // Skip empty lines
+
+                        const logEntryRegex = /\[(\w+)\s*\](\d{8} \d{2}:\d{2}:\d{2}\.\d{4})\s+(\d+)\s+\[([^\]]+)\]\s+\[([^\]]+)\]\s+\[([^\]]+)\]\s+(.*)/;
+                        const match = line.match(logEntryRegex);
+                        let entryData = {
+                            originalLine: line,
+                            parsed: false,
+                            source: sourceKey, // Keep track of the source file/textarea
+                            originalLineIndex: originalLineIndex, // Keep track of original line number within its source
+                            globalIndex: parsedLogEntries.length, // Unique global index for filtering
+                            level: 'N/A',
+                            timestamp: 'N/A',
+                            threadId: 'N/A',
+                            sessionId: 'N/A',
+                            userContext: 'N/A',
+                            module: 'N/A',
+                            message: line, 
+                            warnings: [],
+                            ofsDetails: null,
+                            rawXmlMessages: [],
+                            hasError: false
+                        };
+
+                        if (match) {
+                            entryData.parsed = true;
+                            entryData.level = match[1].trim();
+                            entryData.timestamp = formatTimestamp(match[2]);
+                            entryData.threadId = match[3];
+                            entryData.sessionId = match[4];
+                            entryData.userContext = match[5];
+                            entryData.module = match[6];
+                            let currentMessageText = match[7];
+                            entryData.message = currentMessageText;
+
+                            if (currentMessageText.includes('#ERROR#') || entryData.level.toUpperCase() === 'ERROR') {
+                                entryData.hasError = true;
+                            }
+
+                            const ofsWarningRegex = /<ofs><warnings>(.*?)<\/warnings><\/ofs>/s;
+                            const warningMatch = currentMessageText.match(ofsWarningRegex);
+                            if (warningMatch && warningMatch[1]) {
+                                const rawWarningXml = warningMatch[0];
+                                const warningsOnlyXml = `<warnings>${warningMatch[1]}</warnings>`;
+                                try {
+                                    const parser = new DOMParser();
+                                    const xmlDoc = parser.parseFromString(warningsOnlyXml, "application/xml");
+                                    const warningTexts = xmlDoc.querySelectorAll('warningtext');
+                                    if (warningTexts.length > 0) {
+                                        warningTexts.forEach(wt => {
+                                            entryData.warnings.push(wt.textContent);
+                                        });
+                                        currentMessageText = currentMessageText.replace(rawWarningXml, '').trim();
+                                    }
+                                } catch (e) {
+                                    console.error("Error parsing warning XML:", e);
+                                }
+                            }
+
+                            const ofsAppRegex = /<ofsApplication>.*<\/ofsApplication>/s;
+                            const ofsAppMatch = currentMessageText.match(ofsAppRegex);
+                            if (ofsAppMatch) {
+                                const ofsXmlString = ofsAppMatch[0];
+                                entryData.ofsDetails = {
+                                    rawXml: ofsXmlString,
+                                    parsedData: parseOFSXml(ofsXmlString)
+                                };
+                                currentMessageText = currentMessageText.replace(ofsXmlString, '').trim();
+                            }
+
+                            const genericXmlRegex = /<(\w+)(?:\s+[^>]*)*>.*?<\/\1>/s;
+                            let xmlMatch;
+                            while ((xmlMatch = currentMessageText.match(genericXmlRegex)) !== null) {
+                                entryData.rawXmlMessages.push(xmlMatch[0]);
+                                currentMessageText = currentMessageText.replace(xmlMatch[0], '').trim();
+                            }
+                            entryData.remainingMessage = currentMessageText;
+
+                        } else {
+                            entryData.remainingMessage = line;
+                        }
+
+                        // Store global index for later retrieval from the flat parsedLogEntries array
+                        parsedLogEntries.push(entryData); 
+
+                        // Render the summary div for the respective output section
+                        const entryDiv = document.createElement('div');
+                        entryDiv.className = 'log-entry';
+                        entryDiv.dataset.globalIndex = entryData.globalIndex; // Use global index for event listener
+
+                        const headerDiv = document.createElement('div');
+                        headerDiv.className = 'log-header';
+                        headerDiv.innerHTML = `
+                            <span><strong>Level:</strong> <span class="${entryData.hasError ? 'error-message' : ''}">${entryData.level}</span></span>
+                            <span><strong>Timestamp:</strong> ${entryData.timestamp}</span>
+                            <span><strong>Thread ID:</strong> ${entryData.threadId}</span>
+                            <span><strong>Session ID:</strong> ${entryData.sessionId}</span>
+                            <span><strong>User/Context:</strong> ${entryData.userContext}</span>
+                            <span><strong>Module:</strong> ${entryData.module}</span>
+                        `;
+                        entryDiv.appendChild(headerDiv);
+
+                        const messageSummaryDiv = document.createElement('div');
+                        messageSummaryDiv.className = 'log-message';
+                        let summaryIndicator = '';
+                        if (entryData.hasError) {
+                            summaryIndicator += '<strong class="error-message">[ERROR]</strong> ';
+                        }
+                        if (entryData.warnings.length > 0) {
+                            summaryIndicator += '<strong>[Warnings]</strong> ';
+                        }
+                        if (entryData.ofsDetails) {
+                            summaryIndicator += '<strong>[OFS Data]</strong> ';
+                        }
+                        if (entryData.rawXmlMessages.length > 0) {
+                            summaryIndicator += '<strong>[XML Messages]</strong> ';
+                        }
+                        
+                        let snippet = entryData.remainingMessage.trim().substring(0, 200);
+                        if (entryData.remainingMessage.trim().length > 200) {
+                            snippet += '...';
+                        }
+                        messageSummaryDiv.innerHTML = summaryIndicator + (snippet || '<em>Click for full details...</em>');
+                        
+                        entryDiv.appendChild(messageSummaryDiv);
+
+                        entryDiv.addEventListener('click', () => displayLogDetails(entryData.globalIndex));
+                        targetOutputDiv.appendChild(entryDiv);
+                    });
+                }
+            });
+
+            // Apply filter after initial rendering of all logs
+            filterLogEntries();
+        }
+
+        function displayLogDetails(globalIndex) {
+            const entryData = parsedLogEntries[globalIndex];
+            modalBody.innerHTML = ''; // Clear previous content
+
+            if (!entryData) {
+                modalBody.innerHTML = '<p>Error: Log entry not found.</p>';
+                logDetailsModal.style.display = 'flex';
+                return;
+            }
+
+            // General Info Section
+            const infoSection = document.createElement('div');
+            infoSection.innerHTML = `
+                <h3>Log Entry Overview</h3>
+                <div class="log-header">
+                    <span><strong>Source:</strong> ${entryData.source === 'textarea' ? 'Pasted Content' : `File ${entryData.source.replace('file','')}`}</span>
+                    <span><strong>Original Line No:</strong> ${entryData.originalLineIndex + 1}</span>
+                    <span><strong>Level:</strong> <span class="${entryData.hasError ? 'error-message' : ''}">${entryData.level}</span></span>
+                    <span><strong>Timestamp:</strong> ${entryData.timestamp}</span>
+                    <span><strong>Thread ID:</strong> ${entryData.threadId}</span>
+                    <span><strong>Session ID:</strong> ${entryData.sessionId}</span>
+                    <span><strong>User/Context:</strong> ${entryData.userContext}</span>
+                    <span><strong>Module:</strong> ${entryData.module}</span>
+                </div>
+                <hr style="margin: 15px 0; border: none; border-top: 1px solid #eee;">
+            `;
+            modalBody.appendChild(infoSection);
+
+            // Warnings Section
+            if (entryData.warnings.length > 0) {
+                const warningSection = document.createElement('div');
+                warningSection.className = 'warning-section';
+                warningSection.innerHTML = '<strong>Warnings:</strong><ul>';
+                entryData.warnings.forEach(warning => {
+                    warningSection.innerHTML += `<li>${warning}</li>`;
+                });
+                warningSection.innerHTML += '</ul>';
+                modalBody.appendChild(warningSection);
+            }
+
+            // OFS Details Section
+            if (entryData.ofsDetails) {
+                const ofsDetailsDiv = renderOFSDetails(entryData.ofsDetails.rawXml);
+                modalBody.appendChild(ofsDetailsDiv);
+            }
+
+            // Other XML Messages Section
+            if (entryData.rawXmlMessages.length > 0) {
+                entryData.rawXmlMessages.forEach((xmlStr, i) => {
+                    const xmlDetailsSection = document.createElement('div');
+                    xmlDetailsSection.className = 'ofs-details-section'; // Reusing OFS style for generic XML
+                    xmlDetailsSection.style.marginTop = '15px';
+                    xmlDetailsSection.innerHTML = `<h4>Other XML Message ${i + 1}:</h4>`;
+
+                    const xmlDetails = document.createElement('details');
+                    const xmlSummary = document.createElement('summary');
+                    xmlSummary.textContent = 'View Raw XML Message';
+                    xmlDetails.appendChild(xmlSummary);
+                    const xmlPre = document.createElement('pre');
+                    xmlPre.textContent = formatXml(xmlStr);
+                    xmlDetails.appendChild(xmlPre);
+                    xmlDetailsSection.appendChild(xmlDetails);
+                    modalBody.appendChild(xmlDetailsSection);
+                });
+            }
+
+            // Remaining Message Content
+            const messageContentDetails = document.createElement('details');
+            const messageContentSummary = document.createElement('summary');
+            messageContentSummary.textContent = 'Full Parsed Message Content (excluding extracted XML/Warnings)';
+            messageContentDetails.appendChild(messageContentSummary);
+            const messagePre = document.createElement('pre');
+            messagePre.textContent = entryData.remainingMessage.trim() || '<em>No additional message content after extraction.</em>';
+            messageContentDetails.appendChild(messagePre);
+            modalBody.appendChild(messageContentDetails);
+
+            // Original Full Line (for unparsed or full context)
+            const originalLineDetails = document.createElement('details');
+            const originalLineSummary = document.createElement('summary');
+            originalLineSummary.textContent = 'Original Raw Log Line';
+            originalLineDetails.appendChild(originalLineSummary);
+            const originalLinePre = document.createElement('pre');
+            originalLinePre.textContent = entryData.originalLine;
+            originalLineDetails.appendChild(originalLinePre);
+            modalBody.appendChild(originalLineDetails);
+
+            logDetailsModal.style.display = 'flex'; // Show the modal
+        }
+
+
+        /**
+         * Renders the details of an OFS (Open Financial System) XML string into a presentable HTML element.
+         * @param {string} ofsXmlString The raw OFS XML string.
+         * @returns {HTMLElement} A div element containing the structured OFS data.
+         */
+        function renderOFSDetails(ofsXmlString) {
+            const ofsDiv = document.createElement('div');
+            ofsDiv.className = 'ofs-details-section'; // Add a class for styling if needed
+            ofsDiv.innerHTML = '<h4>OFS Application Details:</h4>';
+
+            try {
+                const parser = new DOMParser();
+                const xmlDoc = parser.parseFromString(ofsXmlString, "application/xml");
+                const ofsApplication = xmlDoc.querySelector('ofsApplication');
+
+                if (ofsApplication) {
+                    const detailsList = document.createElement('ul');
+                    detailsList.style.listStyleType = 'none';
+                    detailsList.style.paddingLeft = '0';
+
+                    const fieldsToExtract = [
+                        'activeTab', 'companyId', 'requestType', 'application', 'version',
+                        'ofsFunction', 'ofsOperation', 'transactionId', 'windowName', 'title',
+                        'decrypt', 'RecordRead'
+                    ];
+
+                    fieldsToExtract.forEach(fieldName => {
+                        const element = ofsApplication.querySelector(fieldName);
+                        if (element && element.textContent !== undefined && element.textContent !== null) {
+                            const listItem = document.createElement('li');
+                            listItem.innerHTML = `<strong>${capitalizeFirstLetter(fieldName.replace(/([A-Z])/g, ' $1').trim())}:</strong> ${element.textContent}`;
+                            detailsList.appendChild(listItem);
+                        }
+                    });
+                    ofsDiv.appendChild(detailsList);
+
+                    // Handle nested <message><field> elements
+                    const messageElement = ofsApplication.querySelector('message');
+                    if (messageElement) {
+                        const fieldElements = messageElement.querySelectorAll('field');
+                        if (fieldElements.length > 0) {
+                            const fieldsDetails = document.createElement('details');
+                            const fieldsSummary = document.createElement('summary');
+                            fieldsSummary.textContent = `View ${fieldElements.length} Message Fields`;
+                            fieldsDetails.appendChild(fieldsSummary);
+
+                            const fieldsTable = document.createElement('table');
+                            fieldsTable.style.width = '100%';
+                            fieldsTable.style.borderCollapse = 'collapse';
+                            fieldsTable.innerHTML = `
+                                <thead>
+                                    <tr style="background-color: #f2f2f2;">
+                                        <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Field Name</th>
+                                        <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Value</th>
+                                        <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Type</th>
+                                        <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Multi/Sub Value</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                </tbody>
+                            `;
+                            const tbody = fieldsTable.querySelector('tbody');
+
+                            fieldElements.forEach(field => {
+                                const fieldName = field.querySelector('fieldName')?.textContent || 'N/A';
+                                const value = field.querySelector('value')?.textContent || '';
+                                const displayType = field.querySelector('displayType')?.textContent || 'N/A';
+                                const multiValueNumber = field.querySelector('multiValueNumber')?.textContent || '';
+                                const subValueNumber = field.querySelector('subValueNumber')?.textContent || '';
+
+                                const row = document.createElement('tr');
+                                row.innerHTML = `
+                                    <td style="border: 1px solid #ddd; padding: 8px;">${fieldName}</td>
+                                    <td style="border: 1px solid #ddd; padding: 8px; font-family: monospace;">${value}</td>
+                                    <td style="border: 1px solid #ddd; padding: 8px;">${displayType}</td>
+                                    <td style="border: 1px solid #ddd; padding: 8px;">${multiValueNumber ? `${multiValueNumber}${subValueNumber ? `.${subValueNumber}` : ''}` : 'N/A'}</td>
+                                `;
+                                tbody.appendChild(row);
+                            });
+                            fieldsDetails.appendChild(fieldsTable);
+                            ofsDiv.appendChild(fieldsDetails);
+                        }
+                    }
+
+                    // Add a details section for the raw OFS XML within the OFS section itself
+                    const rawOfsDetails = document.createElement('details');
+                    const rawOfsSummary = document.createElement('summary');
+                    rawOfsSummary.textContent = 'View Raw OFS XML';
+                    rawOfsDetails.appendChild(rawOfsSummary);
+                    const rawOfsPre = document.createElement('pre');
+                    rawOfsPre.textContent = formatXml(ofsXmlString);
+                    rawOfsDetails.appendChild(rawOfsPre);
+                    ofsDiv.appendChild(rawOfsDetails);
+
+                } else {
+                    ofsDiv.innerHTML += '<p><em>Could not parse OFS Application XML.</em></p>';
+                    const pre = document.createElement('pre');
+                    pre.textContent = ofsXmlString;
+                    ofsDiv.appendChild(pre);
+                }
+            } catch (e) {
+                console.error("Error processing OFS XML:", e);
+                ofsDiv.innerHTML += '<p style="color: red;"><em>Error parsing OFS data. Displaying raw XML.</em></p>';
+                const pre = document.createElement('pre');
+                pre.textContent = ofsXmlString;
+                ofsDiv.appendChild(pre);
+            }
+            return ofsDiv;
+        }
+
+        /**
+         * Parses the OFS XML string and extracts relevant data into an object.
+         * This function is similar to renderOFSDetails but returns a data structure
+         * instead of directly rendering HTML, useful for storing the parsed data.
+         * @param {string} ofsXmlString The raw OFS XML string.
+         * @returns {object|null} An object containing parsed OFS data, or null if parsing fails.
+         */
+        function parseOFSXml(ofsXmlString) {
+            try {
+                const parser = new DOMParser();
+                const xmlDoc = parser.parseFromString(ofsXmlString, "application/xml");
+                const ofsApplication = xmlDoc.querySelector('ofsApplication');
+
+                if (!ofsApplication) {
+                    return null;
+                }
+
+                const ofsData = {};
+                const fieldsToExtract = [
+                    'activeTab', 'companyId', 'requestType', 'application', 'version',
+                    'ofsFunction', 'ofsOperation', 'transactionId', 'windowName', 'title',
+                    'decrypt', 'RecordRead'
+                ];
+
+                fieldsToExtract.forEach(fieldName => {
+                    const element = ofsApplication.querySelector(fieldName);
+                    if (element && element.textContent !== undefined && element.textContent !== null) {
+                        ofsData[fieldName] = element.textContent;
+                    }
+                });
+
+                const messageElement = ofsApplication.querySelector('message');
+                if (messageElement) {
+                    ofsData.fields = [];
+                    const fieldElements = messageElement.querySelectorAll('field');
+                    fieldElements.forEach(field => {
+                        ofsData.fields.push({
+                            fieldName: field.querySelector('fieldName')?.textContent || 'N/A',
+                            value: field.querySelector('value')?.textContent || '',
+                            displayType: field.querySelector('displayType')?.textContent || 'N/A',
+                            multiValueNumber: field.querySelector('multiValueNumber')?.textContent || '',
+                            subValueNumber: field.querySelector('subValueNumber')?.textContent || ''
+                        });
+                    });
+                }
+                return ofsData;
+
+            } catch (e) {
+                console.error("Error parsing OFS XML for data storage:", e);
+                return null;
+            }
+        }
+
+        function filterLogEntries() {
+            const filterText = filterInput.value.toLowerCase();
+            
+            // Iterate through the master list of parsed log entries
+            parsedLogEntries.forEach(entryData => {
+                // Find the corresponding rendered DOM element using its global index
+                // We use dataset.globalIndex to link the DOM element back to the parsed data
+                const entryDiv = document.querySelector(`.log-entry[data-global-index="${entryData.globalIndex}"]`);
+                if (!entryDiv) return; // Should not happen
+
+                // Create a searchable string from the entry data
+                let searchableContent = entryData.originalLine.toLowerCase();
+                if (entryData.ofsDetails && entryData.ofsDetails.rawXml) {
+                    searchableContent += entryData.ofsDetails.rawXml.toLowerCase();
+                }
+                entryData.warnings.forEach(w => searchableContent += w.toLowerCase());
+                entryData.rawXmlMessages.forEach(xml => searchableContent += xml.toLowerCase());
+                
+                // Also search the simplified remaining message
+                if (entryData.remainingMessage) {
+                    searchableContent += entryData.remainingMessage.toLowerCase();
+                }
+                // Add other key fields to search
+                searchableContent += `${entryData.level} ${entryData.timestamp} ${entryData.threadId} ${entryData.sessionId} ${entryData.userContext} ${entryData.module}`.toLowerCase();
+
+
+                if (searchableContent.includes(filterText)) {
+                    entryDiv.style.display = ''; // Show the entry
+                } else {
+                    entryDiv.style.display = 'none'; // Hide the entry
+                }
+            });
+        }
+
+        function formatTimestamp(timestamp) {
+            const year = timestamp.substring(0, 4);
+            const month = timestamp.substring(4, 6);
+            const day = timestamp.substring(6, 8);
+            const time = timestamp.substring(9);
+            
+            // Note: Month is 0-indexed in Date constructor, so subtract 1
+            const date = new Date(year, month - 1, day);
+            const options = { year: 'numeric', month: 'long', day: 'numeric' };
+            const formattedDate = date.toLocaleDateString('en-US', options);
+            
+            return `${formattedDate} ${time}`;
+        }
+
+        function formatXml(xml) {
+            let formatted = '';
+            const reg = /(>)(<)(\/?)/g;
+            xml = xml.replace(reg, '$1\n$2$3');
+            let pad = 0;
+            xml.split('\n').forEach(node => {
+                let indent = 0;
+                if (node.match( /.+<\/\w[^>]*>$/ )) { // Self-closing or content within
+                    indent = 0;
+                } else if (node.match( /^<\/\w/ )) { // Closing tag
+                    if (pad != 0) {
+                        pad -= 1;
+                    }
+                } else if (node.match( /^<\w[^>]*[^\/]>.*$/ )) { // Opening tag
+                    indent = 1;
+                } else { // Other lines (e.g., text nodes)
+                    indent = 0;
+                }
+
+                let padding = '';
+                for (let i = 0; i < pad; i++) {
+                    padding += '  ';
+                }
+                formatted += padding + node.trim() + '\n'; // Trim node to remove leading/trailing whitespace
+                pad += indent;
+            });
+            return formatted.trim();
+        }
+
+        function capitalizeFirstLetter(string) {
+            return string.charAt(0).toUpperCase() + string.slice(1);
+        }
+
+        function clearAll() {
+            // Clear file inputs
+            logFileInput1.value = '';
+            logFileInput2.value = '';
+            logFileInput3.value = '';
+            
+            // Clear textarea
+            logInput.value = '';
+
+            // Clear stored contents
+            fileContents.file1 = '';
+            fileContents.file2 = '';
+            fileContents.file3 = '';
+            fileContents.textarea = '';
+
+            // Clear filter input
+            filterInput.value = '';
+
+            // Reset all output sections to their initial state
+            output1Div.innerHTML = '<h2>File 1 Output</h2><p>Upload File 1 to see its logs here.</p>';
+            output2Div.innerHTML = '<h2>File 2 Output</h2><p>Upload File 2 to see its logs here.</p>';
+            output3Div.innerHTML = '<h2>File 3 Output</h2><p>Upload File 3 to see its logs here.</p>';
+            outputTextAreaDiv.innerHTML = '<h2>Pasted Content Output</h2><p>Paste content into the text area to see its logs here.</p>';
+            
+            filterSectionContainer.style.display = 'none';
+
+            // Clear stored parsed data 
+            parsedLogEntries = [];
+
+            // Hide modal if open
+            logDetailsModal.style.display = 'none';
+        }
+    </script>
+</body>
+</html>
