@@ -23,3 +23,5 @@
 .md-viewer pre{overflow:auto;padding:16px;border-radius:8px;background:#0f172a;color:#e2e8f0}.md-viewer pre code{background:transparent;padding:0}
 .md-viewer table{width:100%;border-collapse:collapse;margin:18px 0}.md-viewer th,.md-viewer td{border:1px solid #d7dce3;padding:8px 10px;text-align:left}.md-viewer th{background:#f8fafc}
 .md-viewer img{max-width:100%;height:auto}.md-viewer a{color:#0369a1}
+
+.md-viewer .mermaid{display:flex;justify-content:center;align-items:center;width:100%;margin:28px auto;padding:12px;overflow:auto;background:#fff;border-radius:10px}.md-viewer .mermaid svg{max-width:100%;height:auto}.md-viewer .mermaid text{font-family:Inter,system-ui,sans-serif}.md-viewer .mermaid .edgeLabel{background:#fff}
