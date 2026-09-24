@@ -17,6 +17,20 @@ function projectKey(project){
   for(const value of [project?.name||'',...paths])for(let i=0;i<value.length;i++){hash^=value.charCodeAt(i);hash=Math.imul(hash,16777619)}
   return (hash>>>0).toString(16);
 }
+
+function serializeIndex(index){
+  return JSON.parse(JSON.stringify(index,(key,value)=>{
+    if(key==='_fileHandles')return undefined;
+    if(key==='resolvedSymbols'&&Array.isArray(value)){
+      return value.map(symbol=>symbol?.definitionKey||[symbol?.path,symbol?.name,symbol?.kind,symbol?.line].join('::')).filter(Boolean);
+    }
+    if((key==='references'||key==='importedBy')&&Array.isArray(value)){
+      return value.map(item=>item?.definitionKey||item);
+    }
+    return value;
+  }));
+}
+
 export async function loadCachedIndex(project){
   const db=await openDb();if(!db)return null;
   return new Promise(resolve=>{
@@ -25,15 +39,19 @@ export async function loadCachedIndex(project){
     req.onerror=()=>resolve(null);
   });
 }
+
 export async function saveCachedIndex(project,index){
   const db=await openDb();if(!db)return false;
-  const snapshot=JSON.parse(JSON.stringify(index,(key,value)=>key==='_fileHandles'?undefined:value));
-  snapshot.cacheVersion=1;snapshot.cachedAt=new Date().toISOString();
-  return new Promise(resolve=>{
-    const req=db.transaction(STORE,'readwrite').objectStore(STORE).put({index:snapshot},projectKey(project));
-    req.onsuccess=()=>resolve(true);req.onerror=()=>resolve(false);
-  });
+  try{
+    const snapshot=serializeIndex(index);
+    snapshot.cacheVersion=2;snapshot.cachedAt=new Date().toISOString();
+    return await new Promise(resolve=>{
+      const req=db.transaction(STORE,'readwrite').objectStore(STORE).put({index:snapshot},projectKey(project));
+      req.onsuccess=()=>resolve(true);req.onerror=()=>resolve(false);
+    });
+  }catch{return false}
 }
+
 export async function clearCachedIndex(project){
   const db=await openDb();if(!db)return;
   db.transaction(STORE,'readwrite').objectStore(STORE).delete(projectKey(project));
