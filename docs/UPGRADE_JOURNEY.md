@@ -57,7 +57,7 @@ Extended RepoMind into a developer workspace:
 
 ## Milestone 4 — Production Hardening + Intelligence Performance
 
-**Current milestone**
+**Commit:** `1c8bb834c928a92b70142a93fddfde94b11c3c8e`
 
 This milestone hardens the browser-first architecture and connects Git changes to code impact:
 
@@ -105,6 +105,12 @@ Git + AI Workspace
 Production-grade Local Code Intelligence
 ```
 
+## Milestone 5 — AI + Advanced Code Intelligence v1
+
+**Commit:** `1e540dc2e87c42ee1a3d0f4a793fc047a3811731`
+
+Completed direct provider adapters, AI Workspace responses, architecture health signals and local AI settings.
+
 ## Next planned direction
 
 - Direct AI provider adapters while preserving provider-neutral context generation.
@@ -127,4 +133,17 @@ Planned for this milestone:
 - Dedicated Architecture Health workspace.
 - Continued conservative, browser-local analysis and explicit provider-call boundaries.
 - Documentation of direct-provider privacy/CORS limitations.
+
+
+## Milestone 6 — Analyzer + Framework Intelligence v1
+
+**Implementation branch:** `milestone/analyzer-framework-v1`
+
+- Registered analyzer architecture for extensible local analyzers.
+- Framework structure analyzer for React, Vue, NestJS, Spring, ASP.NET, FastAPI and Flask patterns.
+- Unified route discovery analyzer.
+- Symbol-resolution analyzer separating resolved, ambiguous and unresolved references.
+- Architecture hotspot analyzer exposed through the analyzer registry.
+- Dedicated Analyzer workspace and registry UI.
+- Preserved browser-local source processing and explicit analyzer execution.
 

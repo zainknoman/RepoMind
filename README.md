@@ -25,7 +25,7 @@ The repository index is now the central local intelligence layer.
 - **API / route discovery** for common Express, NestJS, FastAPI, Flask, Spring and ASP.NET patterns.
 - **Security / secret scanning** using local heuristics for likely credentials, keys and connection strings.
 - **Package intelligence** from package.json with common framework/library detection.
-- **Mermaid architecture export** for repository dependency graphs.\n- **Architecture health** with dependency hotspots, cycles, unresolved references/imports and parser-error signals.\n- **Direct AI Workspace providers** for OpenAI, OpenAI-compatible endpoints, Anthropic and Gemini; provider keys remain browser-local.
+- **Mermaid architecture export** for repository dependency graphs.\n- **Architecture health** with dependency hotspots, cycles, unresolved references/imports and parser-error signals.\n- **Analyzer registry** with extensible framework, symbol-resolution and architecture analyzers.\n- **Direct AI Workspace providers** for OpenAI, OpenAI-compatible endpoints, Anthropic and Gemini; provider keys remain browser-local.
 - **Architecture hotspot and impact navigation** without a server-side index.
 
 ### Intelligence flow
@@ -136,7 +136,7 @@ Use a current Chromium-based browser such as Chrome or Edge and click **Open Fol
 - [x] Git status → file impact navigation
 - [x] Codebase state regression hardening
 
-### Milestone 5 — AI + Advanced Code Intelligence v1\n- [x] Direct browser-side AI provider adapter layer\n- [x] OpenAI and OpenAI-compatible chat completion support\n- [x] Anthropic Messages support\n- [x] Google Gemini generateContent support\n- [x] Local provider/model/endpoint/API-key settings\n- [x] AI response workspace using RepoMind context\n- [x] Architecture health and dependency hotspot signals\n- [x] Upgrade Journey tracking\n\n### Milestone 3 — Git + AI Workspace
+### Milestone 6 — Analyzer + Framework Intelligence v1\n- [x] Extensible analyzer registry\n- [x] Framework structure analysis\n- [x] Unified route discovery analyzer\n- [x] Symbol resolution status analysis\n- [x] Architecture hotspot analyzer\n- [x] Analyzer workspace UI\n\n### Milestone 5 — AI + Advanced Code Intelligence v1\n- [x] Direct browser-side AI provider adapter layer\n- [x] OpenAI and OpenAI-compatible chat completion support\n- [x] Anthropic Messages support\n- [x] Google Gemini generateContent support\n- [x] Local provider/model/endpoint/API-key settings\n- [x] AI response workspace using RepoMind context\n- [x] Architecture health and dependency hotspot signals\n- [x] Upgrade Journey tracking\n\n### Milestone 3 — Git + AI Workspace
 - [x] Provider-neutral AI integration surface
 - [x] Ask RepoMind prompt builder
 - [x] Symbol/file-aware context selection
