@@ -579,12 +579,16 @@ export function attachFileHandles(index, project) {
     const key = symbol.definitionKey || keyOf(symbol.path, symbol.name, symbol.kind, symbol.line);
     symbol.definitionKey = key;
     symbol.references = (symbol.references || []).map(item => {
-      if (typeof item === 'object' && item.from) return item;
-      return (index.references || []).find(reference => reference.definitionKey === item) || null;
+      const reference = typeof item === 'object' && item.from
+        ? (index.references || []).find(candidate => candidate.from === item.from && candidate.name === item.name && candidate.line === item.line && candidate.column === item.column)
+        : (index.references || []).find(candidate => candidate.definitionKey === item);
+      return reference || null;
     }).filter(Boolean);
     symbol.importedBy = (symbol.importedBy || []).map(item => {
-      if (typeof item === 'object' && item.from) return item;
-      return (index.importBindings || []).find(binding => binding.definitionKey === item) || null;
+      const binding = typeof item === 'object' && item.from
+        ? (index.importBindings || []).find(candidate => candidate.from === item.from && candidate.local === item.local && candidate.line === item.line && candidate.to === item.to)
+        : (index.importBindings || []).find(candidate => candidate.definitionKey === item);
+      return binding || null;
     }).filter(Boolean);
   }
 
