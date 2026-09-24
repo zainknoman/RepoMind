@@ -320,7 +320,8 @@ function frameworkSignals(files) {
   return { frameworks: result, packages: [...packages] };
 }
 
-export async function buildRepositoryIndex(project) {
+export async function buildRepositoryIndex(project, options = {}) {
+  const { signal, onProgress } = options;
   if (!project) return null;
   const files = project.files.filter(isTextFile);
   const fileMap = new Map(files.map(file => [file.path, file]));
@@ -336,8 +337,11 @@ export async function buildRepositoryIndex(project) {
     }
   };
 
-  for (const file of files) {
+  for (let fileIndex = 0; fileIndex < files.length; fileIndex++) {
+    if (signal?.aborted) throw new DOMException('Indexing cancelled', 'AbortError');
+    const file = files[fileIndex];
     const content = await (await file.handle.getFile()).text();
+    onProgress?.({ phase: 'analyze', current: fileIndex + 1, total: files.length, path: file.path });
     const analysis = analyzeSource(file, content);
     index.files.push(analysis);
     index.stats.lines += analysis.lines;
@@ -366,6 +370,7 @@ export async function buildRepositoryIndex(project) {
     }
   }
 
+  onProgress?.({ phase: 'resolve', current: files.length, total: files.length, path: null });
   const definitions = new Map();
   for (const symbol of index.symbols) {
     const key = `${symbol.path}::${symbol.name}`;
@@ -376,6 +381,7 @@ export async function buildRepositoryIndex(project) {
     index.symbolMap[publicKey].push(symbol);
   }
 
+  if (signal?.aborted) throw new DOMException('Indexing cancelled', 'AbortError');
   const importBindings = [];
   for (const edge of index.dependencies) {
     for (const binding of edge.bindings || []) {
@@ -404,6 +410,7 @@ export async function buildRepositoryIndex(project) {
   }
 
   for (const file of index.files) {
+    if (signal?.aborted) throw new DOMException('Indexing cancelled', 'AbortError');
     const importsForFile = importBindings.filter(x => x.from === file.path);
     for (const ref of file.references || []) {
       let resolved = [];
@@ -427,6 +434,7 @@ export async function buildRepositoryIndex(project) {
     }
   }
 
+  onProgress?.({ phase: 'finalize', current: files.length, total: files.length, path: null });
   index.importBindings = importBindings;
   for (const symbol of index.symbols) {
     symbol.references = index.references.filter(r => r.resolvedSymbols.some(s => keyOf(s.path,s.name,s.kind,s.line) === keyOf(symbol.path,symbol.name,symbol.kind,symbol.line)));

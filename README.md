@@ -64,6 +64,10 @@ The repository index is now the central local intelligence layer.
 
 > Git status is intentionally conservative: browser File System Access exposes repository files but does not provide a native `git status` command. RepoMind reads `.git` metadata locally, never indexes `.git` contents, and uses filesystem timestamps only as a probable-modified signal.
 
+## Upgrade Journey
+
+See [docs/UPGRADE_JOURNEY.md](docs/UPGRADE_JOURNEY.md) for the milestone-by-milestone product evolution and commit history.
+
 ## Existing workspaces
 
 - Explorer
@@ -88,10 +92,13 @@ The repository index is now the central local intelligence layer.
     │   └── codebase/
     │       └── CodebasePanel.jsx
     ├── services/
-    │   └── repository.js
+    │   ├── repository.js
+    │   ├── intelligence.js
+    │   ├── git.js
+    │   └── indexCache.js
     └── styles.css
 
-The repository service is browser-safe and keeps the core source workflow local. The index is an in-memory graph derived from the selected folder.
+The repository service is browser-safe and keeps the core source workflow local. The index is an in-memory graph derived from the selected folder and can be cached as local analysis metadata in IndexedDB.
 
 ## Local development
 
@@ -121,6 +128,13 @@ Use a current Chromium-based browser such as Chrome or Edge and click **Open Fol
 - [x] Framework/package detection
 - [x] Git metadata, branch and working-tree intelligence
 - [x] Recent Git activity metadata
+
+### Milestone 4 — Production Hardening + Intelligence Performance
+- [x] Cancellable index builds with progress
+- [x] IndexedDB local index cache
+- [x] Cached/fresh index state and cache clearing
+- [x] Git status → file impact navigation
+- [x] Codebase state regression hardening
 
 ### Milestone 3 — Git + AI Workspace
 - [x] Provider-neutral AI integration surface
