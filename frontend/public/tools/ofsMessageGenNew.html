@@ -1,1049 +1,557 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OFS Message Generator</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
-    <style>
-        :root{font-family:Inter,system-ui,sans-serif;color:#172033;background:#f5f7fa}
-        *{box-sizing:border-box}
-        body{font-family:Inter,system-ui,sans-serif;background:#f5f7fa!important;color:#172033!important;margin:0!important;padding:18px!important;display:block!important}
-        .container{max-width:1350px!important;margin:0 auto!important;background:#fff!important;padding:24px!important;border:1px solid #dfe5ec!important;border-radius:14px!important;box-shadow:0 6px 24px rgba(15,23,42,.06)!important}
-        h1{text-align:left!important;font-size:25px!important;color:#172033!important;margin:0 0 20px!important}
-        h2{font-size:16px!important}
-        label span{color:#475467!important;font-size:13px}
-        input,select,textarea{border:1px solid #d5dce7!important;border-radius:7px!important;box-shadow:none!important;color:#172033!important;background:#fff!important}
-        button{border-radius:7px!important;box-shadow:none!important}
-        .data-field-row{display:grid!important;grid-template-columns:minmax(180px,1.4fr) 90px 90px minmax(220px,2fr) auto!important;gap:8px!important;align-items:center!important;padding:8px!important;background:#f8fafc!important;border:1px solid #e2e8f0!important;border-radius:8px!important}
-        .data-field-row input{width:100%!important}
-        .data-field-row .remove-field{white-space:nowrap}
-        .ofs-hint{margin:0 0 10px;padding:9px 11px;background:#eef7fc;border:1px solid #cfe0ed;border-radius:8px;color:#075985;font-size:12px}
-        .section-card{background:#fff!important;border:1px solid #dfe5ec!important;border-radius:12px!important}
-        .bg-blue-50,.bg-purple-50,.bg-yellow-50,.bg-gray-50{background:#fff!important}
-        .border-blue-200,.border-purple-200,.border-yellow-200{border-color:#dfe5ec!important}
-        .text-blue-800,.text-yellow-800{color:#075985!important}
-        .bg-green-600,.bg-purple-600,.bg-indigo-600,.bg-blue-500{background:#0369a1!important}
-        .bg-gray-500{background:#475569!important}
-        .bg-red-500{background:#b91c1c!important}
-        .hover\\:bg-green-700:hover,.hover\\:bg-blue-600:hover,.hover\\:bg-purple-700:hover,.hover\\:bg-indigo-700:hover{filter:brightness(.92)}
-        #ofsOutputModalBackdrop{background:rgba(15,23,42,.58)!important}
-        @media(max-width:900px){body{padding:10px!important}.container{padding:16px!important}.data-field-row{grid-template-columns:1fr 80px 80px 1fr auto!important}} #rawDataSyncInput,#rawDataSyncOutput{width:100%;border:1px solid #d5dce7;border-radius:7px;padding:10px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;background:#fff}
-        .hidden-section{display:none}
-        .is-open{display:block}
-        .transaction-block-row{display:flex;gap:.5rem;align-items:center}
-        .data-field-row input,.transaction-block-row input{flex-grow:1}
-        .modal-backdrop{background-color:rgba(0,0,0,.5)}
-        .modal-content{transform:scale(.8);opacity:0;transition:transform .3s ease-in-out,opacity .3s ease-in-out}
-        .fade-in{transform:scale(1);opacity:1}
-        .copy-success{opacity:1;transform:translateY(0);transition:opacity .5s,transform .5s}
-        .copy-success.hide{opacity:0;transform:translateY(-10px)}
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RepoMind OFS Generator</title>
+<style>
+:root{
+  font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  color:#0f172a;background:#f1f5f9;
+  --navy:#0f172a;--blue:#0369a1;--blue2:#0ea5e9;--line:#dbe4ee;
+  --muted:#64748b;--soft:#f8fafc;--green:#15803d;--red:#b91c1c;
+}
+*{box-sizing:border-box}
+body{margin:0;padding:20px;background:linear-gradient(135deg,#eef6fb 0%,#f8fafc 48%,#eef2ff 100%);color:var(--navy)}
+button,input,select,textarea{font:inherit}
+button{cursor:pointer;border:0}
+.app{max-width:1500px;margin:0 auto}
+.hero{background:linear-gradient(135deg,#0f172a,#123b5d);color:#fff;border-radius:18px;padding:22px 24px;box-shadow:0 14px 36px rgba(15,23,42,.16)}
+.hero-top{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}
+.hero h1{margin:0;font-size:25px}.hero p{margin:7px 0 0;color:#cbd5e1;font-size:13px}
+.badge{padding:7px 10px;border:1px solid rgba(255,255,255,.2);border-radius:999px;font-size:12px;color:#dbeafe;background:rgba(255,255,255,.08)}
+.syntax{margin-top:18px;display:grid;grid-template-columns:repeat(5,1fr);gap:7px}
+.syntax span{padding:10px 9px;border-radius:10px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);font-size:11px;text-align:center}
+.syntax b{display:block;font-size:12px;color:#fff;margin-bottom:3px}.syntax small{color:#cbd5e1}
+.toolbar{margin:14px 0;display:flex;flex-wrap:wrap;gap:8px}
+.btn{padding:9px 13px;border-radius:9px;background:#fff;color:#334155;border:1px solid var(--line);font-weight:600}
+.btn:hover{background:#f8fafc}.btn.primary{background:var(--blue);color:#fff;border-color:var(--blue)}.btn.success{background:var(--green);color:#fff}.btn.danger{background:#fff;color:var(--red);border-color:#fecaca}
+.workspace{display:grid;grid-template-columns:minmax(0,1fr) 390px;gap:14px}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:17px;box-shadow:0 5px 20px rgba(15,23,42,.055);margin-bottom:14px}
+.card h2{margin:0 0 12px;font-size:16px}.card h3{margin:0;font-size:14px}.hint{font-size:12px;color:var(--muted);line-height:1.55}
+.grid{display:grid;grid-template-columns:repeat(12,1fr);gap:10px}.field{grid-column:span 4}.field.w6{grid-column:span 6}.field.w12{grid-column:span 12}
+label{display:block;font-size:12px;font-weight:700;color:#475569;margin-bottom:5px}
+input,select,textarea{width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:9px 10px;background:#fff;color:#0f172a;outline:none}
+input:focus,select:focus,textarea:focus{border-color:#38bdf8;box-shadow:0 0 0 3px rgba(14,165,233,.12)}
+textarea{resize:vertical;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px}
+.section-title{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:10px}
+.request-tabs{display:flex;gap:6px;flex-wrap:wrap}.request-tab{padding:8px 11px;border:1px solid var(--line);border-radius:8px;background:#fff;font-weight:700;color:#475569}.request-tab.active{background:#e0f2fe;border-color:#7dd3fc;color:#075985}
+.options-box{background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:12px;margin-top:12px}
+.options-preview{font-family:ui-monospace,monospace;background:#0f172a;color:#bae6fd;padding:10px;border-radius:8px;overflow:auto;font-size:12px;white-space:pre-wrap}
+.data-list{display:flex;flex-direction:column;gap:10px}
+.data-item{border:1px solid var(--line);border-radius:11px;background:#fbfdff;padding:11px}
+.data-item-head{display:grid;grid-template-columns:minmax(170px,1fr) auto;gap:8px;align-items:end}
+.value-list{margin-top:8px;display:flex;flex-direction:column;gap:7px}
+.value-row{display:grid;grid-template-columns:70px 70px minmax(0,1fr) auto;gap:7px;align-items:center}
+.value-row input{padding:7px 8px}.value-row .remove{padding:7px 9px;border-radius:7px;background:#fff0f0;color:var(--red);border:1px solid #fecaca}
+.add-value{margin-top:8px;padding:7px 10px;border-radius:7px;background:#e0f2fe;color:#075985;font-weight:700}
+.data-chip{font-size:11px;color:#64748b;margin-top:7px;font-family:ui-monospace,monospace}
+.raw-area{min-height:100px}.status{font-size:12px;margin-top:8px;min-height:18px}.status.ok{color:#166534}.status.err{color:#b91c1c}.status.info{color:#0369a1}
+.preview{background:#020617;color:#dbeafe;border-radius:11px;padding:13px;min-height:150px;white-space:pre-wrap;overflow:auto;font:12px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.preview .muted{color:#64748b}
+.side-card{position:sticky;top:12px;align-self:start}.rule{border-top:1px solid var(--line);margin:14px 0}
+.rule-list{display:grid;gap:8px}.rule-list div{font-size:12px;line-height:1.45}.rule-list b{color:#0f172a}
+.copy-row{display:flex;gap:7px;margin-top:8px}.copy-row .btn{flex:1}
+.small{font-size:11px;color:var(--muted)}
+.modal{position:fixed;inset:0;background:rgba(2,6,23,.65);display:none;align-items:center;justify-content:center;padding:20px;z-index:50}.modal.open{display:flex}.modal-card{width:min(1000px,96vw);max-height:90vh;overflow:auto;background:#fff;border-radius:16px;padding:18px;box-shadow:0 30px 80px rgba(0,0,0,.3)}
+.close{float:right}
+.parse-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px}.parse-summary div{background:#f8fafc;border:1px solid var(--line);padding:10px;border-radius:9px}.parse-summary b{display:block;font-size:11px;color:var(--muted)}.parse-summary span{font-family:ui-monospace,monospace;font-size:12px}
+.empty{padding:16px;text-align:center;color:var(--muted);border:1px dashed #cbd5e1;border-radius:10px}
+@media(max-width:1050px){.workspace{grid-template-columns:1fr}.side-card{position:static}.syntax{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:700px){body{padding:10px}.hero{padding:17px}.hero-top{display:block}.badge{display:inline-block;margin-top:12px}.syntax{grid-template-columns:1fr 1fr}.field,.field.w6{grid-column:span 12}.value-row{grid-template-columns:60px 60px minmax(0,1fr)}.value-row .remove{grid-column:1/-1}.parse-summary{grid-template-columns:1fr 1fr}}
+</style>
 </head>
-<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
-
-    <div class="container bg-white p-6 rounded-xl shadow-lg w-full">
-        <h1 class="text-3xl font-bold text-center text-gray-800 mb-6">OFS Message Generator</h1>
-        
-        <div class="space-y-6">
-            <!-- Authentication & User Info -->
-            <div class="bg-blue-50 p-4 rounded-xl shadow-inner border border-blue-200">
-                <h2 class="text-xl font-semibold mb-2 text-blue-800">Authentication</h2>
-                <div id="authStatus" class="text-sm text-gray-600 mb-2">
-                    <div class="flex items-center space-x-2">
-                        <svg class="animate-spin h-4 w-4 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        <span>Connecting...</span>
-                    </div>
-                </div>
-                <p id="userIdDisplay" class="text-xs text-gray-500 truncate mt-1"></p>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-                    <label class="block">
-                        <span class="text-gray-700">Username:</span>
-                        <input id="userId" type="text" placeholder="User ID" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2">
-                    </label>
-                    <label class="block">
-                        <span class="text-gray-700">Password:</span>
-                        <input id="password" type="password" placeholder="Password" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2">
-                    </label>
-                    <label class="block">
-                        <span class="text-gray-700">Company (Optional):</span>
-                        <input id="company" type="text" placeholder="Company" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2">
-                    </label>
-                </div>
-            </div>
-
-            <!-- OFS Type Selector -->
-            <div class="bg-purple-50 p-4 rounded-xl shadow-inner border border-purple-200">
-                <label class="block">
-                    <span class="text-gray-700 font-semibold">OFS Message Type:</span>
-                    <select id="ofsMessageType" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2">
-                        <option value="Transaction">Transaction</option>
-                        <option value="Enquiry">Enquiry</option>
-                        <option value="XMLReport">XML Report</option>
-                        <option value="TEC">TEC</option>
-                        <option value="Clearing">Clearing</option>
-                    </select>
-                </label>
-            </div>
-
-            <!-- Validation Message -->
-            <div id="validationMessage" class="hidden-section px-4 py-3 rounded-xl relative" role="alert">
-                <strong id="validationTitle" class="font-bold"></strong>
-                <span id="validationText" class="block sm:inline"></span>
-            </div>
-
-            <!-- Dynamic Sections based on OFS Type -->
-            <div id="dynamicFields">
-                <!-- Transaction Fields -->
-                <div id="transactionFields">
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        <label class="block">
-                            <span class="text-gray-700">Application,Version:</span>
-                            <input id="appVersion" type="text" placeholder="e.g., FUNDS.TRANSFER,I" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2">
-                        </label>
-                        <label class="block">
-                            <span class="text-gray-700">Function:</span>
-                            <input id="function" type="text" value="I" placeholder="e.g., I, C, D" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2">
-                        </label>
-                        <label class="block">
-                            <span class="text-gray-700">GTS Control:</span>
-                            <input id="gtsControl" type="text" placeholder="e.g., GSS" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2">
-                        </label>
-                        <label class="block">
-                            <span class="text-gray-700">Num of Auth:</span>
-                            <input id="numOfAuth" type="text" placeholder="e.g., 1" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2">
-                        </label>
-                        <label class="block">
-                            <span class="text-gray-700">Transaction ID:</span>
-                            <input id="transactionId" type="text" placeholder="ID or empty" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2">
-                        </label>
-                        <div class="mt-1">
-                            <span class="text-gray-700">Process/Validate:</span>
-                            <div class="flex items-center gap-4 mt-1">
-                                <label class="flex items-center space-x-2">
-                                    <input type="radio" name="processValidate" value="PROCESS" checked class="rounded-full text-indigo-600 focus:ring-indigo-500">
-                                    <span class="text-gray-700">Process</span>
-                                </label>
-                                <label class="flex items-center space-x-2">
-                                    <input type="radio" name="processValidate" value="VALIDATE" class="rounded-full text-indigo-600 focus:ring-indigo-500">
-                                    <span class="text-gray-700">Validate</span>
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="mt-6">
-                        <label class="flex items-center mb-2">
-                            <input id="toggleMessageDataCheckbox" type="checkbox" class="rounded-md text-indigo-600 focus:ring-indigo-500">
-                            <span class="ml-2 text-gray-700">Include Message Data</span>
-                        </label>
-                        <div id="messageDataSection" class="hidden-section border border-gray-300 rounded-md p-4 bg-gray-50">
-                            <h3 class="text-md font-semibold text-gray-700 mb-2">Message Data</h3>
-                            <div class="ofs-hint"><strong>OFS syntax:</strong> FIELD=VALUE &nbsp; | &nbsp; FIELD:MV=VALUE &nbsp; | &nbsp; FIELD:MV:SV=VALUE. Example: M.PHONE.1:1=03331231232,M.PHONE.1:2=02222322212</div>
-                            <div id="dataFieldsContainer" class="space-y-2"></div>
-                            <button id="addField" type="button" class="mt-4 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors">Add Field</button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Enquiry Fields -->
-                <div id="enquiryFields" class="hidden-section">
-                    <div class="space-y-4">
-                        <label class="block">
-                            <span class="text-gray-700">Enquiry Name:</span>
-                            <input id="enquiryName" type="text" placeholder="e.g., LIST.FUNDS.TRANSFER" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2">
-                        </label>
-                        <label class="block">
-                            <span class="text-gray-700">Message Data:</span>
-                            <textarea id="enquiryMessageData" placeholder="Field values to query" rows="2" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2"></textarea>
-                        </label>
-                    </div>
-                </div>
-
-                <!-- XML Report Fields -->
-                <div id="xmlReportFields" class="hidden-section">
-                    <div class="space-y-4">
-                        <label class="block">
-                            <span class="text-gray-700">App Name:</span>
-                            <input id="xmlReportApp" type="text" value="XML.REPORT" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2">
-                        </label>
-                        <label class="block">
-                            <span class="text-gray-700">Options:</span>
-                            <input id="xmlReportOptions" type="text" value="ID" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2">
-                        </label>
-                        <label class="block">
-                            <span class="text-gray-700">Report Name:</span>
-                            <input id="xmlReportName" type="text" placeholder="e.g., XML.PAYMENT.INSTRUCTION" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2">
-                        </label>
-                    </div>
-                </div>
-
-                <!-- TEC Fields -->
-                <div id="tecFields" class="hidden-section">
-                    <div class="space-y-4">
-                        <label class="block">
-                            <span class="text-gray-700">App Name:</span>
-                            <input id="tecApp" type="text" value="TEC" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2">
-                        </label>
-                        <label class="block">
-                            <span class="text-gray-700">Command Type:</span>
-                            <select id="tecCommandType" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2">
-                                <option value="FLUSH">FLUSH</option>
-                                <option value="API.RESPONSE">API.RESPONSE</option>
-                            </select>
-                        </label>
-                        <div id="tecApiResponseFields" class="hidden-section space-y-4 border border-gray-300 rounded-md p-4 bg-gray-50">
-                            <h3 class="text-md font-semibold text-gray-700 mb-2">API Response Fields</h3>
-                            <label class="block">
-                                <span class="text-gray-700">API Name:</span>
-                                <input id="tecApiName" type="text" placeholder="e.g., PAYMENTS.API.V1" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2">
-                            </label>
-                            <label class="block">
-                                <span class="text-gray-700">Version & Routine:</span>
-                                <input id="tecVersionRoutine" type="text" placeholder="e.g., V1,GET.ALL.PAYMENTS" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2">
-                            </label>
-                            <label class="block">
-                                <span class="text-gray-700">Parameter:</span>
-                                <input id="tecParam" type="text" placeholder="e.g., STATUS.EQUALS=POSTED" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2">
-                            </label>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Clearing Fields -->
-                <div id="clearingFields" class="hidden-section">
-                    <div class="space-y-4">
-                        <label class="block">
-                            <span class="text-gray-700">App Name:</span>
-                            <input id="clearingApp" type="text" value="CLEANING.RTN" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2">
-                        </label>
-                        <label class="block">
-                            <span class="text-gray-700" id="clearingCompanyLabel">Company (Required for Clearing):</span>
-                            <input id="clearingCompany" type="text" placeholder="e.g., UK.COB" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2">
-                        </label>
-                        <div>
-                            <h3 class="text-md font-semibold text-gray-700 mb-2">Transaction Blocks</h3>
-                            <div id="transactionBlocksContainer" class="space-y-2"></div>
-                            <button id="addTransactionBlock" type="button" class="mt-4 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors">Add Block</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Action Buttons -->
-            <div class="flex flex-col sm:flex-row items-center justify-between gap-4 mt-8">
-                <button id="generateOFS" class="w-full sm:w-auto px-6 py-3 bg-green-600 text-white rounded-full font-bold shadow-lg hover:bg-green-700 transition-colors">Generate OFS</button>
-                <div class="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
-                    <button id="saveConfig" class="w-full sm:w-auto px-4 py-2 bg-indigo-600 text-white rounded-md shadow hover:bg-indigo-700 transition-colors">Save Config</button>
-                    <button id="loadConfig" class="w-full sm:w-auto px-4 py-2 bg-gray-500 text-white rounded-md shadow hover:bg-gray-600 transition-colors">Load Config</button>
-                </div>
-            </div>
-
-            <!-- New OFS Parsing Section -->
-            <div class="bg-yellow-50 p-4 rounded-xl shadow-inner border border-yellow-200 mt-6">
-                <h2 class="text-xl font-semibold mb-2 text-yellow-800">Parse OFS Message</h2>
-                <div class="space-y-4">
-                    <label class="block">
-                        <span class="text-gray-700">Paste OFS Message Here:</span>
-                        <textarea id="ofsInputToParse" rows="3" placeholder="Paste a complete OFS message string to parse" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2"></textarea>
-                    </label>
-                    <button id="parseOFS" class="w-full sm:w-auto px-6 py-3 bg-purple-600 text-white rounded-full font-bold shadow-lg hover:bg-purple-700 transition-colors">Parse OFS</button>
-                </div>
-            </div>
-
-        </div>
+<body>
+<div class="app">
+  <header class="hero">
+    <div class="hero-top">
+      <div><h1>📨 OFS Transaction Generator</h1><p>Build, parse and inspect Temenos OFS messages using the actual five-part message structure.</p></div>
+      <div class="badge">RepoMind • Local-first</div>
     </div>
-
-    <!-- OFS Output Modal -->
-    <div id="ofsOutputModalBackdrop" class="fixed inset-0 z-50 flex items-center justify-center modal-backdrop hidden">
-        <div id="ofsOutputModal" class="bg-white p-6 rounded-xl shadow-xl w-11/12 md:w-2/3 lg:w-1/2 modal-content">
-            <h2 class="text-2xl font-bold mb-4 text-gray-800">Generated OFS Message</h2>
-            <div class="relative">
-                <textarea id="ofsOutput" rows="8" readonly class="w-full p-4 border border-gray-300 rounded-md bg-gray-50 font-mono text-sm"></textarea>
-                <div id="copyMessage" class="absolute top-2 right-2 px-2 py-1 bg-green-500 text-white text-xs rounded-full opacity-0 transform translate-y-2 pointer-events-none transition-all duration-300">Copied!</div>
-            </div>
-            <div class="flex justify-between items-center mt-4">
-                <button id="copyToClipboard" class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors">Copy to Clipboard</button>
-                <button id="closeModalButton" class="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors">Close</button>
-            </div>
-        </div>
+    <div class="syntax">
+      <span><b>1. OPERATION</b><small>Application / ENQUIRY.SELECT / XML.REPORT</small></span>
+      <span><b>2. OPTIONS</b><small>VERSION / FUNCTION / PROCESSING</small></span>
+      <span><b>3. USER INFO</b><small>USER / PASSWORD / COMPANY</small></span>
+      <span><b>4. ID INFO</b><small>Transaction / enquiry context</small></span>
+      <span><b>5. DATA</b><small>FIELD:MV:SV=VALUE</small></span>
     </div>
+  </header>
 
-    <!-- Raw / Structured Data Synchronizer -->
-<div class="mt-6 section-card p-4">
-  <h2 class="text-lg font-semibold text-blue-800 mb-2">Raw Message Data ↔ Structured Fields</h2>
-  <p class="text-xs text-gray-500 mb-3">Paste only the transaction Message Data segment. Edit Field / MV / SV / Value and regenerate it.</p>
-  <textarea id="rawDataSyncInput" rows="3" placeholder="M.PHONE.1:1=03331231232,M.PHONE.1:2=02222322212,DESCRIPT:1:2=Industrie"></textarea>
-  <div class="flex flex-wrap gap-2 mt-3">
-    <button id="parseRawDataSync" type="button" class="px-4 py-2 bg-blue-500 text-white rounded-md">Parse to Fields</button>
-    <button id="generateRawDataSync" type="button" class="px-4 py-2 bg-gray-500 text-white rounded-md">Generate Raw Data</button>
-    <button id="copyRawDataSync" type="button" class="px-4 py-2 bg-indigo-600 text-white rounded-md">Copy Raw Data</button>
-    <button id="clearRawDataSync" type="button" class="px-4 py-2 bg-gray-500 text-white rounded-md">Clear</button>
+  <div class="toolbar">
+    <button class="btn primary" id="generateBtn">⚡ Generate OFS</button>
+    <button class="btn" id="parseBtn">🔍 Parse Full OFS</button>
+    <button class="btn" id="copyBtn">📋 Copy Generated</button>
+    <button class="btn" id="saveBtn">💾 Save Config</button>
+    <button class="btn" id="loadBtn">↩ Load Config</button>
+    <button class="btn danger" id="clearBtn">✕ Clear</button>
   </div>
-  <textarea id="rawDataSyncOutput" rows="3" class="mt-3" readonly placeholder="Generated raw message data appears here"></textarea>
-  <div id="rawDataSyncStatus" class="text-xs text-slate-500 mt-2"></div>
-  <div id="t24HandoffStatus" class="text-xs text-sky-700 mt-1"></div>
+
+  <main class="workspace">
+    <div>
+      <section class="card">
+        <div class="section-title"><h2>Request Type</h2><span class="small">Choose the OFS request family first.</span></div>
+        <div class="request-tabs">
+          <button class="request-tab active" data-type="Transaction">Transaction</button>
+          <button class="request-tab" data-type="Enquiry">Enquiry</button>
+          <button class="request-tab" data-type="XMLReport">XML Report</button>
+          <button class="request-tab" data-type="Clearing">Clearing</button>
+          <button class="request-tab" data-type="TEC">TEC</button>
+        </div>
+      </section>
+
+      <section class="card" id="transactionCard">
+        <div class="section-title"><h2>1–4. Transaction Header</h2><span class="small">OPERATION, OPTIONS, USER INFORMATION, ID INFORMATION</span></div>
+        <div class="grid">
+          <div class="field w6"><label>Application / Operation</label><input id="application" placeholder="e.g. FUNDS.TRANSFER"></div>
+          <div class="field w6"><label>Version</label><input id="version" placeholder="e.g. FT.STANDARD"></div>
+          <div class="field"><label>Function</label><select id="function"><option>I — Input</option><option>A — Authorise</option><option>D — Delete</option><option>R — Reverse</option><option>V — Verify</option><option value="">Blank / default I</option></select></div>
+          <div class="field"><label>Processing Flag</label><select id="processing"><option>PROCESS</option><option>VALIDATE</option><option>BUILD</option><option value="">Blank / default PROCESS</option></select></div>
+          <div class="field"><label>GTS Control</label><input id="gts" placeholder="Optional: 1, 2, 3, 4"></div>
+          <div class="field"><label>No. of Authorisers</label><input id="authCount" placeholder="Optional"></div>
+          <div class="field w6"><label>User</label><input id="user" placeholder="e.g. INPUTT"></div>
+          <div class="field w6"><label>Password</label><input id="password" type="password" placeholder="Password"></div>
+          <div class="field w6"><label>Company</label><input id="company" placeholder="Optional, e.g. GB0010001"></div>
+          <div class="field w6"><label>Transaction ID / Record ID</label><input id="transactionId" placeholder="Blank for new IDs when supported"></div>
+        </div>
+        <div class="options-box">
+          <label>Generated Options Segment</label>
+          <div class="options-preview" id="optionsPreview">/I/PROCESS</div>
+          <div class="hint" style="margin-top:7px">The option segment is slash-delimited. Blank version/function/processing positions are preserved so messages such as <code>//VALIDATE</code> remain structurally meaningful.</div>
+        </div>
+      </section>
+
+      <section class="card" id="genericCard" style="display:none"></section>
+
+      <section class="card" id="dataCard">
+        <div class="section-title">
+          <div><h2>5. Transaction Data</h2><div class="hint">Each data element is a field. Add multiple values when the same T24 field contains multiple values/sub-values.</div></div>
+          <button class="btn primary" id="addFieldBtn">＋ Add Data Element</button>
+        </div>
+        <div class="data-list" id="dataList"></div>
+        <div id="dataEmpty" class="empty">No data elements yet. Add a field or parse Message Data below.</div>
+        <div class="toolbar" style="margin-bottom:0">
+          <button class="btn" id="generateDataBtn">↻ Generate Raw Message Data</button>
+          <button class="btn" id="parseDataBtn">🔎 Parse Raw Message Data</button>
+        </div>
+        <textarea class="raw-area" id="rawData" placeholder="Example: APPLICATION:1:=SECTOR,DESCRIPT:1:2=Industrie,M.PHONE.1:1=03331231232,M.PHONE.1:2=02222322212"></textarea>
+        <div class="status" id="dataStatus"></div>
+      </section>
+
+      <section class="card">
+        <div class="section-title"><h2>Raw OFS Message</h2><span class="small">Paste a complete message here to reconstruct the form.</span></div>
+        <textarea class="raw-area" id="fullMessage" rows="7" placeholder="HELPTEXT.MENU,OFS.DEMO/I/PROCESS,TEST.USER/654321,OFS.TEST,APPLICATION:1:=SECTOR,DESCRIPT:1:2=Industrie"></textarea>
+        <div class="toolbar" style="margin-bottom:0">
+          <button class="btn primary" id="parseFullBtn">🔍 Parse OFS Message</button>
+          <button class="btn" id="useGeneratedBtn">↓ Use Generated Message</button>
+        </div>
+        <div class="status" id="parseStatus"></div>
+      </section>
+    </div>
+
+    <aside class="side-card">
+      <section class="card">
+        <div class="section-title"><h2>Generated OFS</h2><button class="btn" id="copyPreviewBtn">Copy</button></div>
+        <div class="preview" id="generatedPreview"><span class="muted">Generate an OFS message.</span></div>
+      </section>
+      <section class="card">
+        <h2>OFS Data Rules</h2>
+        <div class="rule-list">
+          <div><b>Field:</b> <code>FIELD=VALUE</code></div>
+          <div><b>Multi-value:</b> <code>FIELD:1=VALUE</code></div>
+          <div><b>Sub-value:</b> <code>FIELD:1:2=VALUE</code></div>
+          <div><b>Multiple values:</b> repeat the same field with different MV/SV positions.</div>
+          <div><b>Comma in content:</b> OFS data can represent a comma using <code>?</code> in environments following the documented escaping convention.</div>
+          <div><b>Transaction options:</b> VERSION / FUNCTION / PROCESSING FLAG, with optional GTS control and authoriser count depending on configuration.</div>
+          <div><b>ID information:</b> the fourth segment is operation-specific; for transactions it is normally the record/transaction ID.</div>
+        </div>
+        <div class="rule">
+          <div class="hint">Never put real banking credentials into examples, screenshots or shared troubleshooting messages.</div>
+        </div>
+      </section>
+    </aside>
+  </main>
 </div>
 
-<!-- Firebase SDKs -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // Global variables provided by the Canvas environment
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-
-        let db, auth, userId = null;
-        let isAuthReady = false;
-
-        // Message display function instead of alert()
-        function showMessage(text, type = 'error') {
-            const validationMessage = document.getElementById('validationMessage');
-            const validationTitle = document.getElementById('validationTitle');
-            const validationText = document.getElementById('validationText');
-            
-            validationMessage.classList.remove('hidden-section', 'bg-red-100', 'border-red-400', 'text-red-700', 'bg-green-100', 'border-green-400', 'text-green-700');
-            
-            if (type === 'success') {
-                validationMessage.classList.add('bg-green-100', 'border-green-400', 'text-green-700');
-                validationTitle.textContent = "Success:";
-            } else {
-                validationMessage.classList.add('bg-red-100', 'border-red-400', 'text-red-700');
-                validationTitle.textContent = "Error:";
-            }
-            validationText.textContent = text;
-        }
-
-        document.addEventListener('DOMContentLoaded', () => {
-            const ofsMessageTypeSelector = document.getElementById('ofsMessageType');
-
-            // Main section containers
-            const transactionFieldsDiv = document.getElementById('transactionFields');
-            const enquiryFieldsDiv = document.getElementById('enquiryFields');
-            const xmlReportFieldsDiv = document.getElementById('xmlReportFields');
-            const tecFieldsDiv = document.getElementById('tecFields');
-            const clearingFieldsDiv = document.getElementById('clearingFields');
-            const tecApiResponseFieldsDiv = document.getElementById('tecApiResponseFields');
-
-            // Sections that move for Transaction type
-            const messageDataSection = document.getElementById('messageDataSection');
-            const toggleMessageDataCheckbox = document.getElementById('toggleMessageDataCheckbox');
-
-            const dataFieldsContainer = document.getElementById('dataFieldsContainer');
-            const addFieldButton = document.getElementById('addField');
-
-            const tecCommandTypeSelector = document.getElementById('tecCommandType');
-
-            const transactionBlocksContainer = document.getElementById('transactionBlocksContainer');
-            const addTransactionBlockButton = document.getElementById('addTransactionBlock');
-
-            const userIdInput = document.getElementById('userId');
-            const passwordInput = document.getElementById('password');
-            const companyInput = document.getElementById('company');
-
-            const generateOFSButton = document.getElementById('generateOFS');
-            const saveConfigButton = document.getElementById('saveConfig');
-            const loadConfigButton = document.getElementById('loadConfig');
-            
-            const parseOFSButton = document.getElementById('parseOFS');
-            const ofsInputToParse = document.getElementById('ofsInputToParse');
-
-            // Popup elements
-            const ofsOutputModalBackdrop = document.getElementById('ofsOutputModalBackdrop');
-            const ofsOutputModal = document.getElementById('ofsOutputModal');
-            const ofsOutput = document.getElementById('ofsOutput');
-            const copyToClipboardButton = document.getElementById('copyToClipboard');
-            const closeModalButton = document.getElementById('closeModalButton');
-            const copyMessage = document.getElementById('copyMessage');
-
-            const validationMessage = document.getElementById('validationMessage');
-            const authStatus = document.getElementById('authStatus');
-            const userIdDisplay = document.getElementById('userIdDisplay');
-
-            // --- Firebase Initialization and Auth ---
-            if (Object.keys(firebaseConfig).length > 0) {
-                const app = initializeApp(firebaseConfig);
-                auth = getAuth(app);
-                db = getFirestore(app);
-
-                onAuthStateChanged(auth, async (user) => {
-                    if (user) {
-                        userId = user.uid;
-                        isAuthReady = true;
-                        authStatus.innerHTML = '<span class="text-green-600 font-semibold">Connected</span>';
-                        userIdDisplay.textContent = `User ID: ${userId}`;
-                        loadConfiguration(); // Load config after auth is ready
-                    } else {
-                        try {
-                            if (initialAuthToken) {
-                                await signInWithCustomToken(auth, initialAuthToken);
-                            } else {
-                                await signInAnonymously(auth);
-                            }
-                        } catch (error) {
-                            console.error("Firebase Auth Error:", error);
-                            authStatus.innerHTML = '<span class="text-red-600 font-semibold">Auth Failed</span>';
-                            userIdDisplay.textContent = 'Auth failed. See console for details.';
-                        }
-                    }
-                });
-            } else {
-                console.error("Firebase config is missing. App will run in a limited, non-persistent mode.");
-                isAuthReady = true;
-                authStatus.innerHTML = '<span class="text-orange-600 font-semibold">Offline Mode</span>';
-                userIdDisplay.textContent = 'User ID not available.';
-                loadConfiguration(); // Proceed with local storage
-            }
-
-            // --- Helper Functions for Data Fields and Transaction Blocks ---
-            function addDataFieldRow(fieldName = '', fieldValue = '', multiValue = '', subValue = '') {
-                const row = document.createElement('div');
-                row.classList.add('data-field-row');
-                row.innerHTML = `
-                    <input type="text" class="fieldName" placeholder="Field (e.g., M.PHONE.1)" value="${fieldName}">
-                    <input type="text" class="fieldMV" placeholder="MV" value="${multiValue}">
-                    <input type="text" class="fieldSV" placeholder="SV" value="${subValue}">
-                    <input type="text" class="fieldValue" placeholder="Value (e.g., 03331231232)" value="${fieldValue}">
-                    <button type="button" class="remove-field px-2 py-1 bg-red-500 text-white rounded-md">Remove</button>
-                `;
-                dataFieldsContainer.appendChild(row);
-
-                row.querySelector('.remove-field').addEventListener('click', () => {
-                    row.remove();
-                });
-            }
-
-            function addTransactionBlockRow(blockContent = '') {
-                const row = document.createElement('div');
-                row.classList.add('transaction-block-row');
-                row.innerHTML = `
-                    <input type="text" class="transactionBlockContent w-full p-2 rounded-md border-gray-300 shadow-sm" placeholder="e.g., TXNREF1,33537,USD,10000,C,SALARY" value="${blockContent}">
-                    <button type="button" class="remove-block px-2 py-1 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors">Remove</button>
-                `;
-                transactionBlocksContainer.appendChild(row);
-
-                row.querySelector('.remove-block').addEventListener('click', () => {
-                    row.remove();
-                });
-            }
-
-            // Event listeners for "Add Data Field" and "Add Transaction Block" buttons
-            addFieldButton.addEventListener('click', () => addDataFieldRow());
-            addTransactionBlockButton.addEventListener('click', () => addTransactionBlockRow());
-
-            // --- Field Visibility Toggling ---
-            function toggleFields() {
-                const selectedType = ofsMessageTypeSelector.value;
-
-                // Hide all specific sections first
-                transactionFieldsDiv.classList.add('hidden-section');
-                enquiryFieldsDiv.classList.add('hidden-section');
-                xmlReportFieldsDiv.classList.add('hidden-section');
-                tecFieldsDiv.classList.add('hidden-section');
-                clearingFieldsDiv.classList.add('hidden-section');
-                tecApiResponseFieldsDiv.classList.add('hidden-section'); // Hide TEC specific sub-fields
-
-                // Hide message data section by default
-                messageDataSection.classList.add('hidden-section');
-                toggleMessageDataCheckbox.checked = false;
-
-                // Adjust company input label
-                const companyLabel = companyInput.labels[0] || document.getElementById('company').previousElementSibling;
-                companyLabel.textContent = 'Company (Optional):';
-
-                // Show relevant sections based on selection
-                if (selectedType === 'Transaction') {
-                    transactionFieldsDiv.classList.remove('hidden-section');
-                    if (toggleMessageDataCheckbox.checked) {
-                         messageDataSection.classList.remove('hidden-section');
-                    }
-                } else if (selectedType === 'Enquiry') {
-                    enquiryFieldsDiv.classList.remove('hidden-section');
-                } else if (selectedType === 'XMLReport') {
-                    xmlReportFieldsDiv.classList.remove('hidden-section');
-                } else if (selectedType === 'TEC') {
-                    tecFieldsDiv.classList.remove('hidden-section');
-                    if (tecCommandTypeSelector.value === 'API.RESPONSE') {
-                        tecApiResponseFieldsDiv.classList.remove('hidden-section');
-                    }
-                } else if (selectedType === 'Clearing') {
-                    clearingFieldsDiv.classList.remove('hidden-section');
-                    companyLabel.textContent = 'Company (Required for Clearing):'; // Adjust label for Clearing
-                }
-            }
-
-            // Event listeners for field toggles
-            ofsMessageTypeSelector.addEventListener('change', toggleFields);
-            tecCommandTypeSelector.addEventListener('change', () => {
-                if (tecCommandTypeSelector.value === 'API.RESPONSE') {
-                    tecApiResponseFieldsDiv.classList.remove('hidden-section');
-                } else {
-                    tecApiResponseFieldsDiv.classList.add('hidden-section');
-                }
-            });
-
-            toggleMessageDataCheckbox.addEventListener('change', () => {
-                if (toggleMessageDataCheckbox.checked) {
-                    messageDataSection.classList.remove('hidden-section');
-                } else {
-                    messageDataSection.classList.add('hidden-section');
-                }
-            });
-
-            // --- Client-side Validation Function ---
-            function validateInputs(messageType) {
-                validationMessage.classList.add('hidden-section');
-
-                const userId = userIdInput.value.trim();
-                const password = passwordInput.value.trim();
-
-                if (!userId || !password) {
-                    showMessage("Username and Password are required.");
-                    return false;
-                }
-
-                if (messageType === 'Transaction') {
-                    const appVersionInput = document.getElementById('appVersion').value.trim();
-                    const [appName] = appVersionInput.split(',');
-
-                    if (!appName) {
-                        showMessage("Transaction Application Name is required.");
-                        return false;
-                    }
-                } else if (messageType === 'XMLReport') {
-                    const xmlReportName = document.getElementById('xmlReportName').value.trim();
-                    if (!xmlReportName) {
-                        showMessage("XML Report Name is required.");
-                        return false;
-                    }
-                } else if (messageType === 'Clearing') {
-                    const clearingCompany = document.getElementById('clearingCompany').value.trim();
-                    if (!clearingCompany) {
-                        showMessage("Clearing Company is required.");
-                        return false;
-                    }
-                    const transactionBlocks = document.querySelectorAll('.transactionBlockContent');
-                    if (transactionBlocks.length === 0 || Array.from(transactionBlocks).every(input => input.value.trim() === '')) {
-                        showMessage("At least one Clearing Transaction Block is required.");
-                        return false;
-                    }
-                }
-                return true;
-            }
-
-            // --- OFS Data Helpers / T24 Log Handoff ---
-function parseOFSDataFields(raw) {
-    return raw.split(',').filter(x => x !== '').map(field => {
-        const eqIndex = field.indexOf('=');
-        const namePart = eqIndex >= 0 ? field.slice(0, eqIndex) : field;
-        const value = eqIndex >= 0 ? field.slice(eqIndex + 1) : '';
-        const match = namePart.match(/^(.*?)(?::(\\d+))?(?::(\\d+))?$/);
-        return { fieldName: match ? match[1] : namePart, multiValue: match?.[2] || '', subValue: match?.[3] || '', fieldValue: value };
-    }).filter(x => x.fieldName);
-}
-function generateOFSDataFields() {
-    return Array.from(document.querySelectorAll('#dataFieldsContainer .data-field-row')).map(row => {
-        const fieldName = row.querySelector('.fieldName')?.value.trim() || '';
-        const multiValue = row.querySelector('.fieldMV')?.value.trim() || '';
-        const subValue = row.querySelector('.fieldSV')?.value.trim() || '';
-        const fieldValue = row.querySelector('.fieldValue')?.value.trim() || '';
-        if (!fieldName) return '';
-        return fieldName + (multiValue ? ':' + multiValue + (subValue ? ':' + subValue : '') : '') + '=' + fieldValue;
-    }).filter(Boolean).join(',');
-}
-function loadT24LogOFSContext() {
-    try {
-        const raw = localStorage.getItem('repomind.t24.ofsContext');
-        if (!raw) return;
-        const context = JSON.parse(raw);
-        if (!context || !context.application) return;
-        ofsMessageTypeSelector.value = 'Transaction';
-        toggleFields();
-        document.getElementById('appVersion').value = context.version ? context.application + ',' + context.version : context.application;
-        document.getElementById('function').value = context.ofsFunction || 'I';
-        document.getElementById('transactionId').value = context.transactionId || '';
-        companyInput.value = context.companyId || '';
-        dataFieldsContainer.innerHTML = '';
-        (context.fields || []).forEach(f => addDataFieldRow(f.fieldName, f.value, f.multiValueNumber || '', f.subValueNumber || ''));
-        toggleMessageDataCheckbox.checked = (context.fields || []).length > 0;
-        toggleFields();
-        document.getElementById('t24HandoffStatus').textContent = 'Loaded T24 log context. Authentication fields were left blank intentionally.';
-        localStorage.removeItem('repomind.t24.ofsContext');
-    } catch (e) { console.warn('Unable to load T24 OFS context:', e); }
-}
-
-// --- OFS Message Generation Logic ---
-            generateOFSButton.addEventListener('click', () => {
-                const messageType = ofsMessageTypeSelector.value;
-
-                if (!validateInputs(messageType)) {
-                    ofsOutput.value = '';
-                    return;
-                }
-
-                let generatedOFS = '';
-
-                const userId = userIdInput.value.trim();
-                const password = passwordInput.value.trim();
-                const commonCompany = companyInput.value.trim();
-
-                const userInfoBlock = `${userId}/${password}` + (commonCompany ? `/${commonCompany}` : '');
-
-                if (messageType === 'Transaction') {
-                    const appVersionInput = document.getElementById('appVersion').value.trim();
-                    const [appName, version] = appVersionInput.split(',').map(s => s.trim());
-                    
-                    const func = document.getElementById('function').value.trim();
-                    const processValidate = document.querySelector('input[name="processValidate"]:checked').value.trim();
-                    const gtsControl = document.getElementById('gtsControl').value.trim();
-                    const numOfAuth = document.getElementById('numOfAuth').value.trim();
-                    const transactionId = document.getElementById('transactionId').value.trim();
-
-                    let messageDataPart = '';
-                    if (toggleMessageDataCheckbox.checked) {
-                        const dataFields = [];
-                        document.querySelectorAll('#dataFieldsContainer .data-field-row').forEach(row => {
-                            const fieldName = row.querySelector('.fieldName').value.trim();
-                            const fieldValue = row.querySelector('.fieldValue').value.trim();
-                            if (fieldName) {
-                                const multiValue = row.querySelector('.fieldMV').value.trim();
-                                const subValue = row.querySelector('.fieldSV').value.trim();
-                                const position = multiValue ? `:${multiValue}${subValue ? `:${subValue}` : ''}` : '';
-                                dataFields.push(`${fieldName}${position}=${fieldValue}`);
-                            }
-                        });
-                        messageDataPart = dataFields.join(',');
-                    }
-
-                    let optionsSegment = '';
-                    const rawOptionsParts = [version, func, processValidate, gtsControl, numOfAuth];
-                    const isOptionsSegmentCompletelyEmpty = rawOptionsParts.every(part => !part);
-
-                    if (!isOptionsSegmentCompletelyEmpty) {
-                        optionsSegment = `${version || ''}/${func || ''}/${processValidate || ''}/${gtsControl || ''}/${numOfAuth || ''}`;
-                    }
-
-                    const parts = [
-                        appName,
-                        optionsSegment,
-                        userInfoBlock,
-                        transactionId,
-                        messageDataPart
-                    ];
-
-                    generatedOFS = parts.join(',');
-
-                } else if (messageType === 'Enquiry') {
-                    const enquiryName = document.getElementById('enquiryName').value.trim();
-                    const enquiryMessageData = document.getElementById('enquiryMessageData').value.trim();
-
-                    generatedOFS = `ENQUIRY.SELECT,,${userInfoBlock},${enquiryName},${enquiryMessageData}`;
-
-                } else if (messageType === 'XMLReport') {
-                    const xmlReportApp = document.getElementById('xmlReportApp').value.trim();
-                    const xmlReportOptions = document.getElementById('xmlReportOptions').value.trim();
-                    const xmlReportName = document.getElementById('xmlReportName').value.trim();
-
-                    generatedOFS = `${xmlReportApp},${xmlReportOptions},${userInfoBlock},,${xmlReportName}`;
-
-                } else if (messageType === 'TEC') {
-                    const tecApp = document.getElementById('tecApp').value.trim();
-                    const tecCommandType = document.getElementById('tecCommandType').value.trim();
-
-                    let tecDataPart = tecCommandType;
-                    if (tecCommandType === 'API.RESPONSE') {
-                        const tecApiName = document.getElementById('tecApiName').value.trim();
-                        const tecVersionRoutine = document.getElementById('tecVersionRoutine').value.trim();
-                        const tecParam = document.getElementById('tecParam').value.trim();
-                        tecDataPart += `,${tecApiName},${tecVersionRoutine},${tecParam}`;
-                    }
-
-                    generatedOFS = `${tecApp},,${userInfoBlock},,${tecDataPart}`;
-
-                } else if (messageType === 'Clearing') {
-                    const clearingApp = document.getElementById('clearingApp').value.trim();
-                    const clearingCompany = document.getElementById('clearingCompany').value.trim();
-
-                    const transactionBlocks = [];
-                    document.querySelectorAll('#transactionBlocksContainer .transaction-block-row').forEach(row => {
-                        const blockContent = row.querySelector('.transactionBlockContent').value.trim();
-                        if (blockContent) {
-                            transactionBlocks.push(blockContent);
-                        }
-                    });
-                    const clearingTransactionData = transactionBlocks.join('_');
-
-                    const clearingUserInfoBlock = `${userId}/${password}`;
-
-                    generatedOFS = `${clearingApp},,${clearingUserInfoBlock},${clearingCompany},${clearingTransactionData}`;
-                }
-                
-                // Populate the popup with the generated message and show it
-                ofsOutput.value = generatedOFS;
-                showModal();
-            });
-
-            // --- OFS Message Parsing Logic (Reverse) ---
-            parseOFSButton.addEventListener('click', () => {
-                const ofsMessage = ofsInputToParse.value.trim();
-                if (!ofsMessage) {
-                    showMessage("Please paste a message to parse.");
-                    return;
-                }
-
-                try {
-                    const parts = ofsMessage.split(',');
-                    const appName = parts[0];
-                    let messageType = '';
-
-                    // Reset fields first
-                    userIdInput.value = '';
-                    passwordInput.value = '';
-                    companyInput.value = '';
-                    dataFieldsContainer.innerHTML = '';
-                    transactionBlocksContainer.innerHTML = '';
-                    addDataFieldRow();
-                    addTransactionBlockRow();
-                    toggleMessageDataCheckbox.checked = false;
-
-                    // A more robust approach to determine type and parse
-                    if (appName.toUpperCase().includes('ENQUIRY')) {
-                        messageType = 'Enquiry';
-                        ofsMessageTypeSelector.value = messageType;
-                        toggleFields();
-                        document.getElementById('enquiryName').value = appName;
-                        document.getElementById('enquiryMessageData').value = parts[4] || '';
-
-                        const userInfoPart = parts[2];
-                        if (userInfoPart) {
-                            const userParts = userInfoPart.split('/');
-                            userIdInput.value = userParts[0] || '';
-                            passwordInput.value = userParts[1] || '';
-                            if (userParts.length > 2) {
-                                companyInput.value = userParts[2] || '';
-                            }
-                        }
-
-                    } else if (appName.toUpperCase() === 'XML.REPORT') {
-                        messageType = 'XMLReport';
-                        ofsMessageTypeSelector.value = messageType;
-                        toggleFields();
-                        document.getElementById('xmlReportOptions').value = parts[1] || '';
-                        document.getElementById('xmlReportName').value = parts[4] || '';
-
-                        const userInfoPart = parts[2];
-                        if (userInfoPart) {
-                            const userParts = userInfoPart.split('/');
-                            userIdInput.value = userParts[0] || '';
-                            passwordInput.value = userParts[1] || '';
-                            if (userParts.length > 2) {
-                                companyInput.value = userParts[2] || '';
-                            }
-                        }
-
-                    } else if (appName.toUpperCase() === 'TEC') {
-                        messageType = 'TEC';
-                        ofsMessageTypeSelector.value = messageType;
-                        toggleFields();
-                        const tecData = parts[4];
-                        if (tecData) {
-                            const tecDataParts = tecData.split(',');
-                            const commandType = tecDataParts[0];
-                            document.getElementById('tecCommandType').value = commandType;
-                            if (commandType === 'API.RESPONSE') {
-                                tecCommandTypeSelector.dispatchEvent(new Event('change'));
-                                document.getElementById('tecApiName').value = tecDataParts[1] || '';
-                                document.getElementById('tecVersionRoutine').value = tecDataParts[2] || '';
-                                document.getElementById('tecParam').value = tecDataParts[3] || '';
-                            }
-                        }
-                        const userInfoPart = parts[2];
-                        if (userInfoPart) {
-                            const userParts = userInfoPart.split('/');
-                            userIdInput.value = userParts[0] || '';
-                            passwordInput.value = userParts[1] || '';
-                            if (userParts.length > 2) {
-                                companyInput.value = userParts[2] || '';
-                            }
-                        }
-
-                    } else if (appName.toUpperCase() === 'CLEANING.RTN') {
-                        messageType = 'Clearing';
-                        ofsMessageTypeSelector.value = messageType;
-                        toggleFields();
-                        document.getElementById('clearingCompany').value = parts[3] || '';
-                        const transactionBlocksData = parts[4];
-                        if (transactionBlocksData) {
-                            transactionBlocksContainer.innerHTML = '';
-                            transactionBlocksData.split('_').forEach(block => addTransactionBlockRow(block));
-                        }
-                        const userInfoPart = parts[2];
-                        if (userInfoPart) {
-                            const userParts = userInfoPart.split('/');
-                            userIdInput.value = userParts[0] || '';
-                            passwordInput.value = userParts[1] || '';
-                            if (userParts.length > 2) {
-                                companyInput.value = userParts[2] || '';
-                            }
-                        }
-
-                    } else { // Assume Transaction by default
-                        messageType = 'Transaction';
-                        ofsMessageTypeSelector.value = messageType;
-                        toggleFields();
-
-                        // Parse Application and Version from the first part
-                        const [app, version] = appName.split(',');
-                        document.getElementById('appVersion').value = `${app},${version || ''}`;
-
-                        // Parse Options block
-                        const options = parts[1].split('/');
-                        document.getElementById('function').value = options[1] || '';
-                        const processValidateValue = options[2] || '';
-                        const radio = document.querySelector(`input[name="processValidate"][value="${processValidateValue}"]`);
-                        if (radio) radio.checked = true;
-                        document.getElementById('gtsControl').value = options[3] || '';
-                        document.getElementById('numOfAuth').value = options[4] || '';
-
-                        // Parse User Info and optional Company
-                        const userInfoPart = parts[2];
-                        if (userInfoPart) {
-                            const userParts = userInfoPart.split('/');
-                            userIdInput.value = userParts[0] || '';
-                            passwordInput.value = userParts[1] || '';
-                        }
-                        // Company is part of the OFS user-information segment: USER/PASSWORD/COMPANY
-                        const userParts = userInfoPart ? userInfoPart.split('/') : [];
-                        companyInput.value = userParts[2] || '';
-                        document.getElementById('transactionId').value = parts[3] || '';
-
-                        // Parse Data Fields
-                        const dataFields = parts.slice(dataFieldsStartIndex).join(',');
-                        if (dataFields) {
-                            toggleMessageDataCheckbox.checked = true;
-                            toggleFields();
-                            dataFieldsContainer.innerHTML = '';
-                            parseOFSDataFields(dataFields).forEach(field => addDataFieldRow(field.fieldName, field.fieldValue, field.multiValue, field.subValue));
-                        }
-                    }
-                    
-                    showMessage("OFS message parsed successfully.", 'success');
-
-                } catch (e) {
-                    console.error("Parsing Error:", e);
-                    showMessage(`Failed to parse OFS message. Please check the format. Details: ${e.message}`);
-                }
-            });
-
-            // --- Raw / Structured Data Synchronization ---
-document.getElementById('parseRawDataSync').addEventListener('click', () => {
-    const raw = document.getElementById('rawDataSyncInput').value.trim();
-    if (!raw) return;
-    dataFieldsContainer.innerHTML = '';
-    parseOFSDataFields(raw).forEach(field => addDataFieldRow(field.fieldName, field.fieldValue, field.multiValue, field.subValue));
-    toggleMessageDataCheckbox.checked = true;
-    toggleFields();
-    document.getElementById('rawDataSyncStatus').textContent = 'Parsed ' + document.querySelectorAll('#dataFieldsContainer .data-field-row').length + ' field entries.';
-});
-document.getElementById('generateRawDataSync').addEventListener('click', () => {
-    document.getElementById('rawDataSyncOutput').value = generateOFSDataFields();
-    document.getElementById('rawDataSyncStatus').textContent = 'Generated from structured fields.';
-});
-document.getElementById('copyRawDataSync').addEventListener('click', async () => {
-    const raw = generateOFSDataFields();
-    document.getElementById('rawDataSyncOutput').value = raw;
-    await navigator.clipboard?.writeText(raw);
-    document.getElementById('rawDataSyncStatus').textContent = 'Raw Message Data copied.';
-});
-document.getElementById('clearRawDataSync').addEventListener('click', () => {
-    document.getElementById('rawDataSyncInput').value = '';
-    document.getElementById('rawDataSyncOutput').value = '';
-    document.getElementById('rawDataSyncStatus').textContent = '';
-});
-// --- Popup Modal Logic ---
-            function showModal() {
-                ofsOutputModalBackdrop.classList.remove('hidden');
-                setTimeout(() => {
-                    ofsOutputModal.classList.add('fade-in');
-                }, 10);
-            }
-
-            function hideModal() {
-                ofsOutputModal.classList.remove('fade-in');
-                setTimeout(() => {
-                    ofsOutputModalBackdrop.classList.add('hidden');
-                }, 300);
-            }
-
-            closeModalButton.addEventListener('click', hideModal);
-            ofsOutputModalBackdrop.addEventListener('click', (event) => {
-                if (event.target === ofsOutputModalBackdrop) {
-                    hideModal();
-                }
-            });
-
-            // --- Copy to Clipboard ---
-            copyToClipboardButton.addEventListener('click', () => {
-                ofsOutput.select();
-                ofsOutput.setSelectionRange(0, 99999);
-                document.execCommand('copy');
-                
-                copyMessage.classList.remove('hide');
-                copyMessage.classList.add('copy-success');
-                setTimeout(() => {
-                    copyMessage.classList.remove('copy-success');
-                    copyMessage.classList.add('hide');
-                }, 1500);
-            });
-
-            // --- Save/Load Configuration ---
-            const CONFIG_COLLECTION_PATH = (uid) => `artifacts/${appId}/users/${uid}/configs`;
-            const CONFIG_DOC_ID = 'ofsGenerator';
-
-            async function saveConfiguration() {
-                if (!isAuthReady || !userId) {
-                    showMessage("Please wait, authentication is not ready yet.", 'error');
-                    return;
-                }
-
-                const config = {
-                    ofsMessageType: ofsMessageTypeSelector.value,
-                    appVersion: document.getElementById('appVersion')?.value || '',
-                    function: document.getElementById('function')?.value || 'I',
-                    processValidate: document.querySelector('input[name="processValidate"]:checked')?.value || '',
-                    gtsControl: document.getElementById('gtsControl')?.value || '',
-                    numOfAuth: document.getElementById('numOfAuth')?.value || '',
-                    transactionId: document.getElementById('transactionId')?.value || '',
-                    enquiryMessageData: document.getElementById('enquiryMessageData')?.value || '',
-                    xmlReportOptions: document.getElementById('xmlReportOptions')?.value || 'ID',
-                    xmlReportName: document.getElementById('xmlReportName')?.value || '',
-                    tecCommandType: tecCommandTypeSelector?.value || 'FLUSH',
-                    tecApiName: document.getElementById('tecApiName')?.value || '',
-                    tecVersionRoutine: document.getElementById('tecVersionRoutine')?.value || '',
-                    tecParam: document.getElementById('tecParam')?.value || '',
-                    clearingCompany: document.getElementById('clearingCompany')?.value || '',
-                    userId: userIdInput.value,
-                    password: passwordInput.value,
-                    company: companyInput.value,
-                    toggleMessageDataChecked: toggleMessageDataCheckbox.checked,
-                    dataFields: [],
-                    transactionBlocks: []
-                };
-
-                document.querySelectorAll('#dataFieldsContainer .data-field-row').forEach(row => {
-                    const fieldName = row.querySelector('.fieldName').value;
-                    const fieldValue = row.querySelector('.fieldValue').value;
-                    const multiValue = row.querySelector('.fieldMV').value;
-                    const subValue = row.querySelector('.fieldSV').value;
-                    if(fieldName) {
-                        config.dataFields.push({ fieldName, fieldValue, multiValue, subValue });
-                    }
-                });
-
-                document.querySelectorAll('#transactionBlocksContainer .transaction-block-row').forEach(row => {
-                    const blockContent = row.querySelector('.transactionBlockContent').value;
-                    if(blockContent) {
-                        config.transactionBlocks.push(blockContent);
-                    }
-                });
-
-                try {
-                    const configRef = doc(db, CONFIG_COLLECTION_PATH(userId), CONFIG_DOC_ID);
-                    await setDoc(configRef, { config: JSON.stringify(config) });
-                    showMessage('Configuration saved to Firestore!', 'success');
-                } catch (e) {
-                    console.error("Error saving document: ", e);
-                    showMessage('Failed to save configuration.');
-                }
-            }
-
-            async function loadConfiguration() {
-                if (!isAuthReady || !userId) {
-                    console.log("Waiting for authentication to load configuration.");
-                    return;
-                }
-
-                try {
-                    const configRef = doc(db, CONFIG_COLLECTION_PATH(userId), CONFIG_DOC_ID);
-                    const docSnap = await getDoc(configRef);
-
-                    if (docSnap.exists()) {
-                        const savedConfig = JSON.parse(docSnap.data().config);
-                        const config = savedConfig;
-                        
-                        // Restore values
-                        ofsMessageTypeSelector.value = config.ofsMessageType || 'Transaction';
-                        toggleMessageDataCheckbox.checked = config.toggleMessageDataChecked || false;
-                        
-                        toggleFields(); // Call this first to set up the correct sections
-                        
-                        if (document.getElementById('appVersion')) document.getElementById('appVersion').value = config.appVersion || '';
-                        if (document.getElementById('function')) document.getElementById('function').value = config.function || 'I';
-                        const processValidateRadio = document.querySelector(`input[name="processValidate"][value="${config.processValidate || 'PROCESS'}"]`);
-                        if (processValidateRadio) processValidateRadio.checked = true;
-                        if (document.getElementById('gtsControl')) document.getElementById('gtsControl').value = config.gtsControl || '';
-                        if (document.getElementById('numOfAuth')) document.getElementById('numOfAuth').value = config.numOfAuth || '';
-                        if (document.getElementById('transactionId')) document.getElementById('transactionId').value = config.transactionId || '';
-                        if (document.getElementById('enquiryMessageData')) document.getElementById('enquiryMessageData').value = config.enquiryMessageData || '';
-                        if (document.getElementById('xmlReportOptions')) document.getElementById('xmlReportOptions').value = config.xmlReportOptions || 'ID';
-                        if (document.getElementById('xmlReportName')) document.getElementById('xmlReportName').value = config.xmlReportName || '';
-                        if (tecCommandTypeSelector) tecCommandTypeSelector.value = config.tecCommandType || 'FLUSH';
-                        if (document.getElementById('tecApiName')) document.getElementById('tecApiName').value = config.tecApiName || '';
-                        if (document.getElementById('tecVersionRoutine')) document.getElementById('tecVersionRoutine').value = config.tecVersionRoutine || '';
-                        if (document.getElementById('tecParam')) document.getElementById('tecParam').value = config.tecParam || '';
-                        if (document.getElementById('clearingCompany')) document.getElementById('clearingCompany').value = config.clearingCompany || '';
-                        userIdInput.value = config.userId || '';
-                        passwordInput.value = config.password || '';
-                        companyInput.value = config.company || '';
-
-                        dataFieldsContainer.innerHTML = '';
-                        transactionBlocksContainer.innerHTML = '';
-
-                        if (config.dataFields && config.dataFields.length > 0) {
-                            config.dataFields.forEach(field => addDataFieldRow(field.fieldName, field.fieldValue, field.multiValue || '', field.subValue || ''));
-                        } else {
-                            addDataFieldRow();
-                        }
-
-                        if (config.transactionBlocks && config.transactionBlocks.length > 0) {
-                            config.transactionBlocks.forEach(block => addTransactionBlockRow(block));
-                        } else {
-                            addTransactionBlockRow();
-                        }
-
-                        showMessage('Configuration loaded from Firestore!', 'success');
-                    } else {
-                        console.log("No saved configuration found. Loading default fields.");
-                        dataFieldsContainer.innerHTML = '';
-                        transactionBlocksContainer.innerHTML = '';
-                        addDataFieldRow();
-                        addTransactionBlockRow();
-                        toggleMessageDataCheckbox.checked = false;
-                    }
-                    toggleFields();
-                } catch (e) {
-                    console.error("Error loading document:", e);
-                    showMessage('Failed to load configuration.');
-                }
-            }
-
-            saveConfigButton.addEventListener('click', saveConfiguration);
-            loadConfigButton.addEventListener('click', loadConfiguration);
-
-            // Initial setup on page load
-            toggleFields();
-            loadT24LogOFSContext();
-            addDataFieldRow();
-            addTransactionBlockRow();
-        });
-    </script>
+<div class="modal" id="parseModal">
+  <div class="modal-card">
+    <button class="btn close" id="closeModal">Close</button>
+    <h2>Parsed OFS Message</h2>
+    <div class="parse-summary" id="parseSummary"></div>
+    <div class="card" style="box-shadow:none;margin:0 0 10px"><h3>Raw Data</h3><textarea id="parsedRawData" rows="5" readonly></textarea></div>
+    <div class="card" style="box-shadow:none;margin:0"><h3>Parsed Fields</h3><div id="parsedFields"></div></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  var state={type:'Transaction',fields:[]};
+  var $=function(id){return document.getElementById(id);};
+  var esc=function(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');};
+
+  function setStatus(id,text,type){
+    var el=$(id); if(!el)return;
+    el.textContent=text||''; el.className='status '+(type||'');
+  }
+
+  function selectedValue(id){
+    var el=$(id); return el && el.value!=null ? el.value : '';
+  }
+
+  function optionValue(){
+    var version=selectedValue('version').trim();
+    var fn=selectedValue('function');
+    var process=selectedValue('processing');
+    var gts=selectedValue('gts').trim();
+    var auth=selectedValue('authCount').trim();
+    var parts=[version,fn,process,gts,auth];
+    while(parts.length && parts[parts.length-1]==='')parts.pop();
+    return parts.length?parts.join('/'):'';
+  }
+
+  function updateOptionPreview(){ $('optionsPreview').textContent=optionValue()||'(blank options segment)'; }
+
+  function newField(name,values){
+    return {name:name||'',values:(values&&values.length?values:[{mv:'',sv:'',value:''}])};
+  }
+
+  function addField(name,values){
+    state.fields.push(newField(name,values));
+    renderFields();
+  }
+
+  function removeField(index){state.fields.splice(index,1);renderFields();}
+
+  function addValue(index){
+    state.fields[index].values.push({mv:'',sv:'',value:''});
+    renderFields();
+  }
+
+  function removeValue(fi,vi){
+    state.fields[fi].values.splice(vi,1);
+    if(!state.fields[fi].values.length)state.fields[fi].values.push({mv:'',sv:'',value:''});
+    renderFields();
+  }
+
+  function syncFieldFromDom(fi){
+    var item=state.fields[fi];
+    var root=document.querySelector('[data-field-index="'+fi+'"]');
+    if(!root)return;
+    item.name=root.querySelector('.element-name').value;
+    item.values=[].slice.call(root.querySelectorAll('.value-row')).map(function(row){
+      return {
+        mv:row.querySelector('.mv').value.trim(),
+        sv:row.querySelector('.sv').value.trim(),
+        value:row.querySelector('.value').value
+      };
+    });
+  }
+
+  function syncAll(){
+    state.fields.forEach(function(_,i){syncFieldFromDom(i);});
+  }
+
+  function renderFields(){
+    var list=$('dataList'),empty=$('dataEmpty');
+    list.innerHTML='';
+    state.fields.forEach(function(item,fi){
+      var box=document.createElement('div');
+      box.className='data-item';box.dataset.fieldIndex=fi;
+      var values=item.values||[{mv:'',sv:'',value:''}];
+      box.innerHTML='<div class="data-item-head"><div><label>Field Name</label><input class="element-name" value="'+esc(item.name)+'" placeholder="e.g. M.PHONE.1"></div><button class="btn danger remove-field" type="button">Remove Element</button></div><div class="value-list">'+
+        values.map(function(v,vi){
+          return '<div class="value-row">'+
+            '<input class="mv" value="'+esc(v.mv)+'" placeholder="MV" title="Multi-value number">'+
+            '<input class="sv" value="'+esc(v.sv)+'" placeholder="SV" title="Sub-value number">'+
+            '<input class="value" value="'+esc(v.value)+'" placeholder="Value">'+
+            '<button class="remove" type="button" data-remove-value="'+vi+'">Remove</button>'+
+          '</div>';
+        }).join('')+
+        '</div><button class="add-value" type="button">＋ Add Value / MV / SV</button>'+
+        '<div class="data-chip">'+previewField(item)+'</div>';
+      list.appendChild(box);
+      box.querySelector('.remove-field').onclick=function(){syncFieldFromDom(fi);removeField(fi);};
+      box.querySelector('.add-value').onclick=function(){syncFieldFromDom(fi);addValue(fi);};
+      [].slice.call(box.querySelectorAll('[data-remove-value]')).forEach(function(btn){
+        btn.onclick=function(){syncFieldFromDom(fi);removeValue(fi,Number(btn.dataset.removeValue));};
+      });
+      [].slice.call(box.querySelectorAll('input')).forEach(function(inp){
+        inp.addEventListener('input',function(){syncFieldFromDom(fi);renderPreviewOnly();});
+      });
+    });
+    empty.style.display=state.fields.length?'none':'block';
+    updateOptionPreview();
+  }
+
+  function previewField(item){
+    var name=(item.name||'FIELD').trim();
+    return (item.values||[]).map(function(v){
+      var suffix=v.mv?':'+v.mv:''; if(v.sv)suffix+=':'+v.sv;
+      return name+suffix+'='+String(v.value||'').replace(/,/g,'?');
+    }).join(', ')||'No value';
+  }
+
+  function encodeValue(v){return String(v==null?'':v).replace(/,/g,'?');}
+
+  function decodeValue(v){return String(v==null?'':v).replace(/\?/g,',');}
+
+  function splitData(raw){
+    return String(raw||'').split(',').filter(function(x){return x.trim()!=='';});
+  }
+
+  function parseData(raw){
+    var result=[];
+    splitData(raw).forEach(function(token){
+      var eq=token.indexOf('=');
+      var left=eq>=0?token.slice(0,eq).trim():token.trim();
+      var value=eq>=0?decodeValue(token.slice(eq+1)):''; 
+      if(!left)return;
+      var m=left.match(/^(.*?)(?::(\d+))?(?::(\d+))?$/);
+      result.push({name:m?m[1]:left,mv:m&&m[2]||'',sv:m&&m[3]||'',value:value});
+    });
+    var grouped=[];
+    result.forEach(function(x){
+      var g=grouped.find(function(a){return a.name===x.name;});
+      if(!g){g=newField(x.name,[]);grouped.push(g);}
+      g.values.push({mv:x.mv,sv:x.sv,value:x.value});
+    });
+    return grouped;
+  }
+
+  function generateData(){
+    syncAll();
+    var out=[];
+    state.fields.forEach(function(item){
+      var name=(item.name||'').trim();
+      if(!name)return;
+      (item.values||[]).forEach(function(v){
+        if(v.value==='' && !v.mv && !v.sv)return;
+        var suffix=v.mv?':'+v.mv:''; if(v.sv)suffix+=':'+v.sv;
+        out.push(name+suffix+'='+encodeValue(v.value));
+      });
+    });
+    return out.join(',');
+  }
+
+  function parseRawDataIntoFields(){
+    var raw=$('rawData').value.trim();
+    if(!raw){setStatus('dataStatus','Paste Message Data first.','err');return;}
+    state.fields=parseData(raw);
+    renderFields();
+    setStatus('dataStatus','Parsed '+state.fields.reduce(function(n,x){return n+x.values.length;},0)+' data value(s).','ok');
+  }
+
+  function setType(type){
+    state.type=type;
+    [].slice.call(document.querySelectorAll('.request-tab')).forEach(function(b){b.classList.toggle('active',b.dataset.type===type);});
+    $('transactionCard').style.display=type==='Transaction'?'block':'none';
+    $('dataCard').style.display=type==='Transaction'?'block':'none';
+    renderGeneric(type);
+    updateOptionPreview();
+  }
+
+  function renderGeneric(type){
+    var card=$('genericCard');
+    if(type==='Transaction'){card.style.display='none';card.innerHTML='';return;}
+    card.style.display='block';
+    if(type==='Enquiry'){
+      card.innerHTML='<div class="section-title"><h2>Enquiry Request</h2><span class="small">ENQUIRY.SELECT uses enquiry-specific ID/data context.</span></div><div class="grid">'+
+        '<div class="field w6"><label>Enquiry Name</label><input id="enquiryName" placeholder="e.g. LIST.FUNDS.TRANSFER"></div>'+
+        '<div class="field w6"><label>ID / Selection Context</label><input id="genericId" placeholder="Optional"></div>'+
+        '<div class="field w12"><label>Message Data / Selection Criteria</label><textarea id="genericData" rows="4" placeholder="Selection criteria or enquiry data"></textarea></div></div>';
+    }else if(type==='XMLReport'){
+      card.innerHTML='<div class="section-title"><h2>XML Report Request</h2><span class="small">XML.REPORT options are normally ID or XML.</span></div><div class="grid">'+
+        '<div class="field"><label>Option</label><select id="xmlOption"><option>ID</option><option>XML</option></select></div>'+
+        '<div class="field w6"><label>Report ID / Name</label><input id="genericId" placeholder="Report key or report name"></div>'+
+        '<div class="field w12"><label>Data</label><textarea id="genericData" rows="3"></textarea></div></div>';
+    }else if(type==='Clearing'){
+      card.innerHTML='<div class="section-title"><h2>Clearing Request</h2><span class="small">Clearing data syntax is environment/configuration dependent.</span></div><div class="grid">'+
+        '<div class="field w6"><label>Clearing ID / Context</label><input id="genericId" placeholder="Optional"></div>'+
+        '<div class="field w12"><label>Raw Clearing Data</label><textarea id="genericData" rows="5" placeholder="Enter the clearing data exactly as required by your configuration"></textarea></div></div>';
+    }else{
+      card.innerHTML='<div class="section-title"><h2>TEC Request</h2><span class="small">Specialist TEC operation.</span></div><div class="grid">'+
+        '<div class="field w6"><label>Command</label><select id="tecCommand"><option>FLUSH</option><option>API.RESPONSE</option></select></div>'+
+        '<div class="field w6"><label>Data</label><input id="genericData" placeholder="TEC data"></div></div>';
+    }
+  }
+
+  function userSegment(){
+    var user=selectedValue('user').trim(),pass=selectedValue('password'),company=selectedValue('company').trim();
+    if(!user && !pass && !company)return '';
+    return user+'/'+pass+(company?'/'+company:'');
+  }
+
+  function generateTransaction(){
+    var operation=selectedValue('application').trim();
+    if(!operation)throw new Error('Application / Operation is required.');
+    var parts=[operation,optionValue(),userSegment(),selectedValue('transactionId').trim(),generateData()];
+    return parts.join(',');
+  }
+
+  function generateGeneric(){
+    var user=userSegment();
+    if(state.type==='Enquiry'){
+      var name=selectedValue('enquiryName').trim()||'ENQUIRY.SELECT';
+      return [name,'',user,selectedValue('genericId').trim(),selectedValue('genericData')].join(',');
+    }
+    if(state.type==='XMLReport'){
+      return ['XML.REPORT',selectedValue('xmlOption'),user,selectedValue('genericId').trim(),selectedValue('genericData')].join(',');
+    }
+    if(state.type==='Clearing'){
+      return ['CLEARING','',user,selectedValue('genericId').trim(),selectedValue('genericData')].join(',');
+    }
+    return ['TEC','',user,'',selectedValue('genericData')].join(',');
+  }
+
+  function generate(){
+    try{
+      var msg=state.type==='Transaction'?generateTransaction():generateGeneric();
+      $('generatedPreview').textContent=msg;
+      $('fullMessage').value=msg;
+      setStatus('parseStatus','Generated successfully.','ok');
+      return msg;
+    }catch(e){setStatus('parseStatus',e.message,'err');return '';}
+  }
+
+  function splitFull(raw){
+    var parts=[],start=0;
+    for(var i=0;i<raw.length && parts.length<4;i++){
+      if(raw[i]===','){parts.push(raw.slice(start,i));start=i+1;}
+    }
+    parts.push(raw.slice(start));
+    while(parts.length<5)parts.push('');
+    return parts;
+  }
+
+  function setInputValue(id,value){
+    var el=$(id);if(el)el.value=value==null?'':value;
+  }
+
+  function parseOptions(opt){
+    var p=String(opt||'').split('/');
+    return {version:p[0]||'',fn:p[1]||'',process:p[2]||'',gts:p[3]||'',auth:p[4]||''};
+  }
+
+  function parseFull(){
+    var raw=$('fullMessage').value.trim();
+    if(!raw){setStatus('parseStatus','Paste a complete OFS message first.','err');return;}
+    var p=splitFull(raw),operation=p[0].trim(),options=p[1],user=p[2],id=p[3],data=p[4];
+    var upper=operation.toUpperCase();
+    var type=upper==='ENQUIRY.SELECT'||upper.indexOf('ENQUIRY')>=0?'Enquiry':upper==='XML.REPORT'?'XMLReport':upper==='CLEARING'?'Clearing':upper==='TEC'?'TEC':'Transaction';
+    setType(type);
+    var up=user.split('/');
+    setInputValue('user',up[0]||'');setInputValue('password',up[1]||'');setInputValue('company',up[2]||'');
+    if(type==='Transaction'){
+      var o=parseOptions(options);
+      setInputValue('application',operation);setInputValue('version',o.version);setInputValue('function',o.fn);
+      setInputValue('processing',o.process);setInputValue('gts',o.gts);setInputValue('authCount',o.auth);setInputValue('transactionId',id);
+      state.fields=parseData(data);renderFields();$('rawData').value=data;updateOptionPreview();
+    }else if(type==='Enquiry'){
+      setInputValue('enquiryName',operation);setInputValue('genericId',id);setInputValue('genericData',data);
+    }else if(type==='XMLReport'){
+      setInputValue('xmlOption',options||'ID');setInputValue('genericId',id);setInputValue('genericData',data);
+    }else{
+      setInputValue('genericId',id);setInputValue('genericData',data);
+    }
+    $('generatedPreview').textContent=raw;
+    setStatus('parseStatus','Parsed '+type+' OFS message into the form.','ok');
+    showParsedModal(p,type);
+  }
+
+  function showParsedModal(parts,type){
+    $('parseSummary').innerHTML=[
+      ['Type',type],['Operation',parts[0]],['Options',parts[1]||'(blank)'],['User',parts[2]||'(blank)']
+    ].map(function(x){return '<div><b>'+esc(x[0])+'</b><span>'+esc(x[1])+'</span></div>';}).join('');
+    $('parsedRawData').value=parts[4]||'';
+    var fields=$('parsedFields');
+    if(type!=='Transaction'){fields.innerHTML='<div class="hint">This request type is represented by its operation-specific raw data in the main form.</div>'; $('parseModal').classList.add('open');return;}
+    var parsed=parseData(parts[4]||'');
+    fields.innerHTML=parsed.length?parsed.map(function(f){
+      return '<div class="data-item"><b>'+esc(f.name)+'</b>'+f.values.map(function(v){
+        return '<div class="small" style="margin-top:5px"><code>'+esc(v.mv||'-')+'</code> / <code>'+esc(v.sv||'-')+'</code> → '+esc(v.value)+'</div>';
+      }).join('')+'</div>';
+    }).join(''):'<div class="empty">No data elements found.</div>';
+    $('parseModal').classList.add('open');
+  }
+
+  function copyText(text){
+    if(navigator.clipboard&&navigator.clipboard.writeText)return navigator.clipboard.writeText(text);
+    var ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();return Promise.resolve();
+  }
+
+  function saveConfig(){
+    syncAll();
+    var config={type:state.type,fields:state.fields,application:selectedValue('application'),version:selectedValue('version'),fn:selectedValue('function'),processing:selectedValue('processing'),gts:selectedValue('gts'),auth:selectedValue('authCount'),user:selectedValue('user'),password:selectedValue('password'),company:selectedValue('company'),transactionId:selectedValue('transactionId')};
+    try{localStorage.setItem('repomind.ofs.config',JSON.stringify(config));setStatus('parseStatus','Configuration saved locally.','ok');}catch(e){setStatus('parseStatus','Could not save configuration.','err');}
+  }
+
+  function loadConfig(){
+    try{
+      var c=JSON.parse(localStorage.getItem('repomind.ofs.config')||'null');
+      if(!c){setStatus('parseStatus','No saved configuration found.','info');return;}
+      state.type=c.type||'Transaction';state.fields=c.fields||[];
+      setInputValue('application',c.application);setInputValue('version',c.version);setInputValue('function',c.fn||'I');setInputValue('processing',c.processing||'PROCESS');setInputValue('gts',c.gts);setInputValue('authCount',c.auth);setInputValue('user',c.user);setInputValue('password',c.password);setInputValue('company',c.company);setInputValue('transactionId',c.transactionId);
+      setType(state.type);renderFields();setStatus('parseStatus','Configuration loaded.','ok');generate();
+    }catch(e){setStatus('parseStatus','Saved configuration is invalid.','err');}
+  }
+
+  function clearAll(){
+    ['application','version','gts','authCount','user','password','company','transactionId','rawData','fullMessage'].forEach(function(id){if($(id))$(id).value='';});
+    setInputValue('function','I');setInputValue('processing','PROCESS');
+    state.fields=[];renderFields();$('generatedPreview').innerHTML='<span class="muted">Generate an OFS message.</span>';
+    setStatus('dataStatus','','');setStatus('parseStatus','','');
+    renderGeneric('Transaction');setType('Transaction');
+  }
+
+  function renderPreviewOnly(){
+    syncAll();var data=generateData();$('rawData').value=data;
+    state.fields.forEach(function(item,i){var root=document.querySelector('[data-field-index="'+i+'"]');if(root){var chip=root.querySelector('.data-chip');if(chip)chip.textContent=previewField(item);}});
+  }
+
+  function loadT24Context(){
+    try{
+      var raw=localStorage.getItem('repomind.t24.ofsContext');if(!raw)return;
+      var c=JSON.parse(raw);if(!c||!c.application)return;
+      setType('Transaction');
+      setInputValue('application',c.application);
+      setInputValue('version',c.version||'');
+      setInputValue('function',c.ofsFunction||'I');
+      setInputValue('transactionId',c.transactionId||'');
+      setInputValue('company',c.companyId||'');
+      setInputValue('gts',c.gtsControl||'');
+      setInputValue('authCount',c.authCount||'');
+      state.fields=(c.fields||[]).map(function(f){
+        return newField(f.fieldName||f.name||'', [{mv:f.multiValueNumber||f.mv||'',sv:f.subValueNumber||f.sv||'',value:f.value||''}]);
+      });
+      renderFields();
+      $('rawData').value=generateData();
+      setStatus('parseStatus','Loaded OFS context from T24 Log Analyzer. Authentication fields were left blank intentionally.','ok');
+      localStorage.removeItem('repomind.t24.ofsContext');
+      generate();
+    }catch(e){setStatus('parseStatus','T24 handoff data could not be loaded: '+e.message,'err');}
+  }
+
+  [].slice.call(document.querySelectorAll('.request-tab')).forEach(function(btn){btn.onclick=function(){setType(btn.dataset.type);};});
+  $('addFieldBtn').onclick=function(){syncAll();addField('');};
+  $('generateDataBtn').onclick=function(){var d=generateData();$('rawData').value=d;setStatus('dataStatus','Generated raw Message Data.','ok');};
+  $('parseDataBtn').onclick=parseRawDataIntoFields;
+  $('generateBtn').onclick=generate;
+  $('parseBtn').onclick=parseFull;
+  $('parseFullBtn').onclick=parseFull;
+  $('copyBtn').onclick=function(){var text=$('generatedPreview').textContent||generate();copyText(text).then(function(){setStatus('parseStatus','Generated OFS copied to clipboard.','ok');});};
+  $('copyPreviewBtn').onclick=$('copyBtn').onclick;
+  $('useGeneratedBtn').onclick=function(){$('fullMessage').value=$('generatedPreview').textContent||generate();};
+  $('saveBtn').onclick=saveConfig;$('loadBtn').onclick=loadConfig;$('clearBtn').onclick=clearAll;
+  $('closeModal').onclick=function(){$('parseModal').classList.remove('open');};
+  $('parseModal').onclick=function(e){if(e.target===$('parseModal'))$('parseModal').classList.remove('open');};
+  ['version','function','processing','gts','authCount'].forEach(function(id){$(id).addEventListener('input',updateOptionPreview);$(id).addEventListener('change',updateOptionPreview);});
+
+  renderGeneric('Transaction');
+  renderFields();
+  updateOptionPreview();
+  loadT24Context();
+})();
+</script>
 </body>
 </html>
