@@ -147,3 +147,22 @@ Planned for this milestone:
 - Dedicated Analyzer workspace and registry UI.
 - Preserved browser-local source processing and explicit analyzer execution.
 
+
+
+## Milestone 7 — Documentation + Reporting v1
+
+**Implementation branch:** `milestone/documentation-reports-v1`
+
+- Added local Markdown project reports generated from the indexed repository graph.
+- Added module reports covering language, size, symbols, imports, exports and resolved dependencies.
+- Added optional API discovery and security findings to project reports.
+- Added dependency hotspot and heuristic review-area summaries.
+- Added copy/download actions for generated reports.
+- Exposed the existing Architecture Health and Analyzer Registry workspaces directly in the Codebase tabs.
+- Bumped frontend version to 0.7.0.
+
+### Product direction after Milestone 7
+
+`Scan → Search → Inspect → Analyze → Transform → Document → Understand → Export`
+
+RepoMind now has a first-class **Document** stage that converts local codebase intelligence into reusable Markdown artifacts without uploading repository source.
