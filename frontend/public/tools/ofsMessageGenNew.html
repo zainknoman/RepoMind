@@ -31,7 +31,7 @@
         .bg-red-500{background:#b91c1c!important}
         .hover\\:bg-green-700:hover,.hover\\:bg-blue-600:hover,.hover\\:bg-purple-700:hover,.hover\\:bg-indigo-700:hover{filter:brightness(.92)}
         #ofsOutputModalBackdrop{background:rgba(15,23,42,.58)!important}
-        @media(max-width:900px){body{padding:10px!important}.container{padding:16px!important}.data-field-row{grid-template-columns:1fr 80px 80px 1fr auto!important}}
+        @media(max-width:900px){body{padding:10px!important}.container{padding:16px!important}.data-field-row{grid-template-columns:1fr 80px 80px 1fr auto!important}} #rawDataSyncInput,#rawDataSyncOutput{width:100%;border:1px solid #d5dce7;border-radius:7px;padding:10px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;background:#fff}
         .hidden-section{display:none}
         .is-open{display:block}
         .transaction-block-row{display:flex;gap:.5rem;align-items:center}
@@ -274,7 +274,23 @@
         </div>
     </div>
 
-    <!-- Firebase SDKs -->
+    <!-- Raw / Structured Data Synchronizer -->
+<div class="mt-6 section-card p-4">
+  <h2 class="text-lg font-semibold text-blue-800 mb-2">Raw Message Data ↔ Structured Fields</h2>
+  <p class="text-xs text-gray-500 mb-3">Paste only the transaction Message Data segment. Edit Field / MV / SV / Value and regenerate it.</p>
+  <textarea id="rawDataSyncInput" rows="3" placeholder="M.PHONE.1:1=03331231232,M.PHONE.1:2=02222322212,DESCRIPT:1:2=Industrie"></textarea>
+  <div class="flex flex-wrap gap-2 mt-3">
+    <button id="parseRawDataSync" type="button" class="px-4 py-2 bg-blue-500 text-white rounded-md">Parse to Fields</button>
+    <button id="generateRawDataSync" type="button" class="px-4 py-2 bg-gray-500 text-white rounded-md">Generate Raw Data</button>
+    <button id="copyRawDataSync" type="button" class="px-4 py-2 bg-indigo-600 text-white rounded-md">Copy Raw Data</button>
+    <button id="clearRawDataSync" type="button" class="px-4 py-2 bg-gray-500 text-white rounded-md">Clear</button>
+  </div>
+  <textarea id="rawDataSyncOutput" rows="3" class="mt-3" readonly placeholder="Generated raw message data appears here"></textarea>
+  <div id="rawDataSyncStatus" class="text-xs text-slate-500 mt-2"></div>
+  <div id="t24HandoffStatus" class="text-xs text-sky-700 mt-1"></div>
+</div>
+
+<!-- Firebase SDKs -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
@@ -523,7 +539,48 @@
                 return true;
             }
 
-            // --- OFS Message Generation Logic ---
+            // --- OFS Data Helpers / T24 Log Handoff ---
+function parseOFSDataFields(raw) {
+    return raw.split(',').filter(x => x !== '').map(field => {
+        const eqIndex = field.indexOf('=');
+        const namePart = eqIndex >= 0 ? field.slice(0, eqIndex) : field;
+        const value = eqIndex >= 0 ? field.slice(eqIndex + 1) : '';
+        const match = namePart.match(/^(.*?)(?::(\\d+))?(?::(\\d+))?$/);
+        return { fieldName: match ? match[1] : namePart, multiValue: match?.[2] || '', subValue: match?.[3] || '', fieldValue: value };
+    }).filter(x => x.fieldName);
+}
+function generateOFSDataFields() {
+    return Array.from(document.querySelectorAll('#dataFieldsContainer .data-field-row')).map(row => {
+        const fieldName = row.querySelector('.fieldName')?.value.trim() || '';
+        const multiValue = row.querySelector('.fieldMV')?.value.trim() || '';
+        const subValue = row.querySelector('.fieldSV')?.value.trim() || '';
+        const fieldValue = row.querySelector('.fieldValue')?.value.trim() || '';
+        if (!fieldName) return '';
+        return fieldName + (multiValue ? ':' + multiValue + (subValue ? ':' + subValue : '') : '') + '=' + fieldValue;
+    }).filter(Boolean).join(',');
+}
+function loadT24LogOFSContext() {
+    try {
+        const raw = localStorage.getItem('repomind.t24.ofsContext');
+        if (!raw) return;
+        const context = JSON.parse(raw);
+        if (!context || !context.application) return;
+        ofsMessageTypeSelector.value = 'Transaction';
+        toggleFields();
+        document.getElementById('appVersion').value = context.version ? context.application + ',' + context.version : context.application;
+        document.getElementById('function').value = context.ofsFunction || 'I';
+        document.getElementById('transactionId').value = context.transactionId || '';
+        companyInput.value = context.companyId || '';
+        dataFieldsContainer.innerHTML = '';
+        (context.fields || []).forEach(f => addDataFieldRow(f.fieldName, f.value, f.multiValueNumber || '', f.subValueNumber || ''));
+        toggleMessageDataCheckbox.checked = (context.fields || []).length > 0;
+        toggleFields();
+        document.getElementById('t24HandoffStatus').textContent = 'Loaded T24 log context. Authentication fields were left blank intentionally.';
+        localStorage.removeItem('repomind.t24.ofsContext');
+    } catch (e) { console.warn('Unable to load T24 OFS context:', e); }
+}
+
+// --- OFS Message Generation Logic ---
             generateOFSButton.addEventListener('click', () => {
                 const messageType = ofsMessageTypeSelector.value;
 
@@ -769,22 +826,12 @@
                         document.getElementById('transactionId').value = parts[3] || '';
 
                         // Parse Data Fields
-                        const dataFieldsStartIndex = 4;
-                        const dataFields = parts.slice(dataFieldsStartIndex);
-                        if (dataFields.length > 0) {
+                        const dataFields = parts.slice(dataFieldsStartIndex).join(',');
+                        if (dataFields) {
                             toggleMessageDataCheckbox.checked = true;
                             toggleFields();
                             dataFieldsContainer.innerHTML = '';
-                            dataFields.forEach(field => {
-                                const eqIndex = field.indexOf('=');
-                                const namePart = eqIndex >= 0 ? field.slice(0, eqIndex) : field;
-                                const value = eqIndex >= 0 ? field.slice(eqIndex + 1) : '';
-                                const match = namePart.match(/^(.*?)(?::(\d+))?(?::(\d+))?$/);
-                                const name = match ? match[1] : namePart;
-                                const multiValue = match?.[2] || '';
-                                const subValue = match?.[3] || '';
-                                if (name) addDataFieldRow(name, value, multiValue, subValue);
-                            });
+                            parseOFSDataFields(dataFields).forEach(field => addDataFieldRow(field.fieldName, field.fieldValue, field.multiValue, field.subValue));
                         }
                     }
                     
@@ -796,7 +843,32 @@
                 }
             });
 
-            // --- Popup Modal Logic ---
+            // --- Raw / Structured Data Synchronization ---
+document.getElementById('parseRawDataSync').addEventListener('click', () => {
+    const raw = document.getElementById('rawDataSyncInput').value.trim();
+    if (!raw) return;
+    dataFieldsContainer.innerHTML = '';
+    parseOFSDataFields(raw).forEach(field => addDataFieldRow(field.fieldName, field.fieldValue, field.multiValue, field.subValue));
+    toggleMessageDataCheckbox.checked = true;
+    toggleFields();
+    document.getElementById('rawDataSyncStatus').textContent = 'Parsed ' + document.querySelectorAll('#dataFieldsContainer .data-field-row').length + ' field entries.';
+});
+document.getElementById('generateRawDataSync').addEventListener('click', () => {
+    document.getElementById('rawDataSyncOutput').value = generateOFSDataFields();
+    document.getElementById('rawDataSyncStatus').textContent = 'Generated from structured fields.';
+});
+document.getElementById('copyRawDataSync').addEventListener('click', async () => {
+    const raw = generateOFSDataFields();
+    document.getElementById('rawDataSyncOutput').value = raw;
+    await navigator.clipboard?.writeText(raw);
+    document.getElementById('rawDataSyncStatus').textContent = 'Raw Message Data copied.';
+});
+document.getElementById('clearRawDataSync').addEventListener('click', () => {
+    document.getElementById('rawDataSyncInput').value = '';
+    document.getElementById('rawDataSyncOutput').value = '';
+    document.getElementById('rawDataSyncStatus').textContent = '';
+});
+// --- Popup Modal Logic ---
             function showModal() {
                 ofsOutputModalBackdrop.classList.remove('hidden');
                 setTimeout(() => {
@@ -968,6 +1040,7 @@
 
             // Initial setup on page load
             toggleFields();
+            loadT24LogOFSContext();
             addDataFieldRow();
             addTransactionBlockRow();
         });
