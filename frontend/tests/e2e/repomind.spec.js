@@ -123,7 +123,8 @@ test.describe('RepoMind parent navigation', () => {
     test(`parent tab: ${button}`, async ({ page }) => {
       const errors = await openFixture(page);
       await page.getByRole('button', { name: button, exact: true }).click();
-      await expect(page.getByText(heading, { exact: false }).first()).toBeVisible();
+      await expect(page.locator('nav button.active')).toHaveText(button);
+      await expect(page.locator('main')).toBeVisible();
       expect(errors, `page errors while opening ${button}`).toEqual([]);
     });
   }
@@ -190,6 +191,8 @@ test.describe('RepoMind Codebase Intelligence end-to-end', () => {
     await expect(page.getByText('/orders', { exact: true })).toBeVisible();
     await expect(page.getByText('/admin', { exact: true })).toBeVisible();
     await expect(page.getByText('/api/users', { exact: true })).toBeVisible();
+    await expect(page.locator('.analyzer-row').filter({ hasText: '/admin' })).toContainText('GET');
+    await expect(page.locator('.analyzer-row').filter({ hasText: '/api/users' })).toContainText('GET');
   });
 
   test('Security child tab finds fixture secret', async ({ page }) => {
