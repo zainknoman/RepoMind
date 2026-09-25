@@ -164,7 +164,7 @@ test.describe('RepoMind Codebase Intelligence end-to-end', () => {
   test('Health child tab renders health signals', async ({ page }) => {
     await page.getByRole('button', { name: 'Health', exact: true }).click();
     await expect(page.getByText('Architecture Risk Signals')).toBeVisible();
-    await expect(page.getByText('Unresolved relative imports')).toBeVisible();
+    await expect(page.locator('.index-row').filter({ hasText: 'Unresolved relative imports' }).first()).toBeVisible();
   });
 
   test('Analyzers child tab runs every registered analyzer', async ({ page }) => {
@@ -209,7 +209,8 @@ test.describe('RepoMind Codebase Intelligence end-to-end', () => {
 
   test('Git child tab reads local Git metadata', async ({ page }) => {
     await page.getByRole('button', { name: 'Git', exact: true }).click();
-    await expect(page.getByText('Git Intelligence')).toBeVisible();
+    await expect(page.locator('.tabs button.active')).toHaveText('Git');
+    await expect(page.locator('.git-workspace, .analytics-panel').filter({ hasText: 'Git Intelligence' }).first()).toBeVisible();
     await expect(page.getByText('main')).toBeVisible();
   });
 
