@@ -329,6 +329,61 @@ frontend/src/
 └── styles.css
 ```
 
+
+## End-to-end testing
+
+RepoMind includes Playwright end-to-end coverage for the main workspace navigation and Codebase intelligence features.
+
+### Run E2E tests locally
+
+From the repository root:
+
+```powershell
+cd frontend
+npm install
+npx playwright install chromium
+npm run test:e2e
+```
+
+The E2E suite starts the Vite development server automatically at `http://127.0.0.1:4173`.
+
+The tests use an in-browser File System Access API fixture, so they can exercise repository indexing and Codebase features without requiring a real folder-selection dialog.
+
+### E2E coverage
+
+The suite covers:
+
+- All top-level workspace tabs
+- Codebase overview
+- Codebase search
+- Symbols
+- Architecture
+- Health
+- Framework analyzers
+- Impact analysis
+- API discovery
+- Security scanning
+- Architecture diagrams
+- Git intelligence
+- Reports
+- Context Builder
+- AI Workspace
+
+The fixture includes JavaScript/Express, FastAPI, Spring, ASP.NET, imports/references, Git metadata and security-pattern examples so the intelligence features are exercised against representative source.
+
+### CI
+
+GitHub Actions runs the Playwright suite and uploads the HTML report as a workflow artifact.
+
+For failures, Playwright retains screenshots, videos and traces where available. The HTML report can be downloaded from the workflow's **Artifacts** section.
+
+### E2E development notes
+
+- Tests are intentionally run serially to keep the browser/indexing workflow deterministic.
+- The suite validates feature behavior rather than only checking that navigation buttons render.
+- Framework/API discovery assertions cover route paths and HTTP methods across multiple supported frameworks.
+- Browser-side AI calls are not made during E2E runs; the AI Workspace test validates the local workspace UI.
+
 ## Local development
 
 ```powershell

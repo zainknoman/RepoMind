@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build --base=/RepoMind/",
     "preview": "vite preview",
-    "check": "vite build --base=/RepoMind/"
+    "check": "vite build --base=/RepoMind/",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",
@@ -18,5 +19,7 @@
     "react-dom": "latest",
     "@babel/parser": "latest"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "@playwright/test": "latest"
+  }
 }

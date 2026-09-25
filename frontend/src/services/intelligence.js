@@ -57,6 +57,18 @@ export function searchIndex(index, query) {
   ];
 }
 
+function apiMethod(rule, match) {
+  if (rule.framework === 'Flask') return 'ROUTE';
+  if (rule.framework === 'Spring') return (match[1] || 'REQUEST').replace('Mapping', '').toUpperCase();
+  if (rule.framework === 'ASP.NET') return (match[1] || 'ROUTE').replace(/^Http/i, '').toUpperCase();
+  return (match[1] || 'GET').toUpperCase();
+}
+
+function apiPath(rule, match) {
+  if (rule.framework === 'Flask') return match[1] || '/';
+  return match[2] || '/';
+}
+
 export async function discoverApis(index) {
   const results=[];
   for(const file of index?.files||[]){
@@ -65,8 +77,13 @@ export async function discoverApis(index) {
     for(const rule of API_PATTERNS){
       rule.pattern.lastIndex=0; let m;
       while((m=rule.pattern.exec(content))){
-        const path=m[2]||m[1]||'/';
-        results.push({framework:rule.framework,method:rule.framework==='NestJS'?'GET':(m[1]||'GET').toUpperCase(),path:path||'/',file:file.path,line:content.slice(0,m.index).split(/\r?\n/).length});
+        results.push({
+          framework:rule.framework,
+          method:apiMethod(rule,m),
+          path:apiPath(rule,m),
+          file:file.path,
+          line:content.slice(0,m.index).split(/\r?\n/).length
+        });
       }
     }
   }
