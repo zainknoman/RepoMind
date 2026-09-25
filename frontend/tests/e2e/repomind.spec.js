@@ -211,10 +211,10 @@ test.describe('RepoMind Codebase Intelligence end-to-end', () => {
     await page.getByRole('button', { name: 'Git', exact: true }).click();
     await expect(page.locator('.tabs button.active')).toHaveText('Git');
     await expect(page.locator('.git-workspace')).toBeVisible();
-    await expect(page.getByText('Repository', { exact: true })).toBeVisible();
-    await expect(page.getByText('Branch', { exact: true })).toBeVisible();
-    await expect(page.getByText('main', { exact: true })).toBeVisible();
-    await expect(page.getByText('https://example.invalid/repomind-e2e.git', { exact: true })).toBeVisible();
+    await expect(page.locator('.git-workspace .transform-toolbar b').filter({ hasText: 'Repository' })).toBeVisible();
+    await expect(page.locator('.git-workspace .index-row').filter({ hasText: 'Branch' })).toBeVisible();
+    await expect(page.locator('.git-workspace .index-row').filter({ hasText: 'Branch' })).toContainText('main');
+    await expect(page.locator('.git-workspace .index-row').filter({ hasText: 'Remote' })).toContainText('https://example.invalid/repomind-e2e.git');
   });
 
   test('Reports child tab generates project report', async ({ page }) => {
