@@ -40,53 +40,53 @@ module.exports = config;
 `
 };
 
-function makeFile(name, content) {
-  return {
-    kind: 'file',
-    name,
-    async getFile() {
-      return new File([content], name, { type: 'text/plain', lastModified: Date.now() });
-    }
-  };
-}
-
-function makeDir(name, entries = {}) {
-  return {
-    kind: 'directory',
-    name,
-    async *entries() {
-      for (const [entryName, entry] of Object.entries(entries)) yield [entryName, entry];
-    },
-    async getDirectoryHandle(path) {
-      const entry = entries[path];
-      if (!entry || entry.kind !== 'directory') throw new DOMException('Not found', 'NotFoundError');
-      return entry;
-    },
-    async getFileHandle(path) {
-      const entry = entries[path];
-      if (!entry || entry.kind !== 'file') throw new DOMException('Not found', 'NotFoundError');
-      return entry;
-    }
-  };
-}
-
-const fixtureRoot = makeDir('RepoMind E2E Fixture', {
-  'package.json': makeFile('package.json', files['package.json']),
-  src: makeDir('src', Object.fromEntries(
-    Object.entries(files)
-      .filter(([path]) => path.startsWith('src/'))
-      .map(([path, content]) => [path.slice(4), makeFile(path.slice(4), content)])
-  )),
-  '.git': makeDir('.git', {
-    HEAD: makeFile('HEAD', 'ref: refs/heads/main\n'),
-    config: makeFile('config', '[remote "origin"]\n\turl = https://example.invalid/repomind-e2e.git\n')
-  })
-});
-
 async function openFixture(page) {
-  await page.addInitScript(root => {
+  await page.addInitScript(sourceFiles => {
+    function makeFile(name, content) {
+      return {
+        kind: 'file',
+        name,
+        async getFile() {
+          return new File([content], name, { type: 'text/plain', lastModified: Date.now() });
+        }
+      };
+    }
+
+    function makeDir(name, entries = {}) {
+      return {
+        kind: 'directory',
+        name,
+        async *entries() {
+          for (const [entryName, entry] of Object.entries(entries)) yield [entryName, entry];
+        },
+        async getDirectoryHandle(path) {
+          const entry = entries[path];
+          if (!entry || entry.kind !== 'directory') throw new DOMException('Not found', 'NotFoundError');
+          return entry;
+        },
+        async getFileHandle(path) {
+          const entry = entries[path];
+          if (!entry || entry.kind !== 'file') throw new DOMException('Not found', 'NotFoundError');
+          return entry;
+        }
+      };
+    }
+
+    const root = makeDir('RepoMind E2E Fixture', {
+      'package.json': makeFile('package.json', sourceFiles['package.json']),
+      src: makeDir('src', Object.fromEntries(
+        Object.entries(sourceFiles)
+          .filter(([path]) => path.startsWith('src/'))
+          .map(([path, content]) => [path.slice(4), makeFile(path.slice(4), content)])
+      )),
+      '.git': makeDir('.git', {
+        HEAD: makeFile('HEAD', 'ref: refs/heads/main\\n'),
+        config: makeFile('config', '[remote "origin"]\\n\\turl = https://example.invalid/repomind-e2e.git\\n')
+      })
+    });
+
     window.showDirectoryPicker = async () => root;
-  }, fixtureRoot);
+  }, files);
 
   await page.goto('/');
   const pageErrors = [];
