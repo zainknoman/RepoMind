@@ -236,3 +236,22 @@ test.describe('RepoMind Codebase Intelligence end-to-end', () => {
     await expect(page.locator('textarea.ai-output')).toContainText('RepoMind Task');
   });
 });
+
+
+test.describe('RepoMind Help', () => {
+  test('Help opens the help workspace and switches topics', async ({ page }) => {
+    const errors = await openFixture(page);
+    await page.getByRole('button', { name: /Help/ }).click();
+
+    await expect(page.locator('.help-page')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Learn RepoMind' })).toBeVisible();
+    await expect(page.getByText('Every workspace is explained')).toBeVisible();
+    await expect(page.locator('.help-detail')).toContainText('Overview');
+
+    await page.locator('.help-list button').filter({ hasText: 'Codebase Intelligence' }).click();
+    await expect(page.locator('.help-detail')).toContainText('The central intelligence workspace');
+    await expect(page.locator('.help-list button.active')).toContainText('Codebase Intelligence');
+
+    expect(errors, 'page errors while opening Help').toEqual([]);
+  });
+});
