@@ -11,10 +11,12 @@ function openDb(){
     req.onerror=()=>reject(req.error);
   });
 }
-function projectKey(project){
-  const paths=(project?.files||[]).filter(f=>f.text).map(f=>f.path).sort();
+async function projectKey(project){
+  const files=(project?.files||[]).filter(f=>f.text).map(f=>f.path).sort();
+  const metadata=[];
+  for(const path of files){const file=project.files.find(f=>f.path===path);try{const raw=await file.handle.getFile();metadata.push(`${path}|${raw.size}|${raw.lastModified}`)}catch{metadata.push(`${path}|unreadable`)}}
   let hash=2166136261;
-  for(const value of [project?.name||'',...paths])for(let i=0;i<value.length;i++){hash^=value.charCodeAt(i);hash=Math.imul(hash,16777619)}
+  for(const value of [project?.name||'',...metadata])for(let i=0;i<value.length;i++){hash^=value.charCodeAt(i);hash=Math.imul(hash,16777619)}
   return (hash>>>0).toString(16);
 }
 
@@ -34,7 +36,7 @@ function serializeIndex(index){
 export async function loadCachedIndex(project){
   const db=await openDb();if(!db)return null;
   return new Promise(resolve=>{
-    const req=db.transaction(STORE,'readonly').objectStore(STORE).get(projectKey(project));
+    const req=db.transaction(STORE,'readonly').objectStore(STORE).get(await projectKey(project));
     req.onsuccess=()=>resolve(req.result?.index||null);
     req.onerror=()=>resolve(null);
   });
@@ -46,7 +48,7 @@ export async function saveCachedIndex(project,index){
     const snapshot=serializeIndex(index);
     snapshot.cacheVersion=2;snapshot.cachedAt=new Date().toISOString();
     return await new Promise(resolve=>{
-      const req=db.transaction(STORE,'readwrite').objectStore(STORE).put({index:snapshot},projectKey(project));
+      const req=db.transaction(STORE,'readwrite').objectStore(STORE).put({index:snapshot},await projectKey(project));
       req.onsuccess=()=>resolve(true);req.onerror=()=>resolve(false);
     });
   }catch{return false}
@@ -54,5 +56,5 @@ export async function saveCachedIndex(project,index){
 
 export async function clearCachedIndex(project){
   const db=await openDb();if(!db)return;
-  db.transaction(STORE,'readwrite').objectStore(STORE).delete(projectKey(project));
+  projectKey(project).then(key=>db.transaction(STORE,'readwrite').objectStore(STORE).delete(key));
 }
