@@ -104,7 +104,7 @@ async function buildIndex(page) {
 
 test.describe('RepoMind parent navigation', () => {
   const tabs = [
-    ['Overview', 'Overview'],
+    ['Dashboard', 'Repository Dashboard'],
     ['Codebase', 'Codebase Intelligence'],
     ['Explorer', 'Project Explorer'],
     ['Search', 'Search'],
@@ -113,10 +113,7 @@ test.describe('RepoMind parent navigation', () => {
     ['Project Analysis', 'Project Analysis'],
     ['Transform', 'Transform'],
     ['Compare', 'Diff / Compare'],
-    ['Developer Tools', 'Developer Tools'],
-    ['Temenos', 'Temenos'],
-    ['Markdown', 'Markdown'],
-    ['Engineering', 'Engineering']
+    ['Markdown', 'Markdown']
   ];
 
   for (const [button, heading] of tabs) {
@@ -136,10 +133,12 @@ test.describe('RepoMind Codebase Intelligence end-to-end', () => {
     await buildIndex(page);
   });
 
-  test('Overview child tab works', async ({ page }) => {
-    await page.getByRole('button', { name: 'Overview', exact: true }).last().click();
-    await expect(page.getByText('Project Profile')).toBeVisible();
-    await expect(page.getByText('Health Signals')).toBeVisible();
+  test('Dashboard loads repository analytics', async ({ page }) => {
+    await page.getByRole('button', { name: 'Dashboard', exact: true }).click();
+    await expect(page.getByText('Repository Dashboard')).toBeVisible();
+    await expect(page.getByText('Project Overview')).toBeVisible();
+    await expect(page.getByText('Key Insights')).toBeVisible();
+    await expect(page.getByText('Repository Files')).toBeVisible();
   });
 
   test('Search child tab finds source and indexed symbols', async ({ page }) => {
@@ -246,8 +245,6 @@ test.describe('RepoMind Help', () => {
     await expect(page.locator('.help-page')).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Learn RepoMind' })).toBeVisible();
     await expect(page.getByText('Every workspace is explained')).toBeVisible();
-    await expect(page.locator('.help-detail')).toContainText('Overview');
-
     await page.locator('.help-list button').filter({ hasText: 'Codebase Intelligence' }).click();
     await expect(page.locator('.help-detail')).toContainText('The central intelligence workspace');
     await expect(page.locator('.help-list button.active')).toContainText('Codebase Intelligence');
