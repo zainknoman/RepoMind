@@ -133,12 +133,20 @@ test.describe('RepoMind Codebase Intelligence end-to-end', () => {
     await buildIndex(page);
   });
 
-  test('Dashboard loads repository analytics', async ({ page }) => {
+  test('Dashboard loads interactive repository analytics', async ({ page }) => {
     await page.getByRole('button', { name: 'Dashboard', exact: true }).click();
     await expect(page.getByText('Repository Dashboard')).toBeVisible();
-    await expect(page.getByText('Project Overview')).toBeVisible();
+    await expect(page.getByText('Repository Composition')).toBeVisible();
+    await expect(page.getByText('Project Composition')).toBeVisible();
     await expect(page.getByText('Key Insights')).toBeVisible();
+    await page.getByRole('button', { name: 'Structure', exact: true }).click();
+    await expect(page.getByText('Top-level folders')).toBeVisible();
+    await page.getByRole('button', { name: 'Quality', exact: true }).click();
+    await expect(page.getByText('Quality Signals')).toBeVisible();
+    await page.getByRole('button', { name: 'Files', exact: true }).click();
     await expect(page.getByText('Repository Files')).toBeVisible();
+    await page.getByPlaceholder('Filter files').fill('src/');
+    await expect(page.getByText(/matching files/)).toBeVisible();
   });
 
   test('Search child tab finds source and indexed symbols', async ({ page }) => {
