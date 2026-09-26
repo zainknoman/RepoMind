@@ -3,7 +3,7 @@ name: Deploy RepoMind to GitHub Pages
 on:
   push:
     branches:
-      - main
+      - feature/workspace-analyze-navigation
   workflow_dispatch:
 
 permissions:
