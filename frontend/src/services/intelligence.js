@@ -31,7 +31,7 @@ async function readFile(file) { return (await file.handle.getFile()).text(); }
 export async function searchCode(index, query, options = {}) {
   if (!index || !query?.trim()) return [];
   const needle = query.trim();
-  const regex = options.regex ? new RegExp(needle, options.caseSensitive ? 'g' : 'gi') : null;
+  let regex=null;if(options.regex){try{regex=new RegExp(needle, options.caseSensitive ? '' : 'i')}catch(error){return [{type:'error',message:`Invalid regular expression: ${error.message}`}]} }
   const results = [];
   for (const file of index.files) {
     const source = index._fileHandles?.get(file.path);
