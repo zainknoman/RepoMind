@@ -1,18 +1,20 @@
 const STORAGE_KEY='repomind.ai.settings';
 
 export const AI_PROVIDERS={
-  openai:{label:'OpenAI',kind:'openai',endpoint:'https://api.openai.com/v1/chat/completions',models:['gpt-4o-mini','gpt-4.1-mini']},
+  openai:{label:'OpenAI',kind:'openai',endpoint:'https://api.openai.com/v1/chat/completions',models:[]},
   openaiCompatible:{label:'OpenAI-compatible',kind:'openai',endpoint:'',models:[]},
-  anthropic:{label:'Anthropic',kind:'anthropic',endpoint:'https://api.anthropic.com/v1/messages',models:['claude-3-5-haiku-latest','claude-3-5-sonnet-latest']},
-  gemini:{label:'Google Gemini',kind:'gemini',endpoint:'https://generativelanguage.googleapis.com/v1beta/models',models:['gemini-2.0-flash']}
+  anthropic:{label:'Anthropic',kind:'anthropic',endpoint:'https://api.anthropic.com/v1/messages',models:[]},
+  gemini:{label:'Google Gemini',kind:'gemini',endpoint:'https://generativelanguage.googleapis.com/v1beta/models',models:[]}
 };
 
 export function loadAISettings(){
-  try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}')}catch{return{}}
+  try{const saved=JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}');const apiKey=sessionStorage.getItem(STORAGE_KEY+'.apiKey')||'';return {...saved,apiKey}}catch{return{}}
 }
 export function saveAISettings(settings){
-  const safe={provider:settings.provider||'openai',model:settings.model||'',endpoint:settings.endpoint||'',apiKey:settings.apiKey||''};
-  localStorage.setItem(STORAGE_KEY,JSON.stringify(safe)); return safe;
+  const safe={provider:settings.provider||'openai',model:settings.model||'',endpoint:settings.endpoint||''};
+  localStorage.setItem(STORAGE_KEY,JSON.stringify(safe));
+  if(settings.apiKey)sessionStorage.setItem(STORAGE_KEY+'.apiKey',settings.apiKey);else sessionStorage.removeItem(STORAGE_KEY+'.apiKey');
+  return {...safe,apiKey:settings.apiKey||''};
 }
 function requireSettings(settings){
   if(!settings?.apiKey) throw new Error('Add an API key in AI Workspace settings.');
@@ -38,9 +40,9 @@ async function callAnthropic(settings,provider,messages){
 }
 async function callGemini(settings,provider,messages){
   const model=settings.model||provider.models[0];
-  const url=(settings.endpoint||provider.endpoint).replace(/\/$/,'')+'/'+model+':generateContent?key='+encodeURIComponent(settings.apiKey);
+  const url=(settings.endpoint||provider.endpoint).replace(/\/$/,'')+'/'+model+':generateContent';
   const prompt=messages.map(x=>x.role.toUpperCase()+':\n'+x.content).join('\n\n');
-  const body=await jsonFetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{role:'user',parts:[{text:prompt}]}],generationConfig:{temperature:0.2}})});
+  const body=await jsonFetch(url,{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':settings.apiKey},body:JSON.stringify({contents:[{role:'user',parts:[{text:prompt}]}],generationConfig:{temperature:0.2}})});
   return body?.candidates?.[0]?.content?.parts?.map(x=>x.text||'').join('')||'';
 }
 export async function askAI(settings,messages){
