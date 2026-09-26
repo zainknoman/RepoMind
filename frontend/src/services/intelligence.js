@@ -12,6 +12,10 @@ const API_PATTERNS = [
 const SECRET_PATTERNS = [
   { id:'private-key', severity:'high', pattern:/-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/i },
   { id:'api-key', severity:'high', pattern:/\b(?:api[_-]?key|access[_-]?key)\s*[:=]\s*['"][A-Za-z0-9_\-]{12,}['"]/i },
+  { id:'aws-access-key', severity:'high', pattern:/\bAKIA[0-9A-Z]{16}\b/ },
+  { id:'github-token', severity:'high', pattern:/\b(?:ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{20,})\b/ },
+  { id:'slack-token', severity:'high', pattern:/\bxox[baprs]-[A-Za-z0-9-]{20,}\b/ },
+  { id:'stripe-secret', severity:'high', pattern:/\bsk_live_[A-Za-z0-9]{16,}\b/ },
   { id:'password', severity:'high', pattern:/\b(?:password|passwd|pwd)\s*[:=]\s*['"][^'"]{4,}['"]/i },
   { id:'secret', severity:'high', pattern:/\b(?:secret|client_secret)\s*[:=]\s*['"][^'"]{6,}['"]/i },
   { id:'token', severity:'medium', pattern:/\b(?:access_token|auth_token|bearer_token)\s*[:=]\s*['"][^'"]{10,}['"]/i },
@@ -31,7 +35,7 @@ async function readFile(file) { return (await file.handle.getFile()).text(); }
 export async function searchCode(index, query, options = {}) {
   if (!index || !query?.trim()) return [];
   const needle = query.trim();
-  const regex = options.regex ? new RegExp(needle, options.caseSensitive ? 'g' : 'gi') : null;
+  let regex=null;if(options.regex){try{regex=new RegExp(needle, options.caseSensitive ? '' : 'i')}catch(error){return [{type:'error',message:`Invalid regular expression: ${error.message}`}]} }
   const results = [];
   for (const file of index.files) {
     const source = index._fileHandles?.get(file.path);
