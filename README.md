@@ -8,6 +8,8 @@ It turns a selected local repository into a browser-based workspace for:
 
 RepoMind is designed to help developers understand an unfamiliar codebase, trace dependencies, inspect symbols, review changes, generate context and documentation, and work with common developer utilities without uploading the repository.
 
+**Current version:** 0.9.0 (see [CHANGELOG.md](CHANGELOG.md)) · **Live:** https://zainknoman.github.io/RepoMind/
+
 ## Core principles
 
 - **Local-first:** repository files are processed in the browser.
@@ -31,7 +33,7 @@ RepoMind is published at **https://zainknoman.github.io/RepoMind/**.
 | Browser | Status |
 |---|---|
 | Chrome, Edge, other Chromium browsers (desktop) | Fully supported |
-| Firefox, Safari, mobile browsers | Folder access unavailable (no File System Access API). RepoMind shows a notice; the Markdown viewer and Developer Tools still work. |
+| Firefox, Safari, mobile browsers | Folder access unavailable (no File System Access API). RepoMind shows a notice; the Markdown viewer and the Developer Tools (opened with a `?tool=` link) still work. |
 
 Folders with more than 50,000 files are truncated with a warning; open a subfolder for complete results. Files larger than 2 MB, and sensitive-looking files (`.env`, keys, credentials) unless **Include sensitive files** is ticked, are listed but not read.
 
@@ -59,13 +61,13 @@ Folders with more than 50,000 files are truncated with a warning; open a subfold
 
 ### Tools
 
-The Tools workspaces are not shown in the header navigation. Open them with a deep link.
+The Tools workspaces are hidden from the header navigation. Open them by adding a `?tool=` parameter to the RepoMind URL, for example `https://zainknoman.github.io/RepoMind/?tool=json`.
 
-| Workspace | Purpose |
-|---|---|
-| **Developer Tools** | JSON Formatter, Text Cleanup, Base64, Regex, JWT Decoder (decode only), UUID and Timestamp utilities. Deep link: `?tool=json`, `?tool=regex`, … |
-| **Temenos / OFS** | OFS Generator and T24 Log Analyzer (sandboxed). Deep link: `?tool=ofs`. |
-| **Engineering** | Engineering-oriented calculations and conversion utilities (sandboxed). Deep link: `?tool=eng`. |
+| Workspace | Purpose | Deep link |
+|---|---|---|
+| **Developer Tools** | JSON Formatter, Text Cleanup, Base64, Regex, JWT Decoder (decode only), UUID and Timestamp utilities. | `?tool=json`, `text`, `base64`, `regex`, `jwt`, `uuid`, `timestamp` |
+| **Temenos / OFS** | OFS Generator and T24 Log Analyzer (sandboxed). | `?tool=ofs` |
+| **Engineering** | Engineering-oriented calculations and conversion utilities (sandboxed). | `?tool=eng` |
 
 ## Codebase Intelligence
 
@@ -392,7 +394,7 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-The E2E suite covers every top-level workspace (with heading assertions), each Codebase sub-tab, Compare, Project Analysis, Explorer, Search, Editor find/replace and the unsaved-changes guard, Ingest, Transform, Markdown + Mermaid rendering and sanitisation, Developer Tools and deep links, the sandboxed tools and their bridge, index caching, dark mode, AI settings validation and the unsupported-browser notice. Browser-side AI calls are never made during tests.
+The E2E suite (46 tests) covers every workspace in the header (with heading assertions), the hidden Tools menu, each Codebase sub-tab, Compare, Project Analysis, Explorer, Search, Editor find/replace and the unsaved-changes guard, Ingest, Transform, Markdown + Mermaid rendering and sanitisation, Developer Tools opened by deep link, the sandboxed tools and their bridge, index caching, dark mode, AI settings validation and the unsupported-browser notice. Browser-side AI calls are never made during tests.
 
 ## CI and deployment
 
@@ -410,11 +412,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). Release notes are in [CHANGELOG.md](CHAN
 
 ## Upgrade journey
 
-See **[docs/UPGRADE_JOURNEY.md](docs/UPGRADE_JOURNEY.md)** for the milestone history and architectural evolution.
-
-Current product direction:
-
-`Scan → Search → Inspect → Analyze → Visualize → Transform → Document → Understand → Export`
+See **[docs/UPGRADE_JOURNEY.md](docs/UPGRADE_JOURNEY.md)** for the milestone history and architectural evolution, and **[docs/PROJECT_AUDIT.md](docs/PROJECT_AUDIT.md)** for the production-readiness audit and its resolution status.
 
 ## Milestones
 
@@ -489,6 +487,8 @@ Current product direction:
 - [x] Sandboxed embedded tools, bundled dependencies, production CSP
 - [x] Dark mode, accessibility and error boundaries
 - [x] E2E against the production build
+- [x] Tools menu hidden from the header (opened by `?tool=` deep links)
+- [x] Proprietary LICENSE, SECURITY.md, CONTRIBUTING.md and CHANGELOG.md
 
 ### Help Workspace
 - [x] Top-right Help entry
