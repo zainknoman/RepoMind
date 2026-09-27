@@ -132,20 +132,30 @@ test.describe('RepoMind parent navigation', () => {
     ['Explorer', 'Explorer'],
     ['Search', 'Search'],
     ['Editor', 'Editor'],
-    ['Ingest', /Code Ingest/],
-    ['Project Analysis', /Analyze/],
+    ['Ingest', /Ingest/],
+    ['Quick Analysis', /Quick Analysis/],
     ['Transform', /Transform/],
-    ['Compare', /Intelligent Diff/],
-    ['Markdown', /Markdown Viewer/],
+    ['Compare', /Compare/],
+    ['Developer Tools', 'Developer Tools'],
+    ['Temenos / OFS', 'Temenos / OFS'],
+    ['Markdown', /Markdown/],
   ];
 
-  test('Tools group is hidden from the header', async ({ page }) => {
+  test('Header groups follow the product hierarchy', async ({ page }) => {
     await openFixture(page);
     const nav = page.getByRole('navigation');
-    await expect(nav.getByText('Tools', { exact: true })).toHaveCount(0);
-    for (const label of ['Developer Tools', 'Temenos / OFS', 'Engineering']) {
-      await expect(nav.getByRole('button', { name: label, exact: true })).toHaveCount(0);
-    }
+    for (const group of ['Understand', 'Explore', 'Analyze', 'Tools'])
+      await expect(nav.getByText(group, { exact: true })).toBeVisible();
+    await expect(nav.locator('button.nav-primary')).toHaveText('Codebase');
+    const tools = nav.locator('.nav-group.secondary');
+    await expect(tools.getByRole('button')).toHaveText([
+      'Developer Tools',
+      'Temenos / OFS',
+      'Markdown',
+    ]);
+    // Engineering is deliberately kept out of the header (it opens from ?tool=eng).
+    await expect(nav.getByRole('button', { name: 'Engineering', exact: true })).toHaveCount(0);
+    await expect(nav.getByRole('button', { name: 'Project Analysis', exact: true })).toHaveCount(0);
   });
 
   for (const [button, heading] of tabs) {
@@ -221,7 +231,7 @@ test.describe('RepoMind Codebase Intelligence end-to-end', () => {
     await expect(page.getByText('✓ Fresh index')).toBeVisible();
   });
 
-  test('AI Workspace refuses to call a provider without a model', async ({ page }) => {
+  test('AI refuses to call a provider without a model', async ({ page }) => {
     const providerCalls = [];
     await page.route(
       /api\.openai\.com|api\.anthropic\.com|generativelanguage\.googleapis\.com/,
@@ -230,7 +240,7 @@ test.describe('RepoMind Codebase Intelligence end-to-end', () => {
         return route.abort();
       },
     );
-    await page.getByRole('button', { name: 'AI Workspace', exact: true }).click();
+    await page.getByRole('button', { name: 'AI', exact: true }).click();
     await page.getByRole('button', { name: '▶ Build Prompt' }).click();
     await page.getByRole('button', { name: '⚙ AI Settings' }).click();
     await page.getByPlaceholder('Stored only in this browser').fill('test-key');
@@ -246,9 +256,10 @@ test.describe('RepoMind Codebase Intelligence end-to-end', () => {
     await expect(page.getByText('Definition')).toBeVisible();
   });
 
-  test('Architecture child tab shows dependency hotspots', async ({ page }) => {
-    await page.getByRole('button', { name: 'Architecture', exact: true }).click();
-    await expect(page.getByText('Architecture Hotspots')).toBeVisible();
+  test('Dependencies child tab shows dependency hotspots and cycles', async ({ page }) => {
+    await page.getByRole('button', { name: 'Dependencies', exact: true }).click();
+    await expect(page.getByText('Dependency Hotspots')).toBeVisible();
+    await expect(page.getByText('Circular Dependencies')).toBeVisible();
   });
 
   test('Health child tab renders health signals', async ({ page }) => {
@@ -267,7 +278,10 @@ test.describe('RepoMind Codebase Intelligence end-to-end', () => {
       'Symbol Resolution',
       'Architecture Hotspots',
     ]) {
-      const panel = page.locator('.analytics-panel').filter({ hasText: name }).first();
+      const panel = page
+        .locator('.analyzer-registry .analytics-panel')
+        .filter({ hasText: name })
+        .first();
       await expect(panel).toBeVisible();
       await panel.getByRole('button', { name: /Run/ }).click();
       await expect(panel.getByText(/No result yet/)).toHaveCount(0);
@@ -277,13 +291,17 @@ test.describe('RepoMind Codebase Intelligence end-to-end', () => {
   test('Impact child tab supports file selection', async ({ page }) => {
     await page.getByRole('button', { name: 'Impact', exact: true }).click();
     await page.locator('select').first().selectOption('src/app.js');
-    await expect(page.getByText('Dependencies')).toBeVisible();
-    await expect(page.getByText('Imported by')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Dependencies', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Imported by', exact: true })).toBeVisible();
   });
 
-  test('API Discovery finds routes from multiple frameworks', async ({ page }) => {
-    await page.getByRole('button', { name: 'API Discovery', exact: true }).click();
-    await page.getByRole('button', { name: '▶ Run Scan' }).click();
+  test('Analyzers API discovery finds routes from multiple frameworks', async ({ page }) => {
+    await page.getByRole('button', { name: 'Analyzers', exact: true }).click();
+    await page
+      .locator('.analytics-panel')
+      .filter({ hasText: 'API / Route Discovery' })
+      .getByRole('button', { name: '▶ Run Scan' })
+      .click();
     await expect(page.getByText('/users', { exact: true }).first()).toBeVisible();
     await expect(page.getByText('/orders', { exact: true })).toBeVisible();
     await expect(page.getByText('/admin', { exact: true })).toBeVisible();
@@ -294,9 +312,13 @@ test.describe('RepoMind Codebase Intelligence end-to-end', () => {
     );
   });
 
-  test('Security child tab finds fixture secret', async ({ page }) => {
-    await page.getByRole('button', { name: 'Security', exact: true }).click();
-    await page.getByRole('button', { name: '▶ Run Scan' }).click();
+  test('Analyzers security scan finds fixture secret', async ({ page }) => {
+    await page.getByRole('button', { name: 'Analyzers', exact: true }).click();
+    await page
+      .locator('.analytics-panel')
+      .filter({ hasText: 'Security / Secret Scan' })
+      .getByRole('button', { name: '▶ Run Scan' })
+      .click();
     await expect(page.getByText('api-key', { exact: true })).toBeVisible();
   });
 
@@ -336,8 +358,8 @@ test.describe('RepoMind Codebase Intelligence end-to-end', () => {
     await expect(page.locator('textarea.context-output').last()).not.toHaveValue('');
   });
 
-  test('AI Workspace child tab builds a prompt without an AI provider', async ({ page }) => {
-    await page.getByRole('button', { name: 'AI Workspace', exact: true }).click();
+  test('AI child tab builds a prompt without an AI provider', async ({ page }) => {
+    await page.getByRole('button', { name: 'AI', exact: true }).click();
     await page.getByRole('button', { name: '▶ Build Prompt' }).click();
     await expect(page.locator('textarea.ai-output')).not.toHaveValue('');
     await expect(page.locator('textarea.ai-output')).toContainText('RepoMind Task');
@@ -365,14 +387,20 @@ test.describe('RepoMind Analyze workspaces', () => {
     await expect(page.locator('.analytics-panel textarea')).toHaveValue('+ inserted');
   });
 
-  test('Project Analysis indexes JavaScript and TypeScript files', async ({ page }) => {
-    await page.getByRole('button', { name: 'Project Analysis', exact: true }).click();
-    await page.getByRole('button', { name: '⚙ Build Project Index' }).click();
+  test('Quick Analysis indexes JavaScript and TypeScript files', async ({ page }) => {
+    await page.getByRole('button', { name: 'Quick Analysis', exact: true }).click();
+    await page.getByRole('button', { name: '⚡ Run Quick Analysis' }).click();
     await expect(page.locator('article').filter({ hasText: 'JS/TS files' })).toContainText('4');
     await expect(page.locator('article').filter({ hasText: 'Functions' })).toContainText('3');
     await expect(page.locator('article').filter({ hasText: 'Lines' }).first()).not.toHaveText(
       /^\s*\d\s*Lines/,
     );
+  });
+
+  test('Quick Analysis points to Codebase Intelligence for the full index', async ({ page }) => {
+    await page.getByRole('button', { name: 'Quick Analysis', exact: true }).click();
+    await page.getByRole('main').getByRole('button', { name: 'Codebase Intelligence' }).click();
+    await expect(page.locator('nav button.active')).toHaveText('Codebase');
   });
 });
 
@@ -577,7 +605,7 @@ test.describe('RepoMind in unsupported browsers', () => {
     await expect(page.getByRole('button', { name: 'Open Folder' })).toBeDisabled();
     await goTo(page, 'Markdown');
     await expect(page.getByRole('main').getByRole('heading', { level: 1 })).toContainText(
-      'Markdown Viewer',
+      'Markdown',
     );
   });
 });

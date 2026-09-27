@@ -485,24 +485,22 @@ export default function CodebasePanel({ project, onOpenFile }) {
               ['overview', 'Overview'],
               ['search', 'Search'],
               ['symbols', 'Symbols'],
-              ['architecture', 'Architecture'],
+              ['dependencies', 'Dependencies'],
+              ['impact', 'Impact'],
               ['health', 'Health'],
               ['analyzers', 'Analyzers'],
-              ['impact', 'Impact'],
-              ['api', 'API Discovery'],
-              ['security', 'Security'],
-              ['diagram', 'Diagram'],
               ['git', 'Git'],
+              ['diagram', 'Diagram'],
               ['reports', 'Reports'],
               ['context', 'Context Builder'],
-              ['ai', 'AI Workspace'],
+              ['ai', 'AI'],
             ].map(([k, l]) => (
               <button key={k} className={view === k ? 'active' : ''} onClick={() => setView(k)}>
                 {l}
               </button>
             ))}
           </div>
-          {['overview', 'files', 'symbols', 'architecture', 'impact'].includes(view) && (
+          {['overview', 'files', 'symbols', 'dependencies', 'impact'].includes(view) && (
             <div className="search">
               <input
                 value={query}
@@ -650,10 +648,10 @@ export default function CodebasePanel({ project, onOpenFile }) {
               )}
             </div>
           )}
-          {view === 'architecture' && (
+          {view === 'dependencies' && (
             <div className="analyze-grid">
               <div className="analytics-panel">
-                <h2>Architecture Hotspots</h2>
+                <h2>Dependency Hotspots</h2>
                 {architecture.slice(0, 100).map((x) => (
                   <button
                     className="index-row clickable"
@@ -674,7 +672,7 @@ export default function CodebasePanel({ project, onOpenFile }) {
                 ))}
               </div>
               <div className="analytics-panel">
-                <h2>Cycles</h2>
+                <h2>Circular Dependencies</h2>
                 {cycles.map((c, i) => (
                   <div className="cycle-row" key={i}>
                     {c.join(' → ')}
@@ -723,13 +721,31 @@ export default function CodebasePanel({ project, onOpenFile }) {
             </div>
           )}
           {view === 'analyzers' && (
-            <AnalyzerRegistryView
-              catalog={analyzerCatalog}
-              results={analyzerResults}
-              summary={resolutionSummary}
-              busy={analyzerBusy}
-              onRun={runRegisteredAnalyzer}
-            />
+            <>
+              <AnalyzerRegistryView
+                catalog={analyzerCatalog}
+                results={analyzerResults}
+                summary={resolutionSummary}
+                busy={analyzerBusy}
+                onRun={runRegisteredAnalyzer}
+              />
+              <AnalyzerView
+                title="🌐 API / Route Discovery"
+                items={api}
+                empty="Run discovery to find route/controller declarations."
+                busy={detailBusy}
+                onRun={() => runAnalyzer('api')}
+                columns={['method', 'path', 'framework', 'file', 'line']}
+              />
+              <AnalyzerView
+                title="🔐 Security / Secret Scan"
+                items={security}
+                empty="Run a local heuristic scan for likely secrets and credentials."
+                busy={detailBusy}
+                onRun={() => runAnalyzer('security')}
+                columns={['severity', 'id', 'path', 'line', 'text']}
+              />
+            </>
           )}
           {view === 'impact' && (
             <div className="analyze-grid">
@@ -784,26 +800,6 @@ export default function CodebasePanel({ project, onOpenFile }) {
                 )}
               </div>
             </div>
-          )}
-          {view === 'api' && (
-            <AnalyzerView
-              title="🌐 API / Route Discovery"
-              items={api}
-              empty="Run discovery to find route/controller declarations."
-              busy={detailBusy}
-              onRun={() => runAnalyzer('api')}
-              columns={['method', 'path', 'framework', 'file', 'line']}
-            />
-          )}
-          {view === 'security' && (
-            <AnalyzerView
-              title="🔐 Security / Secret Scan"
-              items={security}
-              empty="Run a local heuristic scan for likely secrets and credentials."
-              busy={detailBusy}
-              onRun={() => runAnalyzer('security')}
-              columns={['severity', 'id', 'path', 'line', 'text']}
-            />
           )}
           {view === 'diagram' && (
             <div className="analytics-panel">

@@ -32,7 +32,7 @@ export function Diff({ p, diff, setDiff }) {
       .join('\n');
   return (
     <section>
-      <h1>📊 Intelligent Diff</h1>
+      <h1>📊 Compare</h1>
       <p className="muted">
         Line-level comparison with change filters, search and compact AI-friendly output.
       </p>

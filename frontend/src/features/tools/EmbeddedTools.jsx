@@ -116,7 +116,7 @@ export function EngineeringWorkspace() {
     <section>
       <div className="head">
         <div>
-          <h1>🧰 Engineering Tools</h1>
+          <h1>🧰 Engineering</h1>
           <small>Daily engineering converters and utilities.</small>
         </div>
       </div>

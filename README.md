@@ -33,18 +33,25 @@ RepoMind is published at **https://zainknoman.github.io/RepoMind/**.
 | Browser | Status |
 |---|---|
 | Chrome, Edge, other Chromium browsers (desktop) | Fully supported |
-| Firefox, Safari, mobile browsers | Folder access unavailable (no File System Access API). RepoMind shows a notice; the Markdown viewer and the Developer Tools (opened with a `?tool=` link) still work. |
+| Firefox, Safari, mobile browsers | Folder access unavailable (no File System Access API). RepoMind shows a notice; the Markdown viewer and the Developer Tools (under **Tools**) still work. |
 
 Folders with more than 50,000 files are truncated with a warning; open a subfolder for complete results. Files larger than 2 MB, and sensitive-looking files (`.env`, keys, credentials) unless **Include sensitive files** is ticked, are listed but not read.
 
 ## Workspace guide
 
-### Workspace
+The header groups follow one workflow: **Understand → Explore → Analyze**, with a small secondary **Tools** group at the far end. RepoMind is a codebase intelligence workspace, not a utility collection, so Tools is deliberately kept short.
+
+### Understand
 
 | Workspace | Purpose |
 |---|---|
 | **Dashboard** | Interactive summary of the opened folder: composition, structure, quality signals and a filterable file list. |
-| **Codebase** | Central code intelligence: symbols, references, dependencies, health, analyzers, Git, AI, reports and diagrams. |
+| **Codebase** | The centre of RepoMind: symbols, references, dependencies, impact, health, analyzers, Git, diagrams, reports, context and AI. |
+
+### Explore
+
+| Workspace | Purpose |
+|---|---|
 | **Explorer** | Browse and filter local project files (virtualised for large folders). |
 | **Search** | Search source text and jump to matching files/lines. |
 | **Editor** | Edit supported text files with find/replace (optional match case) and save back to disk. Unsaved changes are protected. |
@@ -54,24 +61,27 @@ Folders with more than 50,000 files are truncated with a warning; open a subfold
 | Workspace | Purpose |
 |---|---|
 | **Ingest** | Generate a Gitingest-style summary, directory tree and combined source context. |
-| **Project Analysis** | Quick JS/TS index: line counts, functions, classes, imports and exports. |
+| **Quick Analysis** | Fast pattern scan of JS/TS files: line counts, functions, classes, imports and exports. Use **Codebase** for the full index. |
 | **Transform** | Combine files into one bundle, split a bundle back into files, export a ZIP. |
 | **Compare** | Line diff of two files that aligns inserted/removed lines, with filters and compact output. |
-| **Markdown** | Render Markdown, including Mermaid diagrams. |
 
 ### Tools
-
-The Tools workspaces are hidden from the header navigation. Open them by adding a `?tool=` parameter to the RepoMind URL, for example `https://zainknoman.github.io/RepoMind/?tool=json`.
 
 | Workspace | Purpose | Deep link |
 |---|---|---|
 | **Developer Tools** | JSON Formatter, Text Cleanup, Base64, Regex, JWT Decoder (decode only), UUID and Timestamp utilities. | `?tool=json`, `text`, `base64`, `regex`, `jwt`, `uuid`, `timestamp` |
 | **Temenos / OFS** | OFS Generator and T24 Log Analyzer (sandboxed). | `?tool=ofs` |
-| **Engineering** | Engineering-oriented calculations and conversion utilities (sandboxed). | `?tool=eng` |
+| **Markdown** | Render Markdown, including Mermaid diagrams. | — |
+
+The **Engineering** utilities (sandboxed) are intentionally not in the header. They open only from `?tool=eng`.
 
 ## Codebase Intelligence
 
-Codebase is the main RepoMind workspace.
+Codebase is the main RepoMind workspace. After **Build / Refresh Index**, its views are:
+
+**Overview · Search · Symbols · Dependencies · Impact · Health · Analyzers · Git · Diagram · Reports · Context Builder · AI**
+
+API discovery and the security scan run from **Analyzers**.
 
 ### Indexing
 
@@ -151,7 +161,7 @@ These analyzers are intentionally heuristic and should not be treated as a repla
 
 ### API discovery
 
-RepoMind detects common route declarations for:
+Run from **Analyzers → API / Route Discovery**. RepoMind detects common route declarations for:
 
 - Express
 - NestJS
@@ -164,7 +174,7 @@ Results are intended for code navigation and architecture understanding.
 
 ### Security scanning
 
-The local security scanner searches for likely:
+Run from **Analyzers → Security / Secret Scan**. The local security scanner searches for likely:
 
 - API keys
 - access/auth/bearer tokens
@@ -205,7 +215,7 @@ Available signals include:
 
 Git status is intentionally conservative because browser File System Access does not expose the native `git status` command. Filesystem timestamps are used as probable-modified signals.
 
-## AI Workspace
+## AI
 
 RepoMind provides a provider-neutral context workflow and direct browser-side adapters for:
 
@@ -214,7 +224,7 @@ RepoMind provides a provider-neutral context workflow and direct browser-side ad
 - Anthropic
 - Google Gemini
 
-The AI workspace can use selected files, symbols and dependencies from the local Codebase index.
+The **AI** view can use selected files, symbols and dependencies from the local Codebase index.
 
 To call a provider, open **AI Settings** and enter the provider, a **model ID** (required; RepoMind does not guess one) and an API key.
 
@@ -323,7 +333,7 @@ For the normal local workflow:
 - [x] Framework analyzers
 - [x] Architecture health
 - [x] Git metadata intelligence
-- [x] AI Workspace
+- [x] AI (Codebase view)
 - [x] Context Builder
 - [x] IndexedDB index cache
 - [x] Architecture diagrams
@@ -394,7 +404,7 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-The E2E suite (46 tests) covers every workspace in the header (with heading assertions), the hidden Tools menu, each Codebase sub-tab, Compare, Project Analysis, Explorer, Search, Editor find/replace and the unsaved-changes guard, Ingest, Transform, Markdown + Mermaid rendering and sanitisation, Developer Tools opened by deep link, the sandboxed tools and their bridge, index caching, dark mode, AI settings validation and the unsupported-browser notice. Browser-side AI calls are never made during tests.
+The E2E suite (49 tests) covers every workspace in the header (with heading assertions), the header grouping (including Engineering staying out of it), each Codebase view, Compare, Quick Analysis, Explorer, Search, Editor find/replace and the unsaved-changes guard, Ingest, Transform, Markdown + Mermaid rendering and sanitisation, Developer Tools opened by deep link, the sandboxed tools and their bridge, index caching, dark mode, AI settings validation and the unsupported-browser notice. Browser-side AI calls are never made during tests.
 
 ## CI and deployment
 

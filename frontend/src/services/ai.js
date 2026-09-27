@@ -49,10 +49,10 @@ export function saveAISettings(settings) {
   return { ...safe, apiKey: settings.apiKey || '' };
 }
 function requireSettings(settings) {
-  if (!settings?.apiKey) throw new Error('Add an API key in AI Workspace settings.');
+  if (!settings?.apiKey) throw new Error('Add an API key in AI settings.');
   const provider = AI_PROVIDERS[settings.provider] || AI_PROVIDERS.openai;
   if (!settings.model?.trim())
-    throw new Error('Enter a model in AI Workspace settings (' + provider.modelHint + ').');
+    throw new Error('Enter a model in AI settings (' + provider.modelHint + ').');
   if (!(settings.endpoint || provider.endpoint))
     throw new Error('Enter an endpoint URL for the ' + provider.label + ' provider.');
   return { settings: { ...settings, model: settings.model.trim() }, provider };

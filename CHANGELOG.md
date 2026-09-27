@@ -2,6 +2,24 @@
 
 All notable changes to RepoMind are recorded here.
 
+## Unreleased — Product consolidation (Phase 1)
+
+### Changed
+- Header navigation is grouped by workflow: **Understand** (Dashboard, Codebase), **Explore**
+  (Explorer, Search, Editor), **Analyze** (Ingest, Quick Analysis, Transform, Compare) and a small,
+  secondary **Tools** group (Developer Tools, Temenos / OFS, Markdown). Codebase is emphasised as the
+  centre of the product.
+- **Project Analysis** is now **Quick Analysis** and links to Codebase Intelligence for the full index.
+- Codebase views follow one order: Overview, Search, Symbols, Dependencies (was Architecture), Impact,
+  Health, Analyzers, Git, Diagram, Reports, Context Builder, AI (was AI Workspace). API discovery and
+  the security scan moved into **Analyzers**.
+- Page headings match their navigation labels (Ingest, Compare, Markdown, Engineering).
+- Help is grouped the same way as the header navigation.
+
+### Unchanged on purpose
+- **Engineering** stays out of the header; it still opens from `?tool=eng`. All `?tool=` links and
+  internal workspace ids are unchanged.
+
 ## 0.9.0 — Production readiness
 
 Based on the audit in [`docs/PROJECT_AUDIT.md`](docs/PROJECT_AUDIT.md).

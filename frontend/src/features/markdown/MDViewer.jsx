@@ -20,7 +20,7 @@ export function MDViewer() {
     <section className="md-workspace">
       <div className="md-head">
         <div>
-          <h1>📖 Markdown Viewer</h1>
+          <h1>📖 Markdown</h1>
           <small>Paste Markdown and render it instantly, including Mermaid flowcharts.</small>
         </div>
         <button onClick={() => setValue('')}>🧹 Clear</button>

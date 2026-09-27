@@ -83,7 +83,7 @@ export function CodeIngest({ p }) {
     <section className="code-ingest">
       <div className="head">
         <div>
-          <h1>🍽️ Code Ingest</h1>
+          <h1>🍽️ Ingest</h1>
           <small>
             Gitingest-style local codebase summary, directory structure and combined file content.
           </small>

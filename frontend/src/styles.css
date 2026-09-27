@@ -1426,6 +1426,25 @@ footer {
 .nav-group button {
   font-size: 12px;
 }
+/* Codebase is the centre of the product; Tools is secondary and sits at the far end. */
+.nav-group button.nav-primary {
+  font-weight: 700;
+  color: var(--accent-text);
+}
+.nav-group.secondary {
+  margin-left: auto;
+}
+.nav-group.secondary button:not(.active) {
+  color: var(--muted);
+}
+.link-button {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: var(--accent-text);
+  font: inherit;
+  text-decoration: underline;
+}
 @media (max-width: 900px) {
   .workspace-nav {
     gap: 8px;

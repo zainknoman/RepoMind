@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { buildProjectIndex } from './projectAnalysis';
 
-export function Analyze({ p }) {
+export function Analyze({ p, onOpenCodebase }) {
   const [index, setIndex] = useState(null),
     [busy, setBusy] = useState(false),
     [q, setQ] = useState(''),
@@ -22,15 +22,23 @@ export function Analyze({ p }) {
     <section>
       <div className="head">
         <div>
-          <h1>🧠 Analyze</h1>
+          <h1>⚡ Quick Analysis</h1>
           <small>
-            Project Index + JavaScript/TypeScript symbol analysis, running locally in your browser.
+            A fast pattern scan of JavaScript/TypeScript functions, classes and imports, running
+            locally in your browser.
           </small>
         </div>
         <button onClick={build} disabled={!p || busy}>
-          {busy ? '⏳ Indexing...' : '⚙ Build Project Index'}
+          {busy ? '⏳ Analyzing...' : '⚡ Run Quick Analysis'}
         </button>
       </div>
+      <p className="muted">
+        For definitions, references, dependencies and impact, use the full index in{' '}
+        <button className="link-button" onClick={onOpenCodebase}>
+          Codebase Intelligence
+        </button>
+        .
+      </p>
       {!p && <div className="empty">📂 Open a local folder first.</div>}
       {index && (
         <>

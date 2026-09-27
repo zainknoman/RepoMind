@@ -6,6 +6,7 @@ import { buildDashboardData } from './features/dashboard/dashboardData';
 import { Dashboard } from './features/dashboard/Dashboard';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { TOOL_IDS } from './features/tools/runTool';
+import { NAV_GROUPS, PRIMARY_TAB, SECONDARY_GROUP } from './navigation';
 
 // Workspaces are loaded on first use so the initial bundle only carries the shell and the dashboard.
 const named = (loader, name) => lazy(() => loader().then((m) => ({ default: m[name] })));
@@ -25,41 +26,6 @@ const EngineeringWorkspace = named(
   'EngineeringWorkspace',
 );
 const HelpPage = named(() => import('./features/help/HelpPage'), 'HelpPage');
-
-export const NAV_GROUPS = [
-  [
-    'Workspace',
-    [
-      ['dashboard', 'Dashboard'],
-      ['codebase', 'Codebase'],
-      ['explorer', 'Explorer'],
-      ['search', 'Search'],
-      ['editor', 'Editor'],
-    ],
-  ],
-  [
-    'Analyze',
-    [
-      ['ingest', 'Ingest'],
-      ['analyze', 'Project Analysis'],
-      ['transform', 'Transform'],
-      ['diff', 'Compare'],
-      ['mdviewer', 'Markdown'],
-    ],
-  ],
-];
-
-// Tools workspaces are hidden from the header; they still open from ?tool= deep links.
-export const HIDDEN_NAV_GROUPS = [
-  [
-    'Tools',
-    [
-      ['tools', 'Developer Tools'],
-      ['ofs', 'Temenos / OFS'],
-      ['engineering', 'Engineering'],
-    ],
-  ],
-];
 
 const MAX_SEARCH_RESULTS = 2000;
 
@@ -307,12 +273,19 @@ function App() {
       )}
       <nav className="workspace-nav" aria-label="Workspaces">
         {NAV_GROUPS.map(([group, items]) => (
-          <div className="nav-group" key={group}>
+          <div
+            className={group === SECONDARY_GROUP ? 'nav-group secondary' : 'nav-group'}
+            key={group}
+          >
             <span>{group}</span>
             {items.map(([id, label]) => (
               <button
                 key={id}
-                className={tab === id ? 'active' : ''}
+                className={
+                  [tab === id && 'active', id === PRIMARY_TAB && 'nav-primary']
+                    .filter(Boolean)
+                    .join(' ') || undefined
+                }
                 aria-current={tab === id ? 'page' : undefined}
                 onClick={() => setTab(id)}
               >
@@ -382,7 +355,7 @@ function App() {
               )}
               {tab === 'mdviewer' && <MDViewer />}
               {tab === 'ingest' && <CodeIngest p={p} />}
-              {tab === 'analyze' && <Analyze p={p} />}
+              {tab === 'analyze' && <Analyze p={p} onOpenCodebase={() => setTab('codebase')} />}
               {tab === 'transform' && (
                 <Transform
                   p={p}

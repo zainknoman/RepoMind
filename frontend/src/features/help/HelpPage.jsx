@@ -1,4 +1,9 @@
 import { useState } from 'react';
+import { NAV_GROUPS } from '../../navigation';
+
+const CODEBASE_VIEWS = 'Codebase views';
+// Help follows the header: one section per navigation group, then the Codebase views.
+const HELP_GROUPS = [...NAV_GROUPS.map(([group]) => group), CODEBASE_VIEWS];
 
 export function HelpPage() {
   const [active, setActive] = useState('dashboard');
@@ -7,7 +12,7 @@ export function HelpPage() {
       id: 'dashboard',
       title: 'Dashboard',
       icon: '📊',
-      group: 'Workspace',
+      group: 'Understand',
       definition:
         'The starting view for an opened folder: an interactive summary of its composition, structure and quality signals.',
       features: [
@@ -24,7 +29,7 @@ export function HelpPage() {
       id: 'codebase',
       title: 'Codebase Intelligence',
       icon: '🧠',
-      group: 'Workspace',
+      group: 'Understand',
       definition:
         'The central intelligence workspace. RepoMind indexes the selected project into a local graph of files, symbols, references, imports, exports and dependencies.',
       features: [
@@ -36,7 +41,7 @@ export function HelpPage() {
         'Git and AI workspace integration',
         'Documentation reports and architecture diagrams',
       ],
-      how: 'Open a folder, select Codebase, then click Build/Refresh Index. Use the child tabs to inspect the indexed project. The index can be cached locally in IndexedDB.',
+      how: 'Open a folder, select Codebase, then click Build / Refresh Index. Use the views (Overview, Search, Symbols, Dependencies, Impact, Health, Analyzers, Git, Diagram, Reports, Context Builder and AI) to investigate the indexed project. The index is cached locally in IndexedDB.',
       example:
         'If src/api/user.js imports src/services/auth.js, the dependency and symbol views can show that relationship and help trace impact before editing auth.js.',
     },
@@ -44,7 +49,7 @@ export function HelpPage() {
       id: 'explorer',
       title: 'Explorer',
       icon: '🗂️',
-      group: 'Workspace',
+      group: 'Explore',
       definition: 'A local file browser for the opened project.',
       features: [
         'Filter files by path or filename',
@@ -58,7 +63,7 @@ export function HelpPage() {
       id: 'search',
       title: 'Search',
       icon: '🔎',
-      group: 'Workspace',
+      group: 'Explore',
       definition:
         'Searches text across supported project files and opens matching files at the relevant result.',
       features: [
@@ -74,7 +79,7 @@ export function HelpPage() {
       id: 'editor',
       title: 'Editor',
       icon: '📝',
-      group: 'Workspace',
+      group: 'Explore',
       definition: 'A browser-based editor for supported text files opened from the local folder.',
       features: [
         'Find and replace',
@@ -88,7 +93,7 @@ export function HelpPage() {
     },
     {
       id: 'ingest',
-      title: 'Code Ingest',
+      title: 'Ingest',
       icon: '🍽️',
       group: 'Analyze',
       definition:
@@ -105,8 +110,8 @@ export function HelpPage() {
     },
     {
       id: 'analyze',
-      title: 'Project Analysis',
-      icon: '📊',
+      title: 'Quick Analysis',
+      icon: '⚡',
       group: 'Analyze',
       definition:
         'A fast, lightweight index of JavaScript and TypeScript files. For full AST analysis, references and dependencies use Codebase Intelligence.',
@@ -115,9 +120,9 @@ export function HelpPage() {
         'Functions, classes, imports and exports in JS/TS/Vue files',
         'Filter symbols by name and kind',
       ],
-      how: 'Open a folder, choose Project Analysis and click Build Project Index.',
+      how: 'Open a folder, choose Quick Analysis and click Run Quick Analysis.',
       example:
-        'Use Analyze for a quick project assessment before opening the detailed Codebase Intelligence index.',
+        'Use Quick Analysis for a fast first look before building the full Codebase Intelligence index.',
     },
     {
       id: 'transform',
@@ -138,7 +143,7 @@ export function HelpPage() {
     },
     {
       id: 'compare',
-      title: 'Diff / Compare',
+      title: 'Compare',
       icon: '↔️',
       group: 'Analyze',
       definition:
@@ -168,7 +173,7 @@ export function HelpPage() {
         'UUID generator',
         'Timestamp conversion',
       ],
-      how: 'Open ?tool=json (or ?tool=regex, ?tool=uuid, …), select the utility, enter the input and click Run. Clear resets the working fields. Operations run in the browser.',
+      how: 'Open Tools › Developer Tools (or a ?tool=json, ?tool=regex, … link), select the utility, enter the input and click Run. Clear resets the working fields. Operations run in the browser.',
       example: 'Paste minified JSON, choose JSON Formatter and click Run to produce readable JSON.',
     },
     {
@@ -179,15 +184,15 @@ export function HelpPage() {
       definition:
         'Temenos-oriented utilities for developers working with OFS and related banking integration data.',
       features: ['OFS Generator', 'T24 Log Analyzer', 'Temenos-focused developer workflow'],
-      how: 'Open ?tool=ofs and select the utility. From a T24 log entry you can send its OFS data straight to the OFS Generator. The tools run in an isolated sandbox.',
+      how: 'Open Tools › Temenos / OFS and select the utility. From a T24 log entry you can send its OFS data straight to the OFS Generator. The tools run in an isolated sandbox.',
       example:
         'Use OFS Generator to build a transaction message from the required application, field and value inputs before testing it in a controlled environment.',
     },
     {
       id: 'markdown',
-      title: 'Markdown Viewer',
+      title: 'Markdown',
       icon: '📖',
-      group: 'Analyze',
+      group: 'Tools',
       definition:
         'A browser Markdown workspace for previewing documentation and Mermaid code blocks.',
       features: [
@@ -195,30 +200,15 @@ export function HelpPage() {
         'Mermaid code-block support',
         'Local editing and preview',
       ],
-      how: 'Open Markdown and paste Markdown into the editor. The rendered document appears in the preview area.',
+      how: 'Open Tools › Markdown and paste Markdown into the editor. The rendered document appears in the preview area.',
       example:
         'Paste a README section containing a Mermaid flowchart to review its rendered documentation layout.',
     },
     {
-      id: 'engineering',
-      title: 'Engineering Utilities',
-      icon: '⚙️',
-      group: 'Tools',
-      definition:
-        'Utilities for common engineering calculations and developer-oriented conversions.',
-      features: [
-        'Time and timestamp utilities',
-        'Unit/conversion helpers',
-        'Engineering-focused calculations',
-      ],
-      how: 'Open ?tool=eng, choose the required engineering utility, enter values and run the calculation.',
-      example: 'Use a timestamp utility to convert an epoch value into a human-readable date/time.',
-    },
-    {
       id: 'git-ai',
-      title: 'Git + AI Workspace',
+      title: 'Git + AI',
       icon: '🔀',
-      group: 'Codebase child workspaces',
+      group: CODEBASE_VIEWS,
       definition:
         'Codebase Intelligence can inspect local Git metadata and build provider-neutral AI context without uploading the repository.',
       features: [
@@ -229,7 +219,7 @@ export function HelpPage() {
         'Saved local context snapshots',
         'AI provider adapters with explicit user action',
       ],
-      how: 'Build the Codebase index, open Git or AI Workspace, select the relevant files/symbols and generate context. To call a provider, open AI Settings and enter the provider, a model ID and an API key (kept only for this browser session). AI calls occur only when you click Ask AI.',
+      how: 'Build the Codebase index, open Git or AI, select the relevant files/symbols and generate context. To call a provider, open AI Settings and enter the provider, a model ID and an API key (kept only for this browser session). AI calls occur only when you click Ask AI.',
       example:
         'Select a changed service plus its dependencies, generate context, then send that focused context to a configured AI provider for review.',
     },
@@ -237,7 +227,7 @@ export function HelpPage() {
       id: 'reports',
       title: 'Reports & Documentation',
       icon: '📄',
-      group: 'Codebase child workspaces',
+      group: CODEBASE_VIEWS,
       definition:
         'Turns local Codebase Intelligence metadata into reusable Markdown documentation.',
       features: [
@@ -255,7 +245,7 @@ export function HelpPage() {
       id: 'diagram',
       title: 'Architecture Diagram',
       icon: '🗺️',
-      group: 'Codebase child workspaces',
+      group: CODEBASE_VIEWS,
       definition:
         'Visualizes the dependency architecture generated from the local index using Mermaid.js.',
       features: [
@@ -272,7 +262,7 @@ export function HelpPage() {
       id: 'health',
       title: 'Health & Analyzers',
       icon: '🩺',
-      group: 'Codebase child workspaces',
+      group: CODEBASE_VIEWS,
       definition:
         'Provides heuristic signals about unresolved imports/references, cycles, parser errors, dependency hotspots and framework structure.',
       features: [
@@ -281,6 +271,7 @@ export function HelpPage() {
         'Framework structure analysis',
         'Route discovery',
         'Symbol resolution status',
+        'API / route discovery and security scans',
       ],
       how: 'Build the index and open Health or Analyzers. Run the available analyzers and inspect their findings. These are signals, not formal security or compiler diagnostics.',
       example:
@@ -290,7 +281,7 @@ export function HelpPage() {
       id: 'security',
       title: 'Security Scan',
       icon: '🔐',
-      group: 'Codebase child workspaces',
+      group: CODEBASE_VIEWS,
       definition:
         'A local heuristic scan for likely secrets, credentials, private keys and connection strings.',
       features: [
@@ -300,7 +291,7 @@ export function HelpPage() {
         'Database connection string heuristics',
         'Matched values are masked, so reports never repeat the secret',
       ],
-      how: 'Build the index, open Security and run the scan. Treat matches as review signals; false positives are possible.',
+      how: 'Build the index, open Analyzers and run the Security / Secret Scan. Treat matches as review signals; false positives are possible.',
       example:
         'A hard-coded DATABASE_URL or private-key filename can be flagged for manual review.',
     },
@@ -308,7 +299,7 @@ export function HelpPage() {
       id: 'api',
       title: 'API Discovery',
       icon: '🌐',
-      group: 'Codebase child workspaces',
+      group: CODEBASE_VIEWS,
       definition: 'Discovers common API and route declarations from supported framework patterns.',
       features: [
         'Express and NestJS route patterns',
@@ -316,7 +307,7 @@ export function HelpPage() {
         'Spring mappings',
         'ASP.NET route patterns',
       ],
-      how: 'Build the index, open API Discovery and run the scan. Review discovered routes and source locations.',
+      how: 'Build the index, open Analyzers and run the API / Route Discovery scan. Review discovered routes and source locations.',
       example:
         'A GET /customers route in an Express controller can be surfaced with its file and line information.',
     },
@@ -343,7 +334,7 @@ export function HelpPage() {
       </div>
       <div className="help-layout">
         <aside className="help-list">
-          {['Workspace', 'Analyze', 'Codebase child workspaces'].map((group) => (
+          {HELP_GROUPS.map((group) => (
             <div key={group}>
               <h3>{group}</h3>
               {features
