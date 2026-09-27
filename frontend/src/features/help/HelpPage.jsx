@@ -14,14 +14,18 @@ export function HelpPage() {
       icon: '📊',
       group: 'Understand',
       definition:
-        'The starting view for an opened folder: an interactive summary of its composition, structure and quality signals.',
+        'The investigation starting point: it builds or restores the code index and shows what needs attention, each item linked to the Codebase view that explains it. The repository profile follows below.',
       features: [
+        'Workflow guide: Open → Index → Understand → Investigate → Analyze → Report / AI',
+        'Build the code index without leaving the Dashboard; cached indexes are restored automatically',
+        'Health signals, dependency hotspots, unresolved imports and circular dependencies',
+        'One-click links into Impact, Dependencies, Health, Analyzers, Reports and AI',
         'File-type, folder, size and line-count charts',
         'Largest files, tests, configuration and documentation counts',
         'TODO/FIXME markers and sensitive-filename signals',
         'Filterable file list that opens files in the Editor',
       ],
-      how: 'Click Open Folder (Chrome or Edge on desktop). The Dashboard builds automatically; use Refresh after files change. Nothing is uploaded.',
+      how: 'Click Open Folder (Chrome or Edge on desktop), then Build Project Index in Investigate. Click any signal, hotspot or unresolved import to open it in Codebase. Use Refresh index after files change. Nothing is uploaded.',
       example:
         'Open a project containing src/, package.json and README.md. The Dashboard shows its file types, top-level folders and review signals.',
     },

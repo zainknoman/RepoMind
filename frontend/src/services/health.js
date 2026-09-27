@@ -12,7 +12,8 @@ export function buildArchitectureHealth(index, cycles = []) {
       path: f.path,
       dependencies: depCounts.get(f.path) || 0,
       dependents: dependentCounts.get(f.path) || 0,
-      symbols: (index.symbols || []).filter((s) => s.path === f.path).length,
+      // Each file record already holds its own symbols; filtering index.symbols per file is quadratic.
+      symbols: f.symbols?.length || 0,
       tokens: f.tokens || 0,
       score: (depCounts.get(f.path) || 0) + (dependentCounts.get(f.path) || 0),
     }))

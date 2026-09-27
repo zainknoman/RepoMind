@@ -12,13 +12,14 @@ function openDb() {
   });
 }
 async function projectKey(project) {
+  // Runs on every folder open, so iterate the sorted files directly (no per-path lookup). The key
+  // format is unchanged, so existing cached indexes stay valid.
   const files = (project?.files || [])
     .filter((f) => f.text)
-    .map((f) => f.path)
-    .sort();
+    .sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
   const metadata = [];
-  for (const path of files) {
-    const file = project.files.find((f) => f.path === path);
+  for (const file of files) {
+    const { path } = file;
     try {
       const raw = await file.handle.getFile();
       metadata.push(`${path}|${raw.size}|${raw.lastModified}`);

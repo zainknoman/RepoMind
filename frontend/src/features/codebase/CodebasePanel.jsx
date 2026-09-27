@@ -1,9 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { buildIndex } from '../../services/indexClient';
+import { useEffect, useMemo, useState } from 'react';
 import {
-  attachFileHandles,
   buildContext,
-  detectCycles,
   findDependencies,
   findDependents,
   getSymbolDetails,
@@ -14,11 +11,9 @@ import {
   searchIndex,
   discoverApis,
   scanSecurity,
-  detectProjectPackages,
   buildArchitectureMermaid,
 } from '../../services/intelligence';
 import { readGitRepository, gitStatusSummary, gitActivity } from '../../services/git';
-import { loadCachedIndex, saveCachedIndex, clearCachedIndex } from '../../services/indexCache';
 import {
   loadAISettings,
   saveAISettings,
@@ -26,7 +21,6 @@ import {
   askAI,
   buildAIMessages,
 } from '../../services/ai';
-import { buildArchitectureHealth } from '../../services/health';
 import {
   getAnalyzers,
   runAnalyzer as runRegisteredAnalyzerService,
@@ -34,6 +28,7 @@ import {
 } from '../../services/analyzers';
 import { buildDocumentationReport, buildModuleReport } from '../../services/documentation';
 import { renderMermaid } from '../../services/diagram';
+import { IndexProgress } from './IndexProgress';
 
 const cp = (v) => v && navigator.clipboard?.writeText(v);
 const dl = (n, t) => {
@@ -44,17 +39,23 @@ const dl = (n, t) => {
   setTimeout(() => URL.revokeObjectURL(a.href), 500);
 };
 
-export default function CodebasePanel({ project, onOpenFile }) {
-  const [index, setIndex] = useState(null),
-    [indexing, setIndexing] = useState(false),
-    [busy, setBusy] = useState(false),
-    [progress, setProgress] = useState(null),
-    [indexSource, setIndexSource] = useState(''),
+// The index itself (build, cache, cycles, health) is owned by App through useCodebaseIndex so the
+// Dashboard shares it. The active view and selected file are lifted too, so other workspaces can
+// open a specific Codebase view.
+export default function CodebasePanel({
+  project,
+  codebase,
+  view,
+  setView,
+  selectedFile,
+  setSelectedFile,
+  onOpenFile,
+}) {
+  const { index, indexing, progress, source: indexSource, cycles, health } = codebase;
+  const [busy, setBusy] = useState(false),
     [query, setQuery] = useState(''),
-    [view, setView] = useState('overview'),
     [selected, setSelected] = useState(new Set()),
     [selectedSymbol, setSelectedSymbol] = useState(null),
-    [selectedFile, setSelectedFile] = useState(''),
     [context, setContext] = useState(''),
     [contextTokens, setContextTokens] = useState(0),
     [contextFiles, setContextFiles] = useState(0),
@@ -67,6 +68,7 @@ export default function CodebasePanel({ project, onOpenFile }) {
     [regex, setRegex] = useState(false),
     [api, setApi] = useState([]),
     [security, setSecurity] = useState([]),
+    [securityScanned, setSecurityScanned] = useState(false),
     [packages, setPackages] = useState([]),
     [diagram, setDiagram] = useState(''),
     [detailBusy, setDetailBusy] = useState(false),
@@ -94,73 +96,13 @@ export default function CodebasePanel({ project, onOpenFile }) {
     [diagramSvg, setDiagramSvg] = useState(''),
     [diagramError, setDiagramError] = useState(''),
     [diagramBusy, setDiagramBusy] = useState(false);
-  const abortRef = React.useRef(null);
-  const freshIndexRef = React.useRef(false);
-
-  async function indexProject() {
-    if (!project) return;
-    abortRef.current?.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
-    setIndexing(true);
-    setProgress({
-      phase: 'start',
-      current: 0,
-      total: project.files.filter((f) => f.text).length,
-      path: null,
-    });
-    setError('');
-    try {
-      const next = attachFileHandles(
-        await buildIndex(project, { signal: controller.signal, onProgress: setProgress }),
-        project,
-      );
-      next.project.packages = await detectProjectPackages(next);
-      setIndex(next);
-      freshIndexRef.current = true;
-      setIndexSource('fresh');
-      setPackages(next.project.packages);
-      setSelected(new Set(next.files.slice(0, 25).map((f) => f.path)));
-      setContext('');
-      setSelectedSymbol(null);
-      await saveCachedIndex(project, next);
-      await refreshGit();
-    } catch (e) {
-      if (e?.name === 'AbortError') setError('Indexing cancelled');
-      else setError(e?.message || 'Unable to index repository');
-    } finally {
-      if (abortRef.current === controller) {
-        abortRef.current = null;
-        setIndexing(false);
-        setProgress(null);
-      }
-    }
-  }
-  function cancelIndex() {
-    abortRef.current?.abort();
-  }
+  // Every new index (fresh or restored from cache) resets the selection that depends on it.
   useEffect(() => {
-    let active = true;
-    (async () => {
-      if (!project) return;
-      try {
-        const cached = await loadCachedIndex(project);
-        // A fresh index built while the cache was loading must not be replaced by the older copy.
-        if (active && cached && !abortRef.current && !freshIndexRef.current) {
-          setIndex(attachFileHandles(cached, project));
-          setIndexSource('cached');
-          setPackages(cached.project?.packages || []);
-          setSelected(new Set((cached.files || []).slice(0, 25).map((f) => f.path)));
-        }
-      } catch (e) {
-        if (active) setError(e?.message || 'Unable to restore cached index');
-      }
-    })();
-    return () => {
-      active = false;
-    };
-    // The panel is remounted (keyed) per project, so this runs once per opened folder.
-  }, [project]);
+    if (!index) return;
+    setSelected(new Set(index.files.slice(0, 25).map((f) => f.path)));
+    setContext('');
+    setSelectedSymbol(null);
+  }, [index]);
   async function refreshGit() {
     if (!project?.rootHandle) return;
     setGitBusy(true);
@@ -281,9 +223,7 @@ export default function CodebasePanel({ project, onOpenFile }) {
     [index, query],
   );
   const architecture = useMemo(() => getArchitecture(index), [index]),
-    cycles = useMemo(() => detectCycles(index), [index]),
-    details = useMemo(() => getSymbolDetails(index, selectedSymbol), [index, selectedSymbol]),
-    health = useMemo(() => buildArchitectureHealth(index, cycles), [index, cycles]);
+    details = useMemo(() => getSymbolDetails(index, selectedSymbol), [index, selectedSymbol]);
   const profile = useMemo(
     () => ({
       frameworks: index?.project?.frameworks || [],
@@ -335,7 +275,10 @@ export default function CodebasePanel({ project, onOpenFile }) {
     setDetailBusy(true);
     try {
       if (type === 'api') setApi(await discoverApis(index));
-      if (type === 'security') setSecurity(await scanSecurity(index));
+      if (type === 'security') {
+        setSecurity(await scanSecurity(index));
+        setSecurityScanned(true);
+      }
       if (type === 'diagram') setDiagram(buildArchitectureMermaid(index, { limit: 150 }));
     } catch (e) {
       setError(e.message);
@@ -401,46 +344,22 @@ export default function CodebasePanel({ project, onOpenFile }) {
           </small>
         </div>
         <div className="index-actions">
-          <button onClick={indexing ? cancelIndex : indexProject}>
+          <button onClick={indexing ? codebase.cancel : codebase.build}>
             {indexing ? '✕ Cancel' : '⚙ Build / Refresh Index'}
           </button>
-          {index && (
-            <button
-              onClick={async () => {
-                await clearCachedIndex(project);
-                setIndex(null);
-                setIndexSource('');
-              }}
-            >
-              ♻ Clear Cache
-            </button>
-          )}
+          {index && <button onClick={codebase.clear}>♻ Clear Cache</button>}
         </div>
       </div>
+      {codebase.error && <div className="error">{codebase.error}</div>}
       {error && <div className="error">{error}</div>}
-      {indexing && progress && (
-        <div className="index-progress">
-          <div>
-            <b>
-              {{ read: 'Reading', analyze: 'Indexing' }[progress.phase] || 'Finalizing'}{' '}
-              {progress.current || 0}/{progress.total || 0}
-            </b>
-            <span>{progress.path || ''}</span>
-          </div>
-          <i>
-            <b
-              style={{
-                width: Math.max(4, ((progress.current || 0) / (progress.total || 1)) * 100) + '%',
-              }}
-            />
-          </i>
-        </div>
-      )}
+      {indexing && <IndexProgress progress={progress} />}
       {!index ? (
         <div className="panel">
           <h2>Repository Intelligence</h2>
           <p className="muted">Build one local index. Source stays in your browser.</p>
-          <button onClick={indexProject}>🚀 Build Project Index</button>
+          <button onClick={codebase.build} disabled={indexing}>
+            🚀 Build Project Index
+          </button>
         </div>
       ) : (
         <>
@@ -475,9 +394,9 @@ export default function CodebasePanel({ project, onOpenFile }) {
               <b>{index.stats.internalEdges}</b>
               <span>Internal edges</span>
             </article>
-            <article>
-              <b>{security.length}</b>
-              <span>Security findings</span>
+            <article title={securityScanned ? undefined : 'Run the security scan in Analyzers'}>
+              <b>{securityScanned ? security.length : '—'}</b>
+              <span>{securityScanned ? 'Security findings' : 'Security: not scanned'}</span>
             </article>
           </div>
           <div className="tabs">
@@ -549,7 +468,11 @@ export default function CodebasePanel({ project, onOpenFile }) {
                   value={index.files.reduce((s, f) => s + (f.parseErrors?.length || 0), 0)}
                 />
                 <Metric label="External imports" value={index.externalDependencies.length} />
-                <Metric label="Security findings" value={security.length} />
+                <Metric
+                  label="Security findings"
+                  value={securityScanned ? security.length : '—'}
+                  note={securityScanned ? undefined : 'Run the scan in Analyzers'}
+                />
               </div>
             </div>
           )}
@@ -1279,12 +1202,12 @@ function AIWorkspace({
     </div>
   );
 }
-function Metric({ label, value }) {
+function Metric({ label, value, note }) {
   return (
     <div className="index-row">
       <b>{label}</b>
       <span>{value}</span>
-      <small>{value ? 'Review' : 'None detected'}</small>
+      <small>{note || (value ? 'Review' : 'None detected')}</small>
     </div>
   );
 }

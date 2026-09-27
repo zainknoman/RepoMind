@@ -24,8 +24,8 @@ RepoMind is published at **https://zainknoman.github.io/RepoMind/**.
 
 1. Open RepoMind in **Chrome or Edge on desktop** (see [Browser support](#browser-support)).
 2. Click **Open Folder** and select a local project directory. Grant read/write access if you want to save edits.
-3. Start with the **Dashboard** for a project summary.
-4. Use **Codebase → Build / Refresh Index** for deeper code intelligence.
+3. On the **Dashboard**, click **Build Project Index**. RepoMind parses the code locally (and restores a cached index when you reopen the same folder).
+4. Review **Investigate**: unresolved imports, circular dependencies, dependency hotspots and parser errors. Each item opens the Codebase view that explains it.
 5. Open **Help** in the top-right corner for feature-by-feature guidance.
 
 ### Browser support
@@ -45,7 +45,7 @@ The header groups follow one workflow: **Understand → Explore → Analyze**, w
 
 | Workspace | Purpose |
 |---|---|
-| **Dashboard** | Interactive summary of the opened folder: composition, structure, quality signals and a filterable file list. |
+| **Dashboard** | The investigation starting point. Shows the workflow (Open → Index → Understand → Investigate → Analyze → Report / AI), builds or restores the code index, and lists what needs attention (unresolved imports, cycles, hotspots, parser errors) with links into Codebase. The repository profile (composition, structure, quality signals, file list) follows below. |
 | **Codebase** | The centre of RepoMind: symbols, references, dependencies, impact, health, analyzers, Git, diagrams, reports, context and AI. |
 
 ### Explore
@@ -404,7 +404,7 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-The E2E suite (49 tests) covers every workspace in the header (with heading assertions), the header grouping (including Engineering staying out of it), each Codebase view, Compare, Quick Analysis, Explorer, Search, Editor find/replace and the unsaved-changes guard, Ingest, Transform, Markdown + Mermaid rendering and sanitisation, Developer Tools opened by deep link, the sandboxed tools and their bridge, index caching, dark mode, AI settings validation and the unsupported-browser notice. Browser-side AI calls are never made during tests.
+The E2E suite (53 tests) covers every workspace in the header (with heading assertions), the header grouping (including Engineering staying out of it), the Dashboard first-run workflow and its links into Codebase views, each Codebase view, Compare, Quick Analysis, Explorer, Search, Editor find/replace and the unsaved-changes guard, Ingest, Transform, Markdown + Mermaid rendering and sanitisation, Developer Tools opened by deep link, the sandboxed tools and their bridge, index caching, dark mode, AI settings validation and the unsupported-browser notice. Browser-side AI calls are never made during tests.
 
 ## CI and deployment
 

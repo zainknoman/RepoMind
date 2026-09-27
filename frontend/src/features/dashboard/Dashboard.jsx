@@ -1,6 +1,16 @@
 import { useState } from 'react';
+import { Investigation, Workflow } from './Investigation';
 
-export function Dashboard({ p, data, open, onRefresh }) {
+export function Dashboard({
+  p,
+  data,
+  open,
+  onRefresh,
+  codebase,
+  onInvestigate,
+  onOpenFolder,
+  folderSupported,
+}) {
   const [selectedType, setSelectedType] = useState('all'),
     [view, setView] = useState('overview'),
     [fileQ, setFileQ] = useState(''),
@@ -10,11 +20,15 @@ export function Dashboard({ p, data, open, onRefresh }) {
     return (
       <section className="dashboard-empty">
         <div className="hero-badge">🧠 Repository Dashboard</div>
-        <h1>Select a repository folder</h1>
+        <h1>Understand any codebase locally</h1>
         <p>
-          Open a local folder to generate an interactive analytical dashboard with project overview,
-          structure, code volume and key insights.
+          Open a repository folder, build its code index, then investigate dependencies, impact and
+          health signals. Everything runs in this browser; nothing is uploaded.
         </p>
+        <button className="dashboard-open" onClick={onOpenFolder} disabled={!folderSupported}>
+          📂 Open Repository Folder
+        </button>
+        <Workflow opened={false} indexed={false} />
       </section>
     );
   if (!data)
@@ -26,6 +40,7 @@ export function Dashboard({ p, data, open, onRefresh }) {
             <small>Analyzing repository structure and readable source files locally…</small>
           </div>
         </div>
+        <Investigation codebase={codebase} onInvestigate={onInvestigate} />
         <div className="analytics-panel">
           <h2>⏳ Building repository insights</h2>
           <p className="muted">
@@ -66,8 +81,8 @@ export function Dashboard({ p, data, open, onRefresh }) {
           <div className="hero-badge">🧠 Local Repository Intelligence</div>
           <h1>{p.name}</h1>
           <p>
-            Interactive project overview, composition, structure and review signals generated
-            entirely from the selected folder.
+            Start with <b>Investigate</b>: build the index, review what needs attention, then open
+            the Codebase view that explains it. Everything is generated locally from this folder.
           </p>
         </div>
         <div className="dashboard-hero-actions">
@@ -78,6 +93,8 @@ export function Dashboard({ p, data, open, onRefresh }) {
           <button onClick={onRefresh}>↻ Refresh</button>
         </div>
       </div>
+      <Investigation codebase={codebase} onInvestigate={onInvestigate} />
+      <h2 className="dashboard-section-title">Repository profile</h2>
       <div className="dashboard-tabs">
         {[
           ['overview', 'Overview'],

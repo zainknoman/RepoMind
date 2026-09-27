@@ -8,6 +8,7 @@ import {
 import { discoverApis, redactSecret, scanSecurity, searchCode } from './intelligence';
 import { toWorkerProject } from './indexProject';
 import { askAI, buildAIMessages } from './ai';
+import { buildArchitectureHealth } from './health';
 
 const SOURCES = {
   'src/a.js': "import { b } from './b';\nexport function a() { return b(); }\n",
@@ -48,6 +49,20 @@ describe('repository index', () => {
       buildRepositoryIndex(project, { signal: controller.signal, onProgress }),
     ).rejects.toMatchObject({ name: 'AbortError' });
     expect(onProgress).toHaveBeenCalled();
+  });
+});
+
+describe('architecture health', () => {
+  it('counts symbols per file and flags the cycle', async () => {
+    const index = await indexFixture();
+    const cycles = detectCycles(index);
+    const health = buildArchitectureHealth(index, cycles);
+    for (const hotspot of health.hotspots)
+      expect(hotspot.symbols).toBe(index.symbols.filter((s) => s.path === hotspot.path).length);
+    expect(health.signals.find((x) => x.id === 'cycles')).toMatchObject({
+      count: cycles.length,
+      severity: 'high',
+    });
   });
 });
 

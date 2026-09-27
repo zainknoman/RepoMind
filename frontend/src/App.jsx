@@ -7,6 +7,7 @@ import { Dashboard } from './features/dashboard/Dashboard';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { TOOL_IDS } from './features/tools/runTool';
 import { NAV_GROUPS, PRIMARY_TAB, SECONDARY_GROUP } from './navigation';
+import { useCodebaseIndex } from './features/codebase/useCodebaseIndex';
 
 // Workspaces are loaded on first use so the initial bundle only carries the shell and the dashboard.
 const named = (loader, name) => lazy(() => loader().then((m) => ({ default: m[name] })));
@@ -68,7 +69,18 @@ function App() {
     [err, setErr] = useState(''),
     [notice, setNotice] = useState(''),
     [searchView, setSearchView] = useState(null),
-    [codebaseMounted, setCodebaseMounted] = useState(false);
+    [codebaseMounted, setCodebaseMounted] = useState(false),
+    [codebaseView, setCodebaseView] = useState('overview'),
+    [codebaseFile, setCodebaseFile] = useState('');
+  // One index per opened folder, shared by the Dashboard and the Codebase workspace.
+  const codebase = useCodebaseIndex(p);
+
+  // Opens a Codebase view, optionally focused on one file (used by the Dashboard's investigation links).
+  const investigate = useCallback((view, file) => {
+    setCodebaseView(view);
+    if (file !== undefined) setCodebaseFile(file);
+    setTab('codebase');
+  }, []);
 
   // The Codebase panel is mounted on first visit and then kept alive (hidden) so its index survives
   // tab switches. Opening another folder remounts it via its key.
@@ -104,6 +116,8 @@ function App() {
       for (const f of fs) ex[f.ext] = (ex[f.ext] || 0) + 1;
       setP({ name: h.name, files: fs, stats: { ext: ex }, rootHandle: h, openedAt: Date.now() });
       setCodebaseMounted(false);
+      setCodebaseView('overview');
+      setCodebaseFile('');
       setSel(null);
       setText('');
       setDirty(false);
@@ -303,6 +317,11 @@ function App() {
                 <CodebasePanel
                   key={p?.openedAt || 'no-project'}
                   project={p}
+                  codebase={codebase}
+                  view={codebaseView}
+                  setView={setCodebaseView}
+                  selectedFile={codebaseFile}
+                  setSelectedFile={setCodebaseFile}
                   onOpenFile={openFromCodebase}
                 />
               </ErrorBoundary>
@@ -315,6 +334,10 @@ function App() {
                   p={p}
                   data={dashboardData}
                   open={open}
+                  codebase={codebase}
+                  onInvestigate={investigate}
+                  onOpenFolder={folder}
+                  folderSupported={folderSupported}
                   onRefresh={() => {
                     if (!p) return;
                     setDashboardData(null);

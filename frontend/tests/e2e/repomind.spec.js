@@ -625,3 +625,89 @@ test.describe('RepoMind Help', () => {
     expect(errors, 'page errors while opening Help').toEqual([]);
   });
 });
+
+test.describe('RepoMind Dashboard investigation', () => {
+  const codebaseTab = (page) => page.locator('.codebase-intelligence .tabs button.active');
+
+  test('first run explains the workflow and opens a repository', async ({ page }) => {
+    const errors = await openFixture(page);
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Understand any codebase locally' }),
+    ).toBeVisible();
+    await expect(page.locator('.workflow li')).toHaveCount(6);
+    await expect(page.locator('.workflow li.current')).toContainText('Open');
+    await page.getByRole('button', { name: /Open Repository Folder/ }).click();
+    await expect(page.getByText('📁 RepoMind E2E Fixture')).toBeVisible();
+    const investigate = page.locator('.investigate');
+    await expect(investigate.getByRole('button', { name: /Build Project Index/ })).toBeVisible();
+    await expect(investigate.locator('.workflow li.current')).toContainText('Index');
+    expect(errors).toEqual([]);
+  });
+
+  test('builds the index from the Dashboard and links findings to Codebase views', async ({
+    page,
+  }) => {
+    await openFolder(page);
+    const investigate = page.locator('.investigate');
+    await investigate.getByRole('button', { name: /Build Project Index/ }).click();
+    await expect(investigate.getByText(/✓ Fresh index/)).toBeVisible({ timeout: 30_000 });
+    await expect(
+      investigate.locator('.investigate-signal').filter({ hasText: 'Circular dependency paths' }),
+    ).toContainText('0');
+    await expect(investigate.getByText(/Every relative import resolves/)).toBeVisible();
+
+    // A hotspot opens Impact focused on that file.
+    await investigate
+      .locator('.investigate-lists .index-row')
+      .filter({ hasText: 'src/service.js' })
+      .click();
+    await expect(page.locator('nav button.active')).toHaveText('Codebase');
+    await expect(codebaseTab(page)).toHaveText('Impact');
+    await expect(page.locator('.codebase-intelligence select').first()).toHaveValue(
+      'src/service.js',
+    );
+    await expect(
+      page.locator('.codebase-intelligence .index-row').filter({ hasText: 'src/app.tsx' }),
+    ).toBeVisible();
+    // The Codebase workspace shares the index built on the Dashboard.
+    await expect(page.getByText('✓ Fresh index')).toBeVisible();
+
+    await goTo(page, 'Dashboard');
+    await investigate
+      .locator('.investigate-signal')
+      .filter({ hasText: 'Circular dependency paths' })
+      .click();
+    await expect(codebaseTab(page)).toHaveText('Dependencies');
+
+    await goTo(page, 'Dashboard');
+    await investigate
+      .locator('.workflow')
+      .getByRole('button', { name: /Report \/ AI/ })
+      .click();
+    await expect(codebaseTab(page)).toHaveText('Reports');
+  });
+
+  test('shows a restored cached index without rebuilding', async ({ page }) => {
+    await openFixture(page);
+    await buildIndex(page);
+    await page.reload();
+    await page.getByRole('button', { name: 'Open Folder' }).click();
+    await expect(page.locator('.investigate').getByText(/⚡ Cached index/)).toBeVisible();
+    await expect(page.locator('.investigate .investigate-signal')).toHaveCount(5);
+  });
+
+  test('security count reads "not scanned" until the scan runs', async ({ page }) => {
+    await openFixture(page);
+    await buildIndex(page);
+    const card = page.locator('.intelligence-cards article').filter({ hasText: /Security/ });
+    await expect(card).toContainText('Security: not scanned');
+    await page.getByRole('button', { name: 'Analyzers', exact: true }).click();
+    await page
+      .locator('.analytics-panel')
+      .filter({ hasText: 'Security / Secret Scan' })
+      .getByRole('button', { name: '▶ Run Scan' })
+      .click();
+    await expect(card).toContainText('Security findings');
+    await expect(card.locator('b')).toHaveText('1');
+  });
+});

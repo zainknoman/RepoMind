@@ -2,6 +2,22 @@
 
 All notable changes to RepoMind are recorded here.
 
+## Unreleased — Dashboard and first-run workflow (Phase 2)
+
+### Added
+- **Investigate** on the Dashboard: build or restore the code index, then see health signals,
+  dependency hotspots, unresolved imports and circular dependencies. Each item opens the Codebase view
+  that explains it (Impact focused on the file, Dependencies, Health, Analyzers).
+- A workflow guide (Open → Index → Understand → Investigate → Analyze → Report / AI) on the first-run
+  screen and on the Dashboard, with an **Open Repository Folder** button on first run.
+
+### Changed
+- The Dashboard and Codebase share one index. A cached index is restored as soon as a folder opens,
+  not only when Codebase is visited.
+- The Codebase security card reads "not scanned" until the security scan runs, instead of showing 0.
+- Faster folder open on large repositories: the cache key no longer looks up every file by path, and
+  health hotspots no longer rescan all symbols per file. Existing cached indexes stay valid.
+
 ## Unreleased — Product consolidation (Phase 1)
 
 ### Changed
