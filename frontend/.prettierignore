@@ -1,0 +1,7 @@
+dist/
+node_modules/
+playwright-report/
+test-results/
+package-lock.json
+# Standalone embedded tools are maintained as self-contained pages.
+public/tools/

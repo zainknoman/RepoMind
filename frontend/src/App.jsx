@@ -1,55 +1,404 @@
-import React,{useEffect,useMemo,useRef,useState}from'react';import{marked}from'marked';import DOMPurify from'dompurify';import'./styles.css';
-import CodebasePanel from './features/codebase/CodebasePanel';
-const EXTS=new Set(['.js','.jsx','.ts','.tsx','.vue','.py','.java','.kt','.go','.rs','.php','.cs','.cpp','.c','.h','.html','.css','.scss','.json','.md','.txt','.xml','.yaml','.yml','.sql','.sh','.bat','.ps1','.env']);const IGN=new Set(['.git','node_modules','dist','build','.venv','venv','__pycache__','.idea','.vscode']);const read=async f=>(await f.handle.getFile()).text();const esc=s=>s.replace(/[.*+?^()|[\\]\\]/g,'\\\\$&');const cp=t=>navigator.clipboard?.writeText(t);const dl=(n,t)=>{let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([t],{type:'text/plain'}));a.download=n;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)};
-async function walk(h,p='',a=[]){for await(const[n,x]of h.entries())if(x.kind==='directory'){if(!IGN.has(n))await walk(x,p?p+'/'+n:n,a)}else{let e='.'+(n.split('.').pop()||'').toLowerCase();a.push({name:n,path:p?p+'/'+n:n,ext:e,text:EXTS.has(e)||['Dockerfile','Makefile','.gitignore'].includes(n),handle:x})}return a}
-const sensitive=/\b(password|passwd|secret|token|api[_-]?key|private[_-]?key|access[_-]?key|credential|authorization)\b/i;const sensitiveName=/(^|\/)(\.env|.*(secret|credential|password|private[_-]?key|id_rsa|\.pem|\.p12|\.key))$/i;
-function App(){const queryTool=new URLSearchParams(window.location.search).get('tool')||'';const initialTool=['json','text','base64','regex','jwt','uuid','timestamp'].includes(queryTool)?queryTool:'json';const initialTab=queryTool==='ofs'?'ofs':queryTool==='eng'?'engineering':queryTool?'tools':'overview';const[p,setP]=useState(),[rootHandle,setRootHandle]=useState(null),[sel,setSel]=useState(),[tab,setTab]=useState(initialTab),[explorerQ,setExplorerQ]=useState(''),[searchQ,setSearchQ]=useState(''),[res,setRes]=useState([]),[text,setText]=useState(''),[dirty,setDirty]=useState(false),[tools,setTools]=useState(initialTool),[tin,setTin]=useState(''),[regex,setRegex]=useState(''),[regexText,setRegexText]=useState(''),[tout,setTout]=useState(''),[diff,setDiff]=useState(null),[compiled,setCompiled]=useState(''),[split,setSplit]=useState(''),[parts,setParts]=useState([]),[err,setErr]=useState(''),[searchView,setSearchView]=useState(null);
-async function folder(){try{let h=await showDirectoryPicker({mode:'readwrite'}),fs=await walk(h);let ex={};for(const f of fs)ex[f.ext]=(ex[f.ext]||0)+1;setRootHandle(h);setP({name:h.name,files:fs,stats:{ext:ex},rootHandle:h});setSel(null);setSearchView(null);setTab('overview');setErr('')}catch(e){if(e.name!=='AbortError')setErr(e.message)}}
-async function open(f,fromSearch=false){if(!f?.text)return setErr('Binary or unsupported file');try{let c=await read(f),x={...f,content:c};setSel(x);setText(c);setDirty(false);if(fromSearch){setSearchView({file:x,query:searchQ});setTab('search')}else{setSearchView(null);setTab('editor')}setErr('')}catch(e){setErr(e.message)}}
-async function save(){try{let w=await sel.handle.createWritable();await w.write(text);await w.close();let x={...sel,content:text};setSel(x);setDirty(false);if(searchView?.file.path===sel.path)setSearchView({...searchView,file:x})}catch(e){setErr(e.message)}}
-async function search(){if(!p||!searchQ.trim())return;let a=[];for(const f of p.files.filter(x=>x.text)){let c=await read(f);c.split(/\r?\n/).forEach((l,i)=>{if(new RegExp(esc(searchQ),'i').test(l))a.push({path:f.path,line:i+1,text:l})})}setRes(a);setSearchView(null);setTab('search')}
-async function combine(){if(!p)return;let a=[];for(const f of p.files.filter(x=>x.text)){let c=await read(f);a.push('/* --- Start of file: '+f.path+' --- */\n'+c+'\n/* --- End of file: '+f.path+' --- */')}setCompiled(a.join('\n\n'))}
-function dosplit(){let r=/\/\* --- Start of file: (.*?) --- \*\/\n([\s\S]*?)\n\/\* --- End of file: \1 --- \*\//g,m,a=[];while(m=r.exec(split))a.push({name:m[1],content:m[2]});setParts(a)}
-async function zipFiles(items,name){if(!window.JSZip){setErr('ZIP engine not loaded');return}let z=new window.JSZip();items.forEach(x=>z.file(x.name,x.content));let b=await z.generateAsync({type:'blob'});let a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;a.click()}
-function runTool(){try{let o='';if(tools==='json')o=JSON.stringify(JSON.parse(tin),null,2);else if(tools==='text')o=tin.replace(/[ \t]+/g,' ').split(/\r?\n/).map(x=>x.trim()).filter((x,i,a)=>x!==''||i===0||a[i-1]!=='').join('\n').trim();else if(tools==='base64')o=btoa(unescape(encodeURIComponent(tin)));else if(tools==='uuid')o=crypto.randomUUID();else if(tools==='timestamp')o=tin?new Date(Number(tin)*1000).toISOString():String(Math.floor(Date.now()/1000));else if(tools==='jwt'){let x=tin.split('.')[1];o=JSON.stringify(JSON.parse(decodeURIComponent(escape(atob(x.replace(/-/g,'+').replace(/_/g,'/'))))),null,2)}else if(tools==='regex'){let r=new RegExp(regex,'g'),m=[...regexText.matchAll(r)].map(x=>({match:x[0],index:x.index,line:regexText.slice(0,x.index).split(/\r?\n/).length}));o=JSON.stringify({count:m.length,matches:m},null,2)}setTout(o)}catch(e){setTout('Error: '+e.message)}}
-function clearTools(){setTin('');setRegex('');setRegexText('');setTout('')}
-return <><header><div className="brand"><div className="brand-mark" aria-hidden="true">◈</div><div><b>RepoMind</b><small>Local-first codebase intelligence workspace</small></div></div><div className="header-actions"><button onClick={()=>setTab('help')}>❔ Help</button><button onClick={folder}>📂 Open Folder</button></div></header><div className="status">{p?<><b>📁 {p.name}</b><span>📄 {p.files.length} files</span><span>✓ Local only</span></>:<span>Select a local folder to begin</span>}</div>{err&&<div className="error">{err}</div>}<nav className="workspace-nav">
-<div className="nav-group"><span>Workspace</span>{[['overview','Overview'],['codebase','Codebase'],['explorer','Explorer'],['search','Search'],['editor','Editor']].map(([x,label])=><button key={x}className={tab===x?'active':''}onClick={()=>setTab(x)}>{label}</button>)}</div>
-<div className="nav-group"><span>Analyze</span>{[['ingest','Ingest'],['analyze','Project Analysis'],['transform','Transform'],['diff','Compare']].map(([x,label])=><button key={x}className={tab===x?'active':''}onClick={()=>setTab(x)}>{label}</button>)}</div>
-<div className="nav-group"><span>Tools</span>{[['tools','Developer Tools'],['ofs','Temenos'],['mdviewer','Markdown'],['engineering','Engineering']].map(([x,label])=><button key={x}className={tab===x?'active':''}onClick={()=>setTab(x)}>{label}</button>)}</div>
-</nav><main>
-{tab==='overview'&&<Overview p={p}/>}
-{tab==='codebase'&&<CodebasePanel project={p}/>}
-{tab==='explorer'&&<Explorer p={p}q={explorerQ}setQ={setExplorerQ}open={open}/>}
-{tab==='search'&&<SearchPanel p={p}q={searchQ}setQ={setSearchQ}search={search}res={res}open={open}searchView={searchView}setSearchView={setSearchView}setTab={setTab}setSel={setSel}setText={setText}setDirty={setDirty}/>}
-{tab==='editor'&&<Editor sel={sel}text={text}setText={x=>{setText(x);setDirty(true)}}dirty={dirty}save={save}/>}
-{tab==='mdviewer'&&<MDViewer/>}
-{tab==='ingest'&&<CodeIngest p={p}/>} {tab==='analyze'&&<Analyze p={p}/>} 
-{tab==='ofs'&&<OFSWorkspace/>}{tab==='engineering'&&<EngineeringWorkspace/>}{tab==='tools'&&<Tools tool={tools}setTool={setTools}input={tin}setInput={setTin}regex={regex}setRegex={setRegex}regexText={regexText}output={tout}run={runTool}clear={clearTools}/>}
-{tab==='diff'&&<Diff p={p}diff={diff}setDiff={setDiff}/>}{tab==='help'&&<HelpPage/>}
-{tab==='transform'&&<Transform p={p}compiled={compiled}setCompiled={setCompiled}split={split}setSplit={setSplit}parts={parts}setParts={setParts}combine={combine}dosplit={dosplit}zipFiles={zipFiles}/>}
-</main><footer>© {new Date().getFullYear()} ZainKamali – Repomind 🧠</footer></>}
-function HelpPage(){const[active,setActive]=useState('overview');const features=[{id:'overview',title:'Overview',icon:'🏠',group:'Workspace',definition:'The starting dashboard for RepoMind. It explains the local-first workflow and gives a quick view of the selected project.',features:['Project file count and file-type distribution','Quick links to the main RepoMind capabilities','Sensitive filename heuristics for obvious credential-related files'],how:'Open a folder, then return to Overview to see the project summary. No server upload is required.',example:'Open a project containing src/, package.json and README.md. Overview shows the file count and detected file types.'},{id:'codebase',title:'Codebase Intelligence',icon:'🧠',group:'Workspace',definition:'The central intelligence workspace. RepoMind indexes the selected project into a local graph of files, symbols, references, imports, exports and dependencies.',features:['AST-backed JavaScript, JSX, TypeScript and TSX analysis','Definitions, references and imported-by relationships','Dependency graph, cycles and architecture hotspots','Health and analyzer workspaces','Impact analysis and context building','Git and AI workspace integration','Documentation reports and architecture diagrams'],how:'Open a folder, select Codebase, then click Build/Refresh Index. Use the child tabs to inspect the indexed project. The index can be cached locally in IndexedDB.',example:'If src/api/user.js imports src/services/auth.js, the dependency and symbol views can show that relationship and help trace impact before editing auth.js.'},{id:'explorer',title:'Explorer',icon:'🗂️',group:'Workspace',definition:'A local file browser for the opened project.',features:['Filter files by path or filename','Open supported text files in the editor','Quickly inspect project structure'],how:'Open a folder and choose Explorer. Type part of a path in the filter and click a file.',example:'Enter “controller” to narrow a large project to controller-related files.'},{id:'search',title:'Search',icon:'🔎',group:'Workspace',definition:'Searches text across supported project files and opens matching files at the relevant result.',features:['Project-wide text search','Line numbers and matching source snippets','Result viewer with next/previous matches','Open a result directly in Editor'],how:'Enter a search term and press Enter or Search. Click a result to inspect the surrounding file.',example:'Search for “PhoneNoValidation” to find every source line that references the hook.'},{id:'editor',title:'Editor',icon:'📝',group:'Workspace',definition:'A browser-based editor for supported text files opened from the local folder.',features:['Find and replace','Replace all','Copy and download','Save changes back to the local file'],how:'Open a file from Explorer or Search. Edit the text and click Save. Browser permission is required to write to the selected folder.',example:'Search for an old API path, open the result, replace it, then Save the file locally.'},{id:'ingest',title:'Code Ingest',icon:'🍽️',group:'Analyze',definition:'Creates a Gitingest-style local representation of the project: summary, directory structure and combined source content.',features:['Project summary','Directory tree','Combined file content','Copy and download generated context'],how:'Open a folder, choose Ingest and click Generate. Use the generated Markdown as AI or documentation context.',example:'Generate an ingest package for a small Node.js service before asking an external AI tool to review its structure.'},{id:'analyze',title:'Project Analysis',icon:'📊',group:'Analyze',definition:'Provides project-level analysis separate from the deeper Codebase Intelligence workspace.',features:['Local project structure analysis','Analysis output for understanding the opened codebase'],how:'Open a folder and choose Analyze. Run the available analysis actions and review the results.',example:'Use Analyze for a quick project assessment before opening the detailed Codebase Intelligence index.'},{id:'transform',title:'Transform',icon:'🧩',group:'Analyze',definition:'Transforms local text files into combined or split artifacts without requiring a backend.',features:['Combine files','Reverse split combined content','Copy/download results','ZIP generation'],how:'Open Transform, provide or generate the source content, then use Combine/Split and export actions.',example:'Combine selected source files into one review document, then download it as a single artifact.'},{id:'compare',title:'Diff / Compare',icon:'↔️',group:'Analyze',definition:'Compares text content to make changes easier to review.',features:['Side-by-side or line-level comparison workflow','Local-only comparison','Review changes before saving'],how:'Open Compare and select the files/content to compare. Review additions, deletions and changed lines.',example:'Compare a before/after Java class to verify that only the intended validation logic changed.'},{id:'tools',title:'Developer Tools',icon:'🧰',group:'Tools',definition:'A compact collection of everyday developer utilities.',features:['JSON Formatter','Text Cleanup','Base64','Regex','JWT Decoder','UUID generator','Timestamp conversion'],how:'Select the utility, enter the input and click Run. Clear resets the working fields. Operations run in the browser.',example:'Paste minified JSON, choose JSON Formatter and click Run to produce readable JSON.'},{id:'ofs',title:'Temenos / OFS',icon:'📨',group:'Tools',definition:'Temenos-oriented utilities for developers working with OFS and related banking integration data.',features:['OFS Generator','T24 Log Analyzer','Temenos-focused developer workflow'],how:'Open Temenos and select the required utility. Provide the transaction or log input, then run the operation.',example:'Use OFS Generator to build a transaction message from the required application, field and value inputs before testing it in a controlled environment.'},{id:'markdown',title:'Markdown Viewer',icon:'📖',group:'Tools',definition:'A browser Markdown workspace for previewing documentation and Mermaid code blocks.',features:['Live Markdown rendering','Mermaid code-block support','Local editing and preview'],how:'Open Markdown and paste Markdown into the editor. The rendered document appears in the preview area.',example:'Paste a README section containing a Mermaid flowchart to review its rendered documentation layout.'},{id:'engineering',title:'Engineering Utilities',icon:'⚙️',group:'Tools',definition:'Utilities for common engineering calculations and developer-oriented conversions.',features:['Time and timestamp utilities','Unit/conversion helpers','Engineering-focused calculations'],how:'Choose the required engineering utility, enter values and run the calculation.',example:'Use a timestamp utility to convert an epoch value into a human-readable date/time.'},{id:'git-ai',title:'Git + AI Workspace',icon:'🔀',group:'Codebase child workspaces',definition:'Codebase Intelligence can inspect local Git metadata and build provider-neutral AI context without uploading the repository.',features:['Branch and HEAD detection','Remote and working-tree signals','Recent local reflog activity','Ask RepoMind prompt builder','Saved local context snapshots','AI provider adapters with explicit user action'],how:'Build the Codebase index, open Git or AI Workspace, select the relevant files/symbols and generate context. AI calls occur only when you explicitly run them.',example:'Select a changed service plus its dependencies, generate context, then send that focused context to a configured AI provider for review.'},{id:'reports',title:'Reports & Documentation',icon:'📄',group:'Codebase child workspaces',definition:'Turns local Codebase Intelligence metadata into reusable Markdown documentation.',features:['Project architecture and technology report','Module-level reports','API and security findings when available','Dependency hotspot and review summaries','Copy and download Markdown'],how:'Build the index, open Reports, choose Project Report or Module Report, review the generated Markdown and export it.',example:'Generate a module report for src/payments/service.js before a code review to document its imports, exports, symbols and dependencies.'},{id:'diagram',title:'Architecture Diagram',icon:'🗺️',group:'Codebase child workspaces',definition:'Visualizes the dependency architecture generated from the local index using Mermaid.js.',features:['Generated dependency diagrams','Lazy Mermaid rendering','SVG preview','Re-render, copy and download controls'],how:'Build the Codebase index, open Diagram and generate the Mermaid graph. Mermaid is loaded only when visualization is requested.',example:'A project with api → services → repositories relationships can be rendered as a visual dependency map.'},{id:'health',title:'Health & Analyzers',icon:'🩺',group:'Codebase child workspaces',definition:'Provides heuristic signals about unresolved imports/references, cycles, parser errors, dependency hotspots and framework structure.',features:['Architecture health signals','Extensible analyzer registry','Framework structure analysis','Route discovery','Symbol resolution status'],how:'Build the index and open Health or Analyzers. Run the available analyzers and inspect their findings. These are signals, not formal security or compiler diagnostics.',example:'An unresolved relative import can be surfaced as a health issue so you can inspect the path before it causes a runtime or build problem.'},{id:'security',title:'Security Scan',icon:'🔐',group:'Codebase child workspaces',definition:'A local heuristic scan for likely secrets, credentials, private keys and connection strings.',features:['API-key and token patterns','Password/secret patterns','Private-key detection','Database connection string heuristics'],how:'Build the index, open Security and run the scan. Treat matches as review signals; false positives are possible.',example:'A hard-coded DATABASE_URL or private-key filename can be flagged for manual review.'},{id:'api',title:'API Discovery',icon:'🌐',group:'Codebase child workspaces',definition:'Discovers common API and route declarations from supported framework patterns.',features:['Express and NestJS route patterns','FastAPI and Flask routes','Spring mappings','ASP.NET route patterns'],how:'Build the index, open API Discovery and run the scan. Review discovered routes and source locations.',example:'A GET /customers route in an Express controller can be surfaced with its file and line information.'}];const item=features.find(x=>x.id===active)||features[0];return <section className="help-page"><div className="help-hero"><div><div className="hero-badge">❔ RepoMind Help</div><h1>Learn RepoMind</h1><p>Every workspace is explained with its purpose, key features, how it works and a practical example.</p></div><div className="help-note">🔒 Local-first<br/><small>Your project stays in the browser unless you explicitly use an external AI provider.</small></div></div><div className="help-layout"><aside className="help-list">{['Workspace','Analyze','Tools','Codebase child workspaces'].map(group=><div key={group}><h3>{group}</h3>{features.filter(x=>x.group===group).map(x=><button key={x.id} className={active===x.id?'active':''} onClick={()=>setActive(x.id)}><span>{x.icon}</span><span>{x.title}</span></button>)}</div>)}</aside><article className="help-detail"><div className="help-title"><span>{item.icon}</span><div><small>{item.group}</small><h2>{item.title}</h2></div></div><section><h3>Definition</h3><p>{item.definition}</p></section><section><h3>Key features</h3><ul>{item.features.map(x=><li key={x}>{x}</li>)}</ul></section><section><h3>How to run / use it</h3><p>{item.how}</p></section><section className="help-example"><h3>Example</h3><p>{item.example}</p></section></article></div></section>}
-function Overview({p}){return <section className="overview"><div className="overview-content"><div className="overview-top"><div><div className="hero-badge">🧠 Local Codebase Workspace</div><h1>{p?'Welcome to '+p.name:'Understand and work with your codebase locally'}</h1><p>{p?'Explore, search, edit, analyze, compare, transform and document your project locally.':'Open a folder and use one workspace for code exploration, search, editing, Markdown, utilities, comparison and transformation.'}</p></div>{p&&<div className="analytics-card"><div>📊 Analytics</div><strong>{p.files.length}</strong><span>files</span></div>}</div><div className="feature-grid">{[['🔒','Local-first','Files remain in your browser.'],['📂','Local Folder','Open a local folder directly.'],['🗂️','Explorer','Browse and filter project files.'],['🔎','Search','Find text, lines and occurrences.'],['📝','Editor','Edit, find/replace, copy and save.'],['🍽️','Code Ingest','Generate project context and combined source.'],['🧠','Analyze','Index symbols, imports and project structure.'],['🧩','Transform','Combine, split, copy, download and ZIP.'],['📨','OFS','OFS Generator and T24 Log Analyzer.'],['🧰','Engineering Tools','Time, units, timestamp and engineering utilities.'],['📖','Markdown','Render Markdown like a document.'],['📊','Diff & Compare','Compare files with line-level changes.']].map(([i,t,d])=><article key={t}><div className="feature-icon">{i}</div><div><b>{t}</b><span>{d}</span></div></article>)}</div>{p&&<div className="overview-lower"><div className="analytics-panel"><h2>📈 Project Analytics</h2><div className="cards"><article><b>📄 {p.files.length}</b><span>Total files</span></article><article><b>🧩 {Object.keys(p.stats.ext).length}</b><span>File types</span></article><article><b>🔒 Local</b><span>No upload</span></article></div><h3>File type distribution</h3>{Object.entries(p.stats.ext).sort((a,b)=>b[1]-a[1]).slice(0,12).map(([k,v])=><div className="bar"key={k}><span>{k}</span><i><b style={{width:Math.max(4,v/p.files.length*100)+'%'}}/></i><strong>{v}</strong></div>)}</div><aside className="memo-panel"><h2>🗒️ Not Used / Review</h2><p>Small heuristic list is shown here when available.</p></aside><aside className="sensitive-panel"><div className="alarm">🚑</div><h2>⚠️ Sensitive Files</h2>{p.files.filter(f=>sensitiveName.test(f.path)).slice(0,8).map(f=><div className="sensitive-item"key={f.path}>🔴 {f.path}</div>)}{!p.files.some(f=>sensitiveName.test(f.path))&&<p>✓ No obvious sensitive filenames detected.</p>}<small>Heuristic only — review findings manually.</small></aside></div>}</div></section>}function Explorer({p,q,setQ,open}){return <section><div className="head"><div><h1>Explorer</h1><small>Browse local project files.</small></div><div className="search"><input value={q}onChange={e=>setQ(e.target.value)}placeholder="Filter files"/><button onClick={()=>setQ('')}>✕ Clear</button></div></div><div className="list">{p?.files.filter(f=>f.path.toLowerCase().includes(q.toLowerCase())).map(f=><button key={f.path}onClick={()=>open(f)}><span>📄 {f.path}</span><small>{f.ext}</small></button>)}</div></section>}
-function SearchPanel({p,q,setQ,search,res,open,searchView,setSearchView,setTab,setSel,setText,setDirty}){return <section><div className="search-results"><div className="head"><div><h1>Search</h1><small>Find text across your local project.</small></div><button onClick={()=>setQ('')}>✕ Clear</button></div><div className="search"><input value={q}onChange={e=>setQ(e.target.value)}onKeyDown={e=>e.key==='Enter'&&search()}placeholder="Find text"/><button onClick={search}>🔎 Search</button></div><div className="list">{res.map((r,i)=><button key={r.path+'-'+r.line+'-'+i}onClick={()=>open(p.files.find(f=>f.path===r.path),true)}><b>{r.path} · Line {r.line}</b><code>{r.text}</code></button>)}</div></div>{searchView&&<SearchFileView data={searchView}setSearchView={setSearchView}setSel={setSel}setText={setText}setDirty={setDirty}setTab={setTab}/>}</section>}
-function SearchFileView({data,setSearchView,setSel,setText,setDirty,setTab}){const{file,query}=data,lines=file.content.split(/\r?\n/);const[active,setActive]=useState(0),[rendered,setRendered]=useState(file.ext==='.md'),refs=useRef([]),matches=useMemo(()=>{let a=[],r=query?new RegExp(esc(query),'ig'):null;lines.forEach((l,i)=>{if(!r)return;let m;while((m=r.exec(l))!==null)a.push({line:i,index:m.index});});return a},[file.content,query]);useEffect(()=>setActive(0),[file.path,query]);useEffect(()=>{refs.current[matches[active]?.line]?.scrollIntoView({behavior:'smooth',block:'center'})},[active,matches]);const next=()=>matches.length&&setActive(x=>(x+1)%matches.length),prev=()=>matches.length&&setActive(x=>(x-1+matches.length)%matches.length);function edit(){setSel(file);setText(file.content);setDirty(false);setTab('editor')}return <div className="searched-file"><div className="file-toolbar"><div><b>📄 {file.path}</b><small>{file.ext==='.md'?'Markdown Viewer + Editor':'Search result viewer'}</small></div><div className="toolbar-actions"><button onClick={edit}>✏️ Editor</button><button onClick={()=>cp(file.content)}>📋 Copy</button><button onClick={()=>dl(file.name,file.content)}>⬇ Download</button><button onClick={()=>document.getElementById('viewer-find')?.focus()}>🔎 Find Text</button>{file.ext==='.md'&&<button onClick={()=>setRendered(!rendered)}>{rendered?'Raw':'Rendered'}</button>}</div></div><div className="viewer-find"><input id="viewer-find"value={query}readOnly/><strong>{matches.length?active+1:0}/{matches.length}</strong></div>{file.ext==='.md'&&rendered?<div className="markdown-view mermaid-markdown" dangerouslySetInnerHTML={{__html:renderMarkdown(file.content)}}/>:<div className="highlight-view">{lines.map((l,i)=><div key={i}ref={el=>refs.current[i]=el}className={matches.some(m=>m.line===i)&&matches[active]?.line===i?'active-line':''}><span>{i+1}</span><code>{highlightAll(l,query)}</code></div>)}</div>}<div className="match-controller"><button onClick={prev}>◀ Previous</button><strong>{matches.length?active+1:0}/{matches.length}</strong><button onClick={next}>Next ▶</button></div></div>}function highlightAll(line,term){if(!term)return line;let re=new RegExp('('+esc(term)+')','ig'),parts=line.split(re);return parts.map((x,i)=>i%2?<mark className="all-match"key={i}>{x}</mark>:x)}
-function Editor({sel,text,setText,dirty,save}){const[find,setFind]=useState(''),[rep,setRep]=useState(''),[match,setMatch]=useState(0),ref=useRef();const lines=text.split(/\r?\n/);const matches=useMemo(()=>{if(!find)return[];let r=new RegExp(esc(find),'ig'),a=[],m;while((m=r.exec(text))!==null)a.push(m.index);return a},[find,text]);useEffect(()=>{if(find&&ref.current&&matches.length){let pos=matches[match%matches.length];ref.current.focus();ref.current.setSelectionRange(pos,pos+find.length)}},[match,find,matches]);function replaceOne(){if(!find)return;let i=text.indexOf(find);if(i>=0)setText(text.slice(0,i)+rep+text.slice(i+find.length))}function replaceAll(){if(find)setText(text.split(find).join(rep))}return <section><div className="head"><div><h1>{sel?.path||'Editor'} {dirty&&<em>● modified</em>}</h1><small>Local editor with Find, Replace and Replace All.</small></div><div className="toolbar-actions"><button onClick={()=>ref.current?.focus()}>🔎 Find Text</button><button onClick={()=>cp(text)}>📋 Copy</button><button onClick={()=>sel&&dl(sel.name,text)}>⬇ Download</button><button onClick={save}disabled={!dirty}>💾 Save</button></div></div>{sel&&<><div className="replace"><input value={find}onChange={e=>{setFind(e.target.value);setMatch(0)}}placeholder="Find"/><button onClick={()=>setMatch(x=>matches.length?(x+1)%matches.length:0)}>Next ▶</button><button onClick={()=>setMatch(x=>matches.length?(x-1+matches.length)%matches.length:0)}>◀ Previous</button><strong>{matches.length?match+1:0}/{matches.length}</strong><input value={rep}onChange={e=>setRep(e.target.value)}placeholder="Replace with"/><button onClick={replaceOne}>Replace</button><button onClick={replaceAll}>Replace All</button></div><div className="editor"><pre>{lines.map((_,i)=><div key={i}>{i+1}</div>)}</pre><textarea ref={ref}spellCheck="false"value={text}onChange={e=>setText(e.target.value)}/></div></>}</section>}
-function renderMarkdown(value){const renderer=new marked.Renderer();renderer.code=function({text,lang}){if(lang&&lang.toLowerCase()==='mermaid')return '<div class="mermaid">'+DOMPurify.sanitize(text,{ALLOWED_TAGS:[]})+'</div>';return '<pre><code class="language-'+(lang||'')+'">'+DOMPurify.sanitize(text,{ALLOWED_TAGS:[]})+'</code></pre>'};return DOMPurify.sanitize(marked.parse(value||'',{renderer}),{ADD_TAGS:['div'],ADD_ATTR:['class']})}
-function MDViewer(){const[value,setValue]=useState('');const[html,setHtml]=useState('');useEffect(()=>setHtml(renderMarkdown(value)),[value]);useEffect(()=>{if(window.mermaid)window.mermaid.run({querySelector:'.md-viewer .mermaid'}).catch(()=>{})},[html]);return <section className="md-workspace"><div className="md-head"><div><h1>📖 Markdown Viewer</h1><small>Paste Markdown and render it instantly, including Mermaid flowcharts.</small></div><button onClick={()=>setValue('')}>🧹 Clear</button></div><textarea className="md-input" value={value} onChange={e=>setValue(e.target.value)} placeholder="Paste Markdown here..."/><div className="md-viewer" dangerouslySetInnerHTML={{__html:html}}/></section>}
-function CodeIngest({p}){const[summary,setSummary]=useState(''),[structure,setStructure]=useState(''),[content,setContent]=useState(''),[busy,setBusy]=useState(false);
-async function generate(){if(!p)return;setBusy(true);try{const files=p.files.filter(f=>f.text),counts={};files.forEach(f=>counts[f.ext]=(counts[f.ext]||0)+1);const s='# '+p.name+'\n\n## Summary\n\n- Total files: '+files.length+'\n- File types: '+Object.keys(counts).length+'\n- Local-first analysis: yes\n\n### File Types\n'+Object.entries(counts).sort((a,b)=>b[1]-a[1]).map(([k,v])=>'- \`'+k+'\`: '+v).join('\n');const d='Directory structure:\n'+buildTree(files.map(f=>f.path),p.name);const all=[];for(const f of files)all.push('/* --- Start of file: '+f.path+' --- */\n'+await read(f)+'\n/* --- End of file: '+f.path+' --- */');setSummary(s);setStructure(d);setContent(all.join('\n\n'))}finally{setBusy(false)}}
-function buildTree(paths,root){const tree={files:[],dirs:{}};paths.forEach(path=>{const parts=path.split('/').filter(Boolean);let node=tree;parts.forEach((part,i)=>{if(i===parts.length-1)node.files.push(part);else{node.dirs[part]??={files:[],dirs:{}};node=node.dirs[part]}})});const lines=[root+'/'];function walk(node,prefix){const entries=[...Object.keys(node.dirs).map(name=>({name,dir:true})),...node.files.map(name=>({name,dir:false}))];entries.forEach((x,i)=>{const last=i===entries.length-1;lines.push(prefix+(last?'└── ':'├── ')+x.name+(x.dir?'/':''));if(x.dir)walk(node.dirs[x.name],prefix+(last?'    ':'│   '))})}walk(tree,'');return lines.slice(0,1).concat(lines.slice(1)).join('\n')}
-const all=summary+'\n\n'+structure+'\n\n# File Content\n\n'+content;
-return <section className="code-ingest"><div className="head"><div><h1>🍽️ Code Ingest</h1><small>Gitingest-style local codebase summary, directory structure and combined file content.</small></div><button onClick={generate}disabled={!p||busy}>{busy?'⏳ Generating...':'⚙ Generate'}</button></div>{!p&&<div className="empty">📂 Open a local folder first.</div>}<div className="ingest-top-grid"><div className="ingest-section"><div className="ingest-toolbar"><h2>📋 Summary</h2><button onClick={()=>cp(summary)}>📋 Copy</button></div><textarea value={summary}readOnly placeholder="Generate to create summary"/></div><div className="ingest-section"><div className="ingest-toolbar"><h2>🗂️ Directory Structure</h2><button onClick={()=>cp(structure)}>📋 Copy</button></div><textarea value={structure}readOnly placeholder="Generate to create directory structure"/></div></div><div className="ingest-section"><div className="ingest-toolbar"><h2>📄 File Content</h2><div><button onClick={()=>cp(content)}>📋 Copy</button><button onClick={()=>dl((p?.name||'project')+'_gitingest.md',all)}>⬇ Download All</button></div></div><textarea value={content}readOnly placeholder="Combined code files using Transform format"/></div></section>}
+import './styles.css';
+import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { MAX_FILES, applyGitignore, read, supportsFolderAccess, walk } from './lib/files';
+import { esc } from './lib/text';
+import { buildDashboardData } from './features/dashboard/dashboardData';
+import { Dashboard } from './features/dashboard/Dashboard';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { TOOL_IDS } from './features/tools/runTool';
 
-function analyzeSource(path,content){if(!/\\.(js|jsx|ts|tsx|vue)$/.test(path))return null;const lines=content.split(/\\r?\\n/),functions=[],classes=[],imports=[],exports=[];const add=(a,name,line,extra={})=>a.push({name,line,...extra});lines.forEach((line,i)=>{let m;if((m=line.match(/\\b(?:async\\s+)?function\\s+([A-Za-z_$][\\w$]*)/)))add(functions,m[1],i+1,{type:'function'});if((m=line.match(/\\b(?:const|let|var)\\s+([A-Za-z_$][\\w$]*)\\s*=\\s*(?:async\\s*)?(?:\\([^)]*\\)|[A-Za-z_$][\\w$]*)\\s*=>/)))add(functions,m[1],i+1,{type:'arrow'});if((m=line.match(/\\bclass\\s+([A-Za-z_$][\\w$]*)/)))add(classes,m[1],i+1,{type:'class'});if((m=line.match(/^\\s*import\\s+(.+?)\\s+from\\s+['"](.+?)['"]/)))add(imports,m[2],i+1,{binding:m[1]});else if((m=line.match(/^\\s*import\\s+['"](.+?)['"]/)))add(imports,m[1],i+1,{binding:'side-effect'});if((m=line.match(/^\\s*export\\s+(?:default\\s+)?(?:function|class)\\s+([A-Za-z_$][\\w$]*)/)))add(exports,m[1],i+1);else if((m=line.match(/^\\s*export\\s+(?:const|let|var)\\s+([A-Za-z_$][\\w$]*)/)))add(exports,m[1],i+1)});return{lines:lines.length,functions,classes,imports,exports}}
-async function buildProjectIndex(p){if(!p)return null;const index={files:[],symbols:[],imports:[],stats:{lines:0,jsFiles:0,functions:0,classes:0,imports:0,exports:0}};for(const f of p.files.filter(x=>x.text)){const content=await read(f),lines=content.split(/\\r?\\n/).length;index.files.push({path:f.path,ext:f.ext,lines});index.stats.lines+=lines;const a=analyzeSource(f.path,content);if(a){index.stats.jsFiles++;index.stats.functions+=a.functions.length;index.stats.classes+=a.classes.length;index.stats.imports+=a.imports.length;index.stats.exports+=a.exports.length;index.symbols.push(...a.functions.map(x=>({...x,path:f.path})),...a.classes.map(x=>({...x,path:f.path})));index.imports.push(...a.imports.map(x=>({...x,path:f.path})));}}return index}
-function Analyze({p}){const[index,setIndex]=useState(null),[busy,setBusy]=useState(false),[q,setQ]=useState(''),[kind,setKind]=useState('all');async function build(){setBusy(true);try{setIndex(await buildProjectIndex(p))}finally{setBusy(false)}}const symbols=(index?.symbols||[]).filter(x=>(kind==='all'||x.type===kind)&&x.name.toLowerCase().includes(q.toLowerCase())),imports=(index?.imports||[]).filter(x=>x.name.toLowerCase().includes(q.toLowerCase()));return <section><div className="head"><div><h1>🧠 Analyze</h1><small>Project Index + JavaScript/TypeScript symbol analysis, running locally in your browser.</small></div><button onClick={build}disabled={!p||busy}>{busy?'⏳ Indexing...':'⚙ Build Project Index'}</button></div>{!p&&<div className="empty">📂 Open a local folder first.</div>}{index&&<><div className="analytics-panel"><h2>Project Index</h2><div className="cards"><article><b>{index.files.length}</b><span>Indexed files</span></article><article><b>{index.stats.lines}</b><span>Lines</span></article><article><b>{index.stats.jsFiles}</b><span>JS/TS files</span></article><article><b>{index.stats.functions}</b><span>Functions</span></article><article><b>{index.stats.classes}</b><span>Classes</span></article><article><b>{index.stats.imports}</b><span>Imports</span></article></div></div><div className="search"><input value={q}onChange={e=>setQ(e.target.value)}placeholder="Search symbols, imports or files"/><select value={kind}onChange={e=>setKind(e.target.value)}><option value="all">All symbols</option><option value="function">Functions</option><option value="arrow">Arrow functions</option><option value="class">Classes</option></select></div><div className="analyze-grid"><div className="analytics-panel"><h2>Symbols</h2>{symbols.slice(0,300).map((x,i)=><div className="index-row"key={i}><b>{x.name}</b><span>{x.type}</span><small>{x.path}:{x.line}</small></div>)}</div><div className="analytics-panel"><h2>Imports</h2>{imports.slice(0,200).map((x,i)=><div className="index-row"key={i}><b>{x.name}</b><span>{x.binding}</span><small>{x.path}:{x.line}</small></div>)}</div></div><div className="analytics-panel"><h2>Indexed Files</h2>{index.files.filter(x=>x.path.toLowerCase().includes(q.toLowerCase())).slice(0,300).map(x=><div className="index-row"key={x.path}><b>{x.path}</b><span>{x.ext}</span><small>{x.lines} lines</small></div>)}</div></>}</section>}
+// Workspaces are loaded on first use so the initial bundle only carries the shell and the dashboard.
+const named = (loader, name) => lazy(() => loader().then((m) => ({ default: m[name] })));
+const CodebasePanel = React.memo(lazy(() => import('./features/codebase/CodebasePanel')));
+const Explorer = named(() => import('./features/explorer/Explorer'), 'Explorer');
+const SearchPanel = named(() => import('./features/search/SearchPanel'), 'SearchPanel');
+const Editor = named(() => import('./features/editor/Editor'), 'Editor');
+const MDViewer = named(() => import('./features/markdown/MDViewer'), 'MDViewer');
+const CodeIngest = named(() => import('./features/ingest/CodeIngest'), 'CodeIngest');
+const Analyze = named(() => import('./features/analysis/Analyze'), 'Analyze');
+const Transform = named(() => import('./features/transform/Transform'), 'Transform');
+const Diff = named(() => import('./features/compare/Diff'), 'Diff');
+const Tools = named(() => import('./features/tools/Tools'), 'Tools');
+const OFSWorkspace = named(() => import('./features/tools/EmbeddedTools'), 'OFSWorkspace');
+const EngineeringWorkspace = named(
+  () => import('./features/tools/EmbeddedTools'),
+  'EngineeringWorkspace',
+);
+const HelpPage = named(() => import('./features/help/HelpPage'), 'HelpPage');
 
-function OFSWorkspace(){const[tool,setTool]=useState('ofs');return <section className="workspace-category"><div className="head"><div><h1>📨 OFS</h1><small>Temenos OFS Generator and T24 Log Analyzer.</small></div></div><div className="tabs"><button className={tool==='ofs'?'active':''} onClick={()=>setTool('ofs')}>📨 OFS Generator</button><button className={tool==='analyzer'?'active':''} onClick={()=>setTool('analyzer')}>📋 T24 Log Analyzer</button></div>{tool==='ofs'&&<div className="embedded-tool"><iframe title="OFS Generator" src="/RepoMind/tools/ofsMessageGenNew.html"/></div>}{tool==='analyzer'&&<div className="embedded-tool"><iframe title="T24 Log Analyzer" src="/RepoMind/tools/t24_logMultiFile.html"/></div>}</section>}
-function EngineeringWorkspace(){return <section><div className="head"><div><h1>🧰 Engineering Tools</h1><small>Daily engineering converters and utilities.</small></div></div><div className="embedded-tool"><iframe title="Engineering Utilities" src="/RepoMind/tools/engineeringUtilities.html"/></div></section>}
-function Tools({tool,setTool,input,setInput,regex,setRegex,regexText,setRegexText,output,run,clear}){const defs={text:['🧹','Text Cleanup','Paste messy text → Run → remove extra spaces and blank lines.'],json:['{}','JSON Formatter','Paste JSON → Run → format it.'],base64:['🔐','Base64','Paste text → Run → encode it.'],regex:['🔎','Regex','Pattern + test text → Run → matches and lines.'],jwt:['🎫','JWT Decoder','Paste a JWT → Run → decode payload.'],uuid:['🆔','UUID','Select UUID → Run → generate one.'],timestamp:['⏱️','Timestamp','Unix seconds or empty → Run.']};let ts=Object.keys(defs);return <section><div className="head"><div><h1>Developer Tools</h1><p>Focused developer utilities in one place.</p></div></div><div className="tabs">{ts.map(x=><button key={x}className={tool===x?'active':''}onClick={()=>setTool(x)}>{defs[x][0]} {defs[x][1]}</button>)}</div>{tool==='regex'?<div className="tool-grid"><div><label>Regular Expression</label><input value={regex}onChange={e=>setRegex(e.target.value)}placeholder="\\b[A-Z][a-z]+\\b"/><label>Test Text</label><textarea value={regexText}onChange={e=>setRegexText(e.target.value)}placeholder={'Hello RepoMind.\\nThis Tool Finds Words.'}/></div><div><label>Output</label><textarea value={output}readOnly/></div></div>:<><textarea value={input}onChange={e=>setInput(e.target.value)}placeholder={defs[tool][2]}/><textarea value={output}readOnly/></>}<div className="tool-run-strip"><button onClick={clear}>🧹 Clear</button><button className="primary" onClick={run}>▶ Run</button></div></section>}
-function Diff({p,diff,setDiff}){const[a,setA]=useState(''),[b,setB]=useState(''),[filter,setFilter]=useState('all'),[q,setQ]=useState('');async function go(){let f=p?.files.find(x=>x.path===a),g=p?.files.find(x=>x.path===b);if(!f||!g)return;let A=(await read(f)).split(/\\r?\\n/),B=(await read(g)).split(/\\r?\\n/),rows=[],n=Math.max(A.length,B.length);for(let i=0;i<n;i++){let l=A[i]??'',r=B[i]??'',type=l===r?'same':!l?'add':!r?'del':'change';rows.push({i:i+1,l,r,type})}setDiff({a,b,rows})}const rows=(diff?.rows||[]).filter(r=>filter==='all'||r.type===filter).filter(r=>!q||r.l.toLowerCase().includes(q.toLowerCase())||r.r.toLowerCase().includes(q.toLowerCase()));const changed=(diff?.rows||[]).filter(r=>r.type!=='same'),compact=changed.map(r=>(r.type==='add'?'+ ':r.type==='del'?'- ':'~ ')+(r.r||r.l)).join('\\n');return <section><h1>📊 Intelligent Diff</h1><p className="muted">Line-level comparison with change filters, search and compact AI-friendly output.</p><div className="compare-select"><label>Left<select value={a}onChange={e=>setA(e.target.value)}><option value="">Select file</option>{p?.files.filter(f=>f.text).map(f=><option key={f.path}value={f.path}>{f.path}</option>)}</select></label><label>Right<select value={b}onChange={e=>setB(e.target.value)}><option value="">Select file</option>{p?.files.filter(f=>f.text).map(f=><option key={f.path}value={f.path}>{f.path}</option>)}</select></label><button onClick={go}>🔍 Compare</button><button onClick={()=>{setA('');setB('');setDiff(null)}}>✕ Clear</button></div>{diff&&<><div className="diff-summary">📊 {changed.length} changed · 🟢 {diff.rows.filter(x=>x.type==='add').length} added · 🔴 {diff.rows.filter(x=>x.type==='del').length} removed · 🟡 {diff.rows.filter(x=>x.type==='change').length} changed</div><div className="search diff-controls"><select value={filter}onChange={e=>setFilter(e.target.value)}><option value="all">All lines</option><option value="add">Added</option><option value="del">Removed</option><option value="change">Changed</option><option value="same">Unchanged</option></select><input value={q}onChange={e=>setQ(e.target.value)}placeholder="Search diff"/></div><div className="diff-grid"><div className="diff-head">Left: {diff.a}</div><div className="diff-head">Right: {diff.b}</div>{rows.map(r=><React.Fragment key={r.i}><div className={'diff-line '+r.type}><span>{r.i}</span><code>{r.l||' '}</code></div><div className={'diff-line '+r.type}><span>{r.i}</span><code>{r.r||' '}</code></div></React.Fragment>)}</div><div className="analytics-panel"><div className="transform-toolbar"><b>Compact Diff</b><button onClick={()=>cp(compact)}>📋 Copy</button><button onClick={()=>dl('repomind-diff.txt',compact)}>⬇ Download</button></div><textarea value={compact}readOnly/></div></>}</section>}
+export const NAV_GROUPS = [
+  [
+    'Workspace',
+    [
+      ['dashboard', 'Dashboard'],
+      ['codebase', 'Codebase'],
+      ['explorer', 'Explorer'],
+      ['search', 'Search'],
+      ['editor', 'Editor'],
+    ],
+  ],
+  [
+    'Analyze',
+    [
+      ['ingest', 'Ingest'],
+      ['analyze', 'Project Analysis'],
+      ['transform', 'Transform'],
+      ['diff', 'Compare'],
+      ['mdviewer', 'Markdown'],
+    ],
+  ],
+  [
+    'Tools',
+    [
+      ['tools', 'Developer Tools'],
+      ['ofs', 'Temenos / OFS'],
+      ['engineering', 'Engineering'],
+    ],
+  ],
+];
 
-function Transform({p,compiled,setCompiled,split,setSplit,parts,setParts,combine,dosplit,zipFiles}){const[selected,setSelected]=useState([]),[find,setFind]=useState('');async function build(){if(!p)return;let fs=p.files.filter(f=>selected.includes(f.path));let a=[];for(const f of fs)a.push('/* --- Start of file: '+f.path+' --- */\n'+await read(f)+'\n/* --- End of file: '+f.path+' --- */');setCompiled(a.join('\n\n'))}function parse(){dosplit();let r=/\/\* --- Start of file: (.*?) --- \*\/\n([\s\S]*?)\n\/\* --- End of file: \1 --- \*\//g,m,a=[];while(m=r.exec(split))a.push({name:m[1],content:m[2]});setParts(a)}let filtered=parts.filter(x=>!find||x.name.toLowerCase().includes(find.toLowerCase()));return <section><h1>🧩 Transform</h1><p className="muted">ReCodeX-style combine, inspect, copy, download, reverse split and ZIP export.</p><div className="transform-panel"><div className="transform-toolbar"><b>Combine Files</b><button onClick={()=>setSelected(p?.files.filter(f=>f.text).map(f=>f.path)||[])}>☑ Select All</button><button onClick={()=>setSelected([])}>☐ Clear</button><button onClick={build}>⚙ Compile</button><button onClick={()=>cp(compiled)}>📋 Copy</button><button onClick={()=>dl('compiled_output.txt',compiled)}>⬇ Download</button></div><div className="file-checks">{p?.files.filter(f=>f.text).map(f=><label key={f.path}><input type="checkbox"checked={selected.includes(f.path)}onChange={e=>setSelected(e.target.checked?[...selected,f.path]:selected.filter(x=>x!==f.path))}/>{f.path}</label>)}</div><textarea value={compiled}onChange={e=>setCompiled(e.target.value)}placeholder="Compiled output appears here"/><div className="transform-search"><input value={find}onChange={e=>setFind(e.target.value)}placeholder="Search compiled/split file names"/><span>{find?filtered.length+' split files match':''}</span></div></div><div className="transform-panel"><div className="transform-toolbar"><b>Reverse Split</b><button onClick={parse}>🔄 Split</button><button onClick={()=>zipFiles(filtered.map(x=>({name:x.name,content:x.content})),'recovered_files.zip')}>📦 Download ZIP</button></div><textarea value={split}onChange={e=>setSplit(e.target.value)}placeholder="Paste compiled ReCodeX output here"/>{filtered.map(x=><div className="split-file"key={x.name}><div><b>📄 {x.name}</b><span>{x.content.length} chars</span></div><div><button onClick={()=>cp(x.content)}>📋 Copy</button><button onClick={()=>dl(x.name.split('/').pop(),x.content)}>⬇ Download</button></div></div>)}</div></section>}
+const MAX_SEARCH_RESULTS = 2000;
+
+function initialState() {
+  const queryTool = new URLSearchParams(window.location.search).get('tool') || '';
+  const tab =
+    queryTool === 'ofs'
+      ? 'ofs'
+      : queryTool === 'eng'
+        ? 'engineering'
+        : TOOL_IDS.includes(queryTool)
+          ? 'tools'
+          : 'dashboard';
+  return { tab, tool: TOOL_IDS.includes(queryTool) ? queryTool : 'json' };
+}
+
+function App() {
+  const initial = useMemo(initialState, []);
+  const folderSupported = useMemo(supportsFolderAccess, []);
+  const [includeSensitive, setIncludeSensitive] = useState(false),
+    [p, setP] = useState(),
+    [dashboardData, setDashboardData] = useState(null),
+    [sel, setSel] = useState(),
+    [tab, setTab] = useState(initial.tab),
+    [explorerQ, setExplorerQ] = useState(''),
+    [searchQ, setSearchQ] = useState(''),
+    [res, setRes] = useState([]),
+    [searching, setSearching] = useState(false),
+    [text, setText] = useState(''),
+    [dirty, setDirty] = useState(false),
+    [toolState, setToolState] = useState({
+      tool: initial.tool,
+      input: '',
+      regex: '',
+      regexText: '',
+      output: '',
+    }),
+    [transformState, setTransformState] = useState({ compiled: '', split: '', parts: [] }),
+    [diff, setDiff] = useState(null),
+    [err, setErr] = useState(''),
+    [notice, setNotice] = useState(''),
+    [searchView, setSearchView] = useState(null),
+    [codebaseMounted, setCodebaseMounted] = useState(false);
+
+  // The Codebase panel is mounted on first visit and then kept alive (hidden) so its index survives
+  // tab switches. Opening another folder remounts it via its key.
+  useEffect(() => {
+    if (tab === 'codebase') setCodebaseMounted(true);
+  }, [tab]);
+
+  // Warn before closing the tab with unsaved editor changes.
+  useEffect(() => {
+    if (!dirty) return;
+    const onBeforeUnload = (e) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [dirty]);
+
+  function confirmDiscard() {
+    return (
+      !dirty ||
+      window.confirm(`You have unsaved changes to ${sel?.path || 'the open file'}. Discard them?`)
+    );
+  }
+
+  async function folder() {
+    if (!confirmDiscard()) return;
+    try {
+      const h = await window.showDirectoryPicker({ mode: 'readwrite' });
+      const listed = await walk(h, '', [], includeSensitive);
+      const fs = await applyGitignore(listed);
+      const ex = {};
+      for (const f of fs) ex[f.ext] = (ex[f.ext] || 0) + 1;
+      setP({ name: h.name, files: fs, stats: { ext: ex }, rootHandle: h, openedAt: Date.now() });
+      setCodebaseMounted(false);
+      setSel(null);
+      setText('');
+      setDirty(false);
+      setSearchView(null);
+      setRes([]);
+      setDiff(null);
+      setTab('dashboard');
+      setErr('');
+      setNotice(
+        listed.truncated
+          ? `This folder has more than ${MAX_FILES.toLocaleString()} files. Only the first ${MAX_FILES.toLocaleString()} were loaded; open a subfolder for complete results.`
+          : '',
+      );
+      setDashboardData(null);
+      buildDashboardData(fs)
+        .then(setDashboardData)
+        .catch(() => {});
+    } catch (e) {
+      if (e.name !== 'AbortError') setErr(e.message);
+    }
+  }
+
+  async function open(f, fromSearch = false) {
+    if (!f?.text) return setErr('Binary, sensitive or unsupported file');
+    if (sel?.path !== f.path && !confirmDiscard()) return;
+    try {
+      const c = await read(f),
+        x = { ...f, content: c };
+      setSel(x);
+      setText(c);
+      setDirty(false);
+      if (fromSearch) {
+        setSearchView({ file: x, query: searchQ });
+        setTab('search');
+      } else {
+        setSearchView(null);
+        setTab('editor');
+      }
+      setErr('');
+    } catch (e) {
+      setErr(e.message);
+    }
+  }
+
+  // Stable callback for the memoized Codebase panel; always calls the latest `open`.
+  const openRef = useRef(open);
+  openRef.current = open;
+  const openFromCodebase = useCallback((f) => openRef.current(f), []);
+
+  function editFromSearch(file) {
+    if (sel?.path !== file.path && !confirmDiscard()) return;
+    setSel(file);
+    setText(file.content);
+    setDirty(false);
+    setTab('editor');
+  }
+
+  async function save() {
+    try {
+      const w = await sel.handle.createWritable();
+      await w.write(text);
+      await w.close();
+      const x = { ...sel, content: text };
+      setSel(x);
+      setDirty(false);
+      if (searchView?.file.path === sel.path) setSearchView({ ...searchView, file: x });
+    } catch (e) {
+      setErr('Unable to save: ' + e.message);
+    }
+  }
+
+  async function search() {
+    const query = searchQ.trim();
+    if (!p || !query) return;
+    setSearching(true);
+    try {
+      const pattern = new RegExp(esc(query), 'i');
+      const results = [];
+      outer: for (const f of p.files.filter((x) => x.text)) {
+        let content;
+        try {
+          content = await read(f);
+        } catch {
+          continue;
+        }
+        const lines = content.split(/\r?\n/);
+        for (let i = 0; i < lines.length; i++) {
+          if (!pattern.test(lines[i])) continue;
+          results.push({ path: f.path, line: i + 1, text: lines[i].slice(0, 400) });
+          if (results.length >= MAX_SEARCH_RESULTS) {
+            results.truncated = true;
+            break outer;
+          }
+        }
+      }
+      results.query = searchQ;
+      setRes(results);
+      setSearchView(null);
+      setTab('search');
+    } finally {
+      setSearching(false);
+    }
+  }
+
+  return (
+    <>
+      <a className="skip-link" href="#main">
+        Skip to content
+      </a>
+      <header>
+        <div className="brand">
+          <div className="brand-mark" aria-hidden="true">
+            ◈
+          </div>
+          <div>
+            <b>RepoMind</b>
+            <small>Local-first codebase intelligence workspace</small>
+          </div>
+        </div>
+        <div className="header-actions">
+          <button onClick={() => setTab('help')} aria-current={tab === 'help' ? 'page' : undefined}>
+            <span aria-hidden="true">❔</span> Help
+          </button>
+          <label className="sensitive-toggle">
+            <input
+              type="checkbox"
+              checked={includeSensitive}
+              onChange={(e) => setIncludeSensitive(e.target.checked)}
+            />{' '}
+            Include sensitive files
+          </label>
+          <button onClick={folder} disabled={!folderSupported}>
+            <span aria-hidden="true">📂</span> Open Folder
+          </button>
+        </div>
+      </header>
+      {!folderSupported && (
+        <div className="notice unsupported-browser" role="status">
+          <b>Opening local folders needs a Chromium-based browser</b> such as Chrome or Edge
+          (desktop). This browser does not support the File System Access API. The Markdown viewer
+          and the Developer Tools still work here.
+        </div>
+      )}
+      <div className="status" role="status">
+        {p ? (
+          <>
+            <b>📁 {p.name}</b>
+            <span>📄 {p.files.length.toLocaleString()} files</span>
+            <span>✓ Local only</span>
+          </>
+        ) : (
+          <span>{folderSupported ? 'Select a local folder to begin' : 'No folder open'}</span>
+        )}
+      </div>
+      {notice && (
+        <div className="notice" role="status">
+          {notice}
+        </div>
+      )}
+      {err && (
+        <div className="error" role="alert">
+          {err}
+          <button className="dismiss" onClick={() => setErr('')} aria-label="Dismiss error">
+            ✕
+          </button>
+        </div>
+      )}
+      <nav className="workspace-nav" aria-label="Workspaces">
+        {NAV_GROUPS.map(([group, items]) => (
+          <div className="nav-group" key={group}>
+            <span>{group}</span>
+            {items.map(([id, label]) => (
+              <button
+                key={id}
+                className={tab === id ? 'active' : ''}
+                aria-current={tab === id ? 'page' : undefined}
+                onClick={() => setTab(id)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        ))}
+      </nav>
+      <main id="main" tabIndex={-1}>
+        <Suspense fallback={<p className="muted loading">Loading workspace…</p>}>
+          {(tab === 'codebase' || codebaseMounted) && (
+            <div className="codebase-host" hidden={tab !== 'codebase'}>
+              <ErrorBoundary>
+                <CodebasePanel
+                  key={p?.openedAt || 'no-project'}
+                  project={p}
+                  onOpenFile={openFromCodebase}
+                />
+              </ErrorBoundary>
+            </div>
+          )}
+          {tab !== 'codebase' && (
+            <ErrorBoundary key={tab}>
+              {tab === 'dashboard' && (
+                <Dashboard
+                  p={p}
+                  data={dashboardData}
+                  open={open}
+                  onRefresh={() => {
+                    if (!p) return;
+                    setDashboardData(null);
+                    buildDashboardData(p.files)
+                      .then(setDashboardData)
+                      .catch(() => {});
+                  }}
+                />
+              )}
+              {tab === 'explorer' && (
+                <Explorer p={p} q={explorerQ} setQ={setExplorerQ} open={open} />
+              )}
+              {tab === 'search' && (
+                <SearchPanel
+                  p={p}
+                  q={searchQ}
+                  setQ={setSearchQ}
+                  search={search}
+                  searching={searching}
+                  res={res}
+                  open={open}
+                  searchView={searchView}
+                  setSearchView={setSearchView}
+                  onEdit={editFromSearch}
+                />
+              )}
+              {tab === 'editor' && (
+                <Editor
+                  sel={sel}
+                  text={text}
+                  setText={(x) => {
+                    setText(x);
+                    setDirty(true);
+                  }}
+                  dirty={dirty}
+                  save={save}
+                />
+              )}
+              {tab === 'mdviewer' && <MDViewer />}
+              {tab === 'ingest' && <CodeIngest p={p} />}
+              {tab === 'analyze' && <Analyze p={p} />}
+              {tab === 'transform' && (
+                <Transform
+                  p={p}
+                  state={transformState}
+                  setState={setTransformState}
+                  onError={setErr}
+                />
+              )}
+              {tab === 'diff' && <Diff p={p} diff={diff} setDiff={setDiff} />}
+              {tab === 'tools' && <Tools state={toolState} setState={setToolState} />}
+              {tab === 'ofs' && <OFSWorkspace />}
+              {tab === 'engineering' && <EngineeringWorkspace />}
+              {tab === 'help' && <HelpPage />}
+            </ErrorBoundary>
+          )}
+        </Suspense>
+      </main>
+      <footer>© {new Date().getFullYear()} RepoMind · Zain Kamali</footer>
+    </>
+  );
+}
+
 export default App;

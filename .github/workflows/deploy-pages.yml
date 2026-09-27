@@ -1,9 +1,11 @@
 name: Deploy RepoMind to GitHub Pages
 
 on:
-  push:
-    branches:
-      - main
+  # Deploy only after CI has built this commit successfully, so a broken main never ships.
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
 
 concurrency:
@@ -14,12 +16,16 @@ jobs:
   build:
     name: Build frontend
     runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
     permissions:
       contents: read
 
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          # Build exactly the commit CI verified (workflow_run otherwise checks out the latest main).
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Setup Node
         uses: actions/setup-node@v6

@@ -1,79 +1,1511 @@
-import React,{useEffect,useMemo,useState}from'react';
-import{buildRepositoryIndex,attachFileHandles,buildContext,detectCycles,findDependencies,findDependents,getSymbolDetails,getArchitecture}from'../../services/repository';
-import{searchCode,searchIndex,discoverApis,scanSecurity,detectProjectPackages,buildArchitectureMermaid}from'../../services/intelligence';
-import{readGitRepository,gitStatusSummary,gitActivity}from'../../services/git';
-import{loadCachedIndex,saveCachedIndex,clearCachedIndex}from'../../services/indexCache';
-import{loadAISettings,saveAISettings,AI_PROVIDERS,askAI,buildAIMessages}from'../../services/ai';
-import{buildArchitectureHealth}from'../../services/health';
-import{getAnalyzers,runAnalyzer as runRegisteredAnalyzerService,analyzerSummary}from'../../services/analyzers';
-import{buildDocumentationReport,buildModuleReport}from'../../services/documentation';
-import{renderMermaid}from'../../services/diagram';
+import React, { useEffect, useMemo, useState } from 'react';
+import { buildIndex } from '../../services/indexClient';
+import {
+  attachFileHandles,
+  buildContext,
+  detectCycles,
+  findDependencies,
+  findDependents,
+  getSymbolDetails,
+  getArchitecture,
+} from '../../services/repository';
+import {
+  searchCode,
+  searchIndex,
+  discoverApis,
+  scanSecurity,
+  detectProjectPackages,
+  buildArchitectureMermaid,
+} from '../../services/intelligence';
+import { readGitRepository, gitStatusSummary, gitActivity } from '../../services/git';
+import { loadCachedIndex, saveCachedIndex, clearCachedIndex } from '../../services/indexCache';
+import {
+  loadAISettings,
+  saveAISettings,
+  AI_PROVIDERS,
+  askAI,
+  buildAIMessages,
+} from '../../services/ai';
+import { buildArchitectureHealth } from '../../services/health';
+import {
+  getAnalyzers,
+  runAnalyzer as runRegisteredAnalyzerService,
+  analyzerSummary,
+} from '../../services/analyzers';
+import { buildDocumentationReport, buildModuleReport } from '../../services/documentation';
+import { renderMermaid } from '../../services/diagram';
 
-const cp=v=>v&&navigator.clipboard?.writeText(v);
-const dl=(n,t)=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([t],{type:'text/plain'}));a.download=n;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),500)};
+const cp = (v) => v && navigator.clipboard?.writeText(v);
+const dl = (n, t) => {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([t], { type: 'text/plain' }));
+  a.download = n;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 500);
+};
 
-export default function CodebasePanel({project,onOpenFile}){
- const[index,setIndex]=useState(null),[busy,setBusy]=useState(false),[progress,setProgress]=useState(null),[indexSource,setIndexSource]=useState(''),[query,setQuery]=useState(''),[view,setView]=useState('overview'),[selected,setSelected]=useState(new Set()),[selectedSymbol,setSelectedSymbol]=useState(null),[selectedFile,setSelectedFile]=useState(''),[context,setContext]=useState(''),[contextTokens,setContextTokens]=useState(0),[contextFiles,setContextFiles]=useState(0),[metadata,setMetadata]=useState(true),[includeDeps,setIncludeDeps]=useState(true),[includeDependents,setIncludeDependents]=useState(false),[error,setError]=useState('');
- const[searchResults,setSearchResults]=useState([]),[searchBusy,setSearchBusy]=useState(false),[regex,setRegex]=useState(false),[api,setApi]=useState([]),[security,setSecurity]=useState([]),[packages,setPackages]=useState([]),[diagram,setDiagram]=useState(''),[detailBusy,setDetailBusy]=useState(false),[aiSettings,setAiSettings]=useState(()=>loadAISettings()),[aiBusy,setAiBusy]=useState(false),[aiResponse,setAiResponse]=useState(''),[showAiSettings,setShowAiSettings]=useState(false),[analyzerResults,setAnalyzerResults]=useState({}),[analyzerBusy,setAnalyzerBusy]=useState(false),[git,setGit]=useState(null),[gitBusy,setGitBusy]=useState(false),[savedContexts,setSavedContexts]=useState(()=>{try{return JSON.parse(localStorage.getItem('repomind.savedContexts')||'[]')}catch{return[]}}),[contextName,setContextName]=useState(''),[prompt,setPrompt]=useState(''),[promptTask,setPromptTask]=useState('Explain this code and identify risks, dependencies and suggested changes.'),[report,setReport]=useState(''),[diagramSvg,setDiagramSvg]=useState(''),[diagramError,setDiagramError]=useState(''),[diagramBusy,setDiagramBusy]=useState(false);
- const abortRef=React.useRef(null);
+export default function CodebasePanel({ project, onOpenFile }) {
+  const [index, setIndex] = useState(null),
+    [indexing, setIndexing] = useState(false),
+    [busy, setBusy] = useState(false),
+    [progress, setProgress] = useState(null),
+    [indexSource, setIndexSource] = useState(''),
+    [query, setQuery] = useState(''),
+    [view, setView] = useState('overview'),
+    [selected, setSelected] = useState(new Set()),
+    [selectedSymbol, setSelectedSymbol] = useState(null),
+    [selectedFile, setSelectedFile] = useState(''),
+    [context, setContext] = useState(''),
+    [contextTokens, setContextTokens] = useState(0),
+    [contextFiles, setContextFiles] = useState(0),
+    [metadata, setMetadata] = useState(true),
+    [includeDeps, setIncludeDeps] = useState(true),
+    [includeDependents, setIncludeDependents] = useState(false),
+    [error, setError] = useState('');
+  const [searchResults, setSearchResults] = useState([]),
+    [searchBusy, setSearchBusy] = useState(false),
+    [regex, setRegex] = useState(false),
+    [api, setApi] = useState([]),
+    [security, setSecurity] = useState([]),
+    [packages, setPackages] = useState([]),
+    [diagram, setDiagram] = useState(''),
+    [detailBusy, setDetailBusy] = useState(false),
+    [aiSettings, setAiSettings] = useState(() => loadAISettings()),
+    [aiBusy, setAiBusy] = useState(false),
+    [aiResponse, setAiResponse] = useState(''),
+    [showAiSettings, setShowAiSettings] = useState(false),
+    [analyzerResults, setAnalyzerResults] = useState({}),
+    [analyzerBusy, setAnalyzerBusy] = useState(false),
+    [git, setGit] = useState(null),
+    [gitBusy, setGitBusy] = useState(false),
+    [savedContexts, setSavedContexts] = useState(() => {
+      try {
+        return JSON.parse(localStorage.getItem('repomind.savedContexts') || '[]');
+      } catch {
+        return [];
+      }
+    }),
+    [contextName, setContextName] = useState(''),
+    [prompt, setPrompt] = useState(''),
+    [promptTask, setPromptTask] = useState(
+      'Explain this code and identify risks, dependencies and suggested changes.',
+    ),
+    [report, setReport] = useState(''),
+    [diagramSvg, setDiagramSvg] = useState(''),
+    [diagramError, setDiagramError] = useState(''),
+    [diagramBusy, setDiagramBusy] = useState(false);
+  const abortRef = React.useRef(null);
+  const freshIndexRef = React.useRef(false);
 
- async function indexProject(){if(!project)return;abortRef.current?.abort();const controller=new AbortController();abortRef.current=controller;setBusy(true);setProgress({phase:'start',current:0,total:project.files.filter(f=>f.text).length,path:null});setError('');try{const next=attachFileHandles(await buildRepositoryIndex(project,{signal:controller.signal,onProgress:setProgress}),project);next.project.packages=await detectProjectPackages(next);setIndex(next);setIndexSource('fresh');setPackages(next.project.packages);setSelected(new Set(next.files.slice(0,25).map(f=>f.path)));setContext('');setSelectedSymbol(null);await saveCachedIndex(project,next);await refreshGit()}catch(e){if(e?.name==='AbortError')setError('Indexing cancelled');else setError(e?.message||'Unable to index repository')}finally{if(abortRef.current===controller)abortRef.current=null;setBusy(false);setProgress(null)}}
- function cancelIndex(){abortRef.current?.abort()}
- useEffect(()=>{let active=true;(async()=>{if(!project||index)return;try{const cached=await loadCachedIndex(project);if(active&&cached){setIndex(attachFileHandles(cached,project));setIndexSource('cached');setPackages(cached.project?.packages||[]);setSelected(new Set((cached.files||[]).slice(0,25).map(f=>f.path)))}}catch(e){if(active)setError(e?.message||'Unable to restore cached index')}})();return()=>{active=false}},[project]);
- async function refreshGit(){if(!project?.rootHandle)return;setGitBusy(true);try{const meta=await readGitRepository(project.rootHandle,project.files);const status=await gitStatusSummary(project.rootHandle,project.files);const activity=await gitActivity(project.rootHandle);setGit({...meta,status,activity})}catch(e){setGit({available:false,error:e?.message||'Git metadata unavailable'})}finally{setGitBusy(false)}}
- useEffect(()=>{if(project?.rootHandle&&!git)refreshGit()},[project]);
- function saveContext(){if(!context.trim())return;const item={id:crypto.randomUUID(),name:contextName.trim()||'Context '+new Date().toLocaleString(),content:context,tokens:contextTokens,files:contextFiles,createdAt:new Date().toISOString()};const next=[item,...savedContexts].slice(0,20);setSavedContexts(next);localStorage.setItem('repomind.savedContexts',JSON.stringify(next));setContextName('')}
- function loadContext(item){setContext(item.content);setContextTokens(item.tokens||0);setContextFiles(item.files||0)}
- function deleteContext(id){const next=savedContexts.filter(x=>x.id!==id);setSavedContexts(next);localStorage.setItem('repomind.savedContexts',JSON.stringify(next))}
- async function buildPrompt(){if(!index)return;setBusy(true);try{let body=context;if(!body){const r=await buildContext(index,[...selected],{includeMetadata:true,includeDependencies:true,includeDependents});body=r.content;setContext(body);setContextTokens(r.tokens);setContextFiles(r.files.length)}const header='# RepoMind Task\n\n'+(promptTask.trim()||'Review this codebase context.')+'\n\n# Repository\n'+project.name+'\n\n# Context\n';setPrompt(header+body)}catch(e){setError(e?.message||'Unable to build AI prompt')}finally{setBusy(false)}}
- useEffect(()=>{if(!index)return;setPackages(index.project?.packages||[]);setDiagram(buildArchitectureMermaid(index))},[index]);
- useEffect(()=>{let active=true;if(view!=='diagram'||!diagram)return;setDiagramBusy(true);setDiagramError('');renderMermaid(diagram).then(result=>{if(active)setDiagramSvg(result.svg||'')}).catch(e=>{if(active){setDiagramSvg('');setDiagramError(e?.message||'Unable to render Mermaid diagram')}}).finally(()=>{if(active)setDiagramBusy(false)});return()=>{active=false}},[view,diagram]);
- const files=useMemo(()=> (index?.files||[]).filter(f=>!query||f.path.toLowerCase().includes(query.toLowerCase())||f.language.toLowerCase().includes(query.toLowerCase())),[index,query]);
- const symbols=useMemo(()=> (index?.symbols||[]).filter(s=>!query||s.name.toLowerCase().includes(query.toLowerCase())||s.path.toLowerCase().includes(query.toLowerCase())),[index,query]);
- const architecture=useMemo(()=>getArchitecture(index),[index]),cycles=useMemo(()=>detectCycles(index),[index]),details=useMemo(()=>getSymbolDetails(index,selectedSymbol),[index,selectedSymbol]),health=useMemo(()=>buildArchitectureHealth(index,cycles),[index,cycles]);
- const profile=useMemo(()=>({frameworks:index?.project?.frameworks||[],languages:Object.entries(index?.languages||{}).sort((a,b)=>b[1]-a[1])}),[index]);
- const analyzerCatalog=useMemo(()=>getAnalyzers(),[]),resolutionSummary=useMemo(()=>analyzerSummary(index),[index]);
- function generateReport(){if(!index)return;setReport(buildDocumentationReport(index,{name:project.name,cycles,health,routes:api,security}));setView('reports')}
- function generateModuleReport(){if(!index||!selectedFile)return;setReport(buildModuleReport(index,selectedFile));setView('reports')}
+  async function indexProject() {
+    if (!project) return;
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    setIndexing(true);
+    setProgress({
+      phase: 'start',
+      current: 0,
+      total: project.files.filter((f) => f.text).length,
+      path: null,
+    });
+    setError('');
+    try {
+      const next = attachFileHandles(
+        await buildIndex(project, { signal: controller.signal, onProgress: setProgress }),
+        project,
+      );
+      next.project.packages = await detectProjectPackages(next);
+      setIndex(next);
+      freshIndexRef.current = true;
+      setIndexSource('fresh');
+      setPackages(next.project.packages);
+      setSelected(new Set(next.files.slice(0, 25).map((f) => f.path)));
+      setContext('');
+      setSelectedSymbol(null);
+      await saveCachedIndex(project, next);
+      await refreshGit();
+    } catch (e) {
+      if (e?.name === 'AbortError') setError('Indexing cancelled');
+      else setError(e?.message || 'Unable to index repository');
+    } finally {
+      if (abortRef.current === controller) {
+        abortRef.current = null;
+        setIndexing(false);
+        setProgress(null);
+      }
+    }
+  }
+  function cancelIndex() {
+    abortRef.current?.abort();
+  }
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      if (!project) return;
+      try {
+        const cached = await loadCachedIndex(project);
+        // A fresh index built while the cache was loading must not be replaced by the older copy.
+        if (active && cached && !abortRef.current && !freshIndexRef.current) {
+          setIndex(attachFileHandles(cached, project));
+          setIndexSource('cached');
+          setPackages(cached.project?.packages || []);
+          setSelected(new Set((cached.files || []).slice(0, 25).map((f) => f.path)));
+        }
+      } catch (e) {
+        if (active) setError(e?.message || 'Unable to restore cached index');
+      }
+    })();
+    return () => {
+      active = false;
+    };
+    // The panel is remounted (keyed) per project, so this runs once per opened folder.
+  }, [project]);
+  async function refreshGit() {
+    if (!project?.rootHandle) return;
+    setGitBusy(true);
+    try {
+      const meta = await readGitRepository(project.rootHandle, project.files);
+      const status = await gitStatusSummary(project.rootHandle, project.files);
+      const activity = await gitActivity(project.rootHandle);
+      setGit({ ...meta, status, activity });
+    } catch (e) {
+      setGit({ available: false, error: e?.message || 'Git metadata unavailable' });
+    } finally {
+      setGitBusy(false);
+    }
+  }
+  useEffect(() => {
+    if (project?.rootHandle) refreshGit();
+    // Runs once per project: the panel is remounted (keyed) when another folder is opened.
+  }, [project]); // eslint-disable-line react-hooks/exhaustive-deps
+  function saveContext() {
+    if (!context.trim()) return;
+    const item = {
+      id: crypto.randomUUID(),
+      name: contextName.trim() || 'Context ' + new Date().toLocaleString(),
+      content: context,
+      tokens: contextTokens,
+      files: contextFiles,
+      createdAt: new Date().toISOString(),
+    };
+    const next = [item, ...savedContexts].slice(0, 20);
+    setSavedContexts(next);
+    localStorage.setItem('repomind.savedContexts', JSON.stringify(next));
+    setContextName('');
+  }
+  function loadContext(item) {
+    setContext(item.content);
+    setContextTokens(item.tokens || 0);
+    setContextFiles(item.files || 0);
+  }
+  function deleteContext(id) {
+    const next = savedContexts.filter((x) => x.id !== id);
+    setSavedContexts(next);
+    localStorage.setItem('repomind.savedContexts', JSON.stringify(next));
+  }
+  async function buildPrompt() {
+    if (!index) return;
+    setBusy(true);
+    try {
+      let body = context;
+      if (!body) {
+        const r = await buildContext(index, [...selected], {
+          includeMetadata: true,
+          includeDependencies: true,
+          includeDependents,
+        });
+        body = r.content;
+        setContext(body);
+        setContextTokens(r.tokens);
+        setContextFiles(r.files.length);
+      }
+      const header =
+        '# RepoMind Task\n\n' +
+        (promptTask.trim() || 'Review this codebase context.') +
+        '\n\n# Repository\n' +
+        project.name +
+        '\n\n# Context\n';
+      setPrompt(header + body);
+    } catch (e) {
+      setError(e?.message || 'Unable to build AI prompt');
+    } finally {
+      setBusy(false);
+    }
+  }
+  useEffect(() => {
+    if (!index) return;
+    setPackages(index.project?.packages || []);
+    setDiagram(buildArchitectureMermaid(index));
+  }, [index]);
+  useEffect(() => {
+    let active = true;
+    if (view !== 'diagram' || !diagram) return;
+    setDiagramBusy(true);
+    setDiagramError('');
+    renderMermaid(diagram)
+      .then((result) => {
+        if (active) setDiagramSvg(result.svg || '');
+      })
+      .catch((e) => {
+        if (active) {
+          setDiagramSvg('');
+          setDiagramError(e?.message || 'Unable to render Mermaid diagram');
+        }
+      })
+      .finally(() => {
+        if (active) setDiagramBusy(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [view, diagram]);
+  const files = useMemo(
+    () =>
+      (index?.files || []).filter(
+        (f) =>
+          !query ||
+          f.path.toLowerCase().includes(query.toLowerCase()) ||
+          f.language.toLowerCase().includes(query.toLowerCase()),
+      ),
+    [index, query],
+  );
+  const symbols = useMemo(
+    () =>
+      (index?.symbols || []).filter(
+        (s) =>
+          !query ||
+          s.name.toLowerCase().includes(query.toLowerCase()) ||
+          s.path.toLowerCase().includes(query.toLowerCase()),
+      ),
+    [index, query],
+  );
+  const architecture = useMemo(() => getArchitecture(index), [index]),
+    cycles = useMemo(() => detectCycles(index), [index]),
+    details = useMemo(() => getSymbolDetails(index, selectedSymbol), [index, selectedSymbol]),
+    health = useMemo(() => buildArchitectureHealth(index, cycles), [index, cycles]);
+  const profile = useMemo(
+    () => ({
+      frameworks: index?.project?.frameworks || [],
+      languages: Object.entries(index?.languages || {}).sort((a, b) => b[1] - a[1]),
+    }),
+    [index],
+  );
+  const analyzerCatalog = useMemo(() => getAnalyzers(), []),
+    resolutionSummary = useMemo(() => analyzerSummary(index), [index]);
+  function generateReport() {
+    if (!index) return;
+    setReport(
+      buildDocumentationReport(index, {
+        name: project.name,
+        cycles,
+        health,
+        routes: api,
+        security,
+      }),
+    );
+    setView('reports');
+  }
+  function generateModuleReport() {
+    if (!index || !selectedFile) return;
+    setReport(buildModuleReport(index, selectedFile));
+    setView('reports');
+  }
 
- async function runSearch(){if(!index||!query.trim())return;setSearchBusy(true);try{const indexed=searchIndex(index,query);const code=await searchCode(index,query,{regex});setSearchResults({indexed,code})}catch(e){setError(e.message)}finally{setSearchBusy(false)}}
- async function runAnalyzer(type){if(!index)return;setDetailBusy(true);try{if(type==='api')setApi(await discoverApis(index));if(type==='security')setSecurity(await scanSecurity(index));if(type==='diagram')setDiagram(buildArchitectureMermaid(index,{limit:150}))}catch(e){setError(e.message)}finally{setDetailBusy(false)}}
- async function runRegisteredAnalyzer(id){if(!index)return;setAnalyzerBusy(true);setError('');try{const result=await runRegisteredAnalyzerService(index,id);setAnalyzerResults(s=>({...s,[id]:result}))}catch(e){setError(e?.message||'Analyzer failed')}finally{setAnalyzerBusy(false)}}
- function toggle(path){setSelected(s=>{const n=new Set(s);n.has(path)?n.delete(path):n.add(path);return n})}
- async function generateContext(){if(!index)return;setBusy(true);try{const r=await buildContext(index,[...selected],{includeMetadata:metadata,includeDependencies:includeDeps,includeDependents});setContext(r.content);setContextTokens(r.tokens);setContextFiles(r.files.length)}catch(e){setError(e.message)}finally{setBusy(false)}}
- function selectAll(){setSelected(new Set((index?.files||[]).map(f=>f.path)))}
- if(!project)return <section><div className="empty">📂 Open a local folder first to build its codebase index.</div></section>;
- return <section className="codebase-intelligence">
-  <div className="head"><div><h1>🧠 Codebase Intelligence</h1><small>Local repository intelligence: symbols, search, architecture, APIs, security and AI-ready context.</small></div><div className="index-actions"><button onClick={busy?cancelIndex:indexProject}>{busy?'✕ Cancel':'⚙ Build / Refresh Index'}</button>{index&&<button onClick={async()=>{await clearCachedIndex(project);setIndex(null);setIndexSource('')}}>♻ Clear Cache</button>}</div></div>
-  {error&&<div className="error">{error}</div>}{busy&&progress&&<div className="index-progress"><div><b>{progress.phase==='analyze'?'Indexing':'Finalizing'} {progress.current||0}/{progress.total||0}</b><span>{progress.path||''}</span></div><i><b style={{width:Math.max(4,((progress.current||0)/(progress.total||1))*100)+'%'}}/></i></div>}
-  {!index?<div className="panel"><h2>Repository Intelligence</h2><p className="muted">Build one local index. Source stays in your browser.</p><button onClick={indexProject}>🚀 Build Project Index</button></div>:<>
-   <div className="index-source"><span>{indexSource==='cached'?'⚡ Cached index':'✓ Fresh index'}</span><small>{index.cachedAt?new Date(index.cachedAt).toLocaleString():index.generatedAt?new Date(index.generatedAt).toLocaleString():''}</small></div><div className="cards intelligence-cards"><article><b>{index.stats.files}</b><span>Files</span></article><article><b>{index.stats.symbols}</b><span>Symbols</span></article><article><b>{index.stats.references}</b><span>References</span></article><article><b>{index.stats.resolvedReferences}</b><span>Resolved</span></article><article><b>{index.stats.internalEdges}</b><span>Internal edges</span></article><article><b>{security.length}</b><span>Security findings</span></article></div>
-   <div className="tabs">{[['overview','Overview'],['search','Search'],['symbols','Symbols'],['architecture','Architecture'],['health','Health'],['analyzers','Analyzers'],['impact','Impact'],['api','API Discovery'],['security','Security'],['diagram','Diagram'],['git','Git'],['reports','Reports'],['context','Context Builder'],['ai','AI Workspace']].map(([k,l])=><button key={k}className={view===k?'active':''}onClick={()=>setView(k)}>{l}</button>)}</div>
-   {['overview','files','symbols','architecture','impact'].includes(view)&&<div className="search"><input value={query}onChange={e=>setQuery(e.target.value)}placeholder="Filter files, symbols or dependencies"/><button onClick={()=>setQuery('')}>✕ Clear</button></div>}
-   {view==='overview'&&<div className="analyze-grid"><div className="analytics-panel"><h2>Project Profile</h2>{profile.frameworks.map(x=><div className="index-row"key={x.name}><b>{x.name}</b><span>detected</span><small>{x.evidence}</small></div>)}{packages.slice(0,20).map(x=><div className="index-row"key={x.package}><b>{x.package}</b><span>{x.version}</span><small>{x.category}</small></div>)}{profile.languages.map(([l,c])=><div className="index-row"key={l}><b>{l}</b><span>{c} files</span><small>{Math.round(c/index.stats.files*100)}%</small></div>)}</div><div className="analytics-panel"><h2>Health Signals</h2><Metric label="Unresolved relative imports" value={index.unresolvedImports.length}/><Metric label="Circular dependency paths" value={cycles.length}/><Metric label="Unresolved references" value={index.stats.unresolvedReferences}/><Metric label="Parser errors" value={index.files.reduce((s,f)=>s+(f.parseErrors?.length||0),0)}/><Metric label="External imports" value={index.externalDependencies.length}/><Metric label="Security findings" value={security.length}/></div></div>}
-   {view==='search'&&<div className="analytics-panel"><div className="transform-toolbar"><b>🔎 Indexed + Full-text Search</b><label><input type="checkbox"checked={regex}onChange={e=>setRegex(e.target.checked)}/> Regex</label><button onClick={runSearch}disabled={searchBusy}>{searchBusy?'⏳ Searching...':'▶ Search'}</button></div><div className="search"><input autoFocus value={query}onChange={e=>setQuery(e.target.value)}onKeyDown={e=>e.key==='Enter'&&runSearch()}placeholder="Search symbols, files and source text"/><button onClick={()=>{setQuery('');setSearchResults([])}}>✕ Clear</button></div>{searchResults?.indexed?.map((r,i)=><button className="index-row clickable"key={'i'+i}onClick={()=>setSelectedFile(r.path)}><b>{r.label}</b><span>{r.type}</span><small>{r.path}{r.line?':'+r.line:''} · {r.detail}</small></button>)}{searchResults?.code?.map((r,i)=><button className="index-row clickable"key={'c'+i}onClick={()=>{setSelectedFile(r.path);onOpenFile?.(project.files.find(f=>f.path===r.path),true)}}><b>{r.path}:{r.line}</b><span>{r.language}</span><small>{r.text}</small></button>)}{searchResults&&!searchResults.indexed?.length&&!searchResults.code?.length&&<p className="muted">No results.</p>}</div>}
-   {view==='symbols'&&<div className="analytics-panel"><h2>Symbol Intelligence</h2>{symbols.slice(0,500).map(s=><button className="index-row clickable"key={s.definitionKey}onClick={()=>setSelectedSymbol(s.definitionKey)}><b>{s.name}</b><span>{s.kind}{s.parent?' · '+s.parent:''}</span><small>{s.path}:{s.line}</small></button>)}{details&&<SymbolDetails details={details}onClose={()=>setSelectedSymbol(null)}/>}</div>}
-   {view==='architecture'&&<div className="analyze-grid"><div className="analytics-panel"><h2>Architecture Hotspots</h2>{architecture.slice(0,100).map(x=><button className="index-row clickable"key={x.path}onClick={()=>{setSelectedFile(x.path);setView('impact')}}><b>{x.path}</b><span>{x.dependencies} out · {x.dependents} in</span><small>{x.symbols} symbols · ~{x.tokens.toLocaleString()} tokens</small></button>)}</div><div className="analytics-panel"><h2>Cycles</h2>{cycles.map((c,i)=><div className="cycle-row"key={i}>{c.join(' → ')}</div>)}{!cycles.length&&<p className="muted">No circular dependency paths detected.</p>}</div></div>}
-   {view==='health'&&<HealthView health={health}/>}
-   {view==='reports'&&<div className="analytics-panel"><div className="transform-toolbar"><b>📄 Documentation & Reports</b><span className="muted">Generate local Markdown documentation from the current index.</span><button onClick={generateReport}>▶ Project Report</button><button onClick={generateModuleReport}disabled={!selectedFile}>▶ Module Report</button><button onClick={()=>cp(report)}disabled={!report}>📋 Copy</button><button onClick={()=>dl((project.name||'repository')+'-report.md',report)}disabled={!report}>⬇ Download</button></div><div className="search"><select value={selectedFile}onChange={e=>setSelectedFile(e.target.value)}><option value="">Select a module/file</option>{index.files.map(f=><option key={f.path}>{f.path}</option>)}</select></div><textarea className="context-output report-output"value={report}onChange={e=>setReport(e.target.value)}placeholder="Generate a project or module report."/></div>}
-   {view==='analyzers'&&<AnalyzerRegistryView catalog={analyzerCatalog}results={analyzerResults}summary={resolutionSummary}busy={analyzerBusy}onRun={runRegisteredAnalyzer}/>} 
-   {view==='impact'&&<div className="analyze-grid"><div className="analytics-panel"><h2>File Impact</h2><select value={selectedFile}onChange={e=>setSelectedFile(e.target.value)}><option value="">Select a file</option>{index.files.map(f=><option key={f.path}>{f.path}</option>)}</select>{selectedFile&&<><h3>Dependencies</h3>{findDependencies(index,selectedFile).map(p=><div className="index-row"key={p}><b>{p}</b><span>outgoing</span></div>)}<h3>Imported by</h3>{findDependents(index,selectedFile).map(p=><div className="index-row"key={p}><b>{p}</b><span>incoming</span></div>)}</>}</div><div className="analytics-panel"><h2>Symbols</h2>{selectedFile?index.symbols.filter(s=>s.path===selectedFile).map(s=><button className="index-row clickable"key={s.definitionKey}onClick={()=>{setSelectedSymbol(s.definitionKey);setView('symbols')}}><b>{s.name}</b><span>{s.references.length} refs</span><small>{s.importedBy.length} importers</small></button>):<p className="muted">Select a file.</p>}</div></div>}
-   {view==='api'&&<AnalyzerView title="🌐 API / Route Discovery"items={api}empty="Run discovery to find route/controller declarations."busy={detailBusy}onRun={()=>runAnalyzer('api')}columns={['method','path','framework','file','line']}/>}
-   {view==='security'&&<AnalyzerView title="🔐 Security / Secret Scan"items={security}empty="Run a local heuristic scan for likely secrets and credentials."busy={detailBusy}onRun={()=>runAnalyzer('security')}columns={['severity','id','path','line','text']}/>}
-   {view==='diagram'&&<div className="analytics-panel"><div className="transform-toolbar"><b>🏗️ Architecture Diagram</b><span className="muted">Mermaid.js renderer</span><button onClick={()=>runAnalyzer('diagram')}>{detailBusy?'⏳':'▶ Generate'}</button><button onClick={()=>{setDiagramSvg('');setDiagramError('');setView('diagram')}}disabled={!diagram||diagramBusy}>↻ Re-render</button><button onClick={()=>cp(diagram)}>📋 Copy</button><button onClick={()=>dl((project.name||'repository')+'-architecture.mmd',diagram)}>⬇ Download</button></div><textarea className="diagram-output"value={diagram}onChange={e=>setDiagram(e.target.value)}/>{diagramBusy&&<p className="muted">⏳ Rendering Mermaid diagram…</p>}{diagramError&&<div className="error">{diagramError}</div>}<div className="diagram-preview">{diagramSvg?<div className="mermaid-svg"dangerouslySetInnerHTML={{__html:diagramSvg}}/>:<pre>{diagram}</pre>}</div><p className="muted">RepoMind renders the diagram with Mermaid.js in the browser. Mermaid is loaded only when this tab is opened.</p></div>}
-   {view==='git'&&<GitView git={git}busy={gitBusy}onRefresh={refreshGit}onSelect={path=>{setSelectedFile(path);setView('impact')}}/>}
-   {view==='ai'&&<AIWorkspace project={project}index={index}selected={selected}context={context}setContext={setContext}contextTokens={contextTokens}contextFiles={contextFiles}prompt={prompt}setPrompt={setPrompt}promptTask={promptTask}setPromptTask={setPromptTask}buildPrompt={buildPrompt}savedContexts={savedContexts}contextName={contextName}setContextName={setContextName}saveContext={saveContext}loadContext={loadContext}deleteContext={deleteContext}aiSettings={aiSettings}setAiSettings={setAiSettings}aiBusy={aiBusy}setAiBusy={setAiBusy}aiResponse={aiResponse}setAiResponse={setAiResponse}showAiSettings={showAiSettings}setShowAiSettings={setShowAiSettings}/>}
-   {view==='context'&&<div className="context-builder"><div className="panel"><div className="transform-toolbar"><b>AI Context Builder</b><span className="muted">{selected.size} selected</span><button onClick={selectAll}>☑ Select All</button><button onClick={()=>setSelected(new Set())}>☐ Clear</button></div><div className="search"><input value={query}onChange={e=>setQuery(e.target.value)}placeholder="Filter files"/><button onClick={()=>setQuery('')}>✕ Clear</button></div><div className="file-checks">{files.map(f=><label key={f.path}><input type="checkbox"checked={selected.has(f.path)}onChange={()=>toggle(f.path)}/>{f.path}</label>)}</div><label className="context-option"><input type="checkbox"checked={metadata}onChange={e=>setMetadata(e.target.checked)}/> Include file metadata</label><label className="context-option"><input type="checkbox"checked={includeDeps}onChange={e=>setIncludeDeps(e.target.checked)}/> Include direct dependencies</label><label className="context-option"><input type="checkbox"checked={includeDependents}onChange={e=>setIncludeDependents(e.target.checked)}/> Include direct importers</label><div className="tool-run-strip"><button onClick={generateContext}disabled={!selected.size||busy}>{busy?'⏳ Generating...':'▶ Generate Context'}</button><button onClick={()=>cp(context)}disabled={!context}>📋 Copy</button><button onClick={()=>dl((project.name||'repository')+'-context.md',context)}disabled={!context}>⬇ Download</button><input className="context-name" value={contextName} onChange={e=>setContextName(e.target.value)} placeholder="Snapshot name"/><button onClick={saveContext}disabled={!context}>💾 Save Snapshot</button></div></div><div className="panel"><div className="transform-toolbar"><b>Generated Context</b><span>~{contextTokens.toLocaleString()} tokens · {contextFiles} files</span></div><textarea className="context-output"value={context}readOnly/></div></div>}
-  </>}
- </section>;
+  async function runSearch() {
+    if (!index || !query.trim()) return;
+    setSearchBusy(true);
+    setError('');
+    try {
+      const indexed = searchIndex(index, query);
+      const code = await searchCode(index, query, { regex });
+      const failure = code.find((r) => r.type === 'error');
+      if (failure) {
+        setError(failure.message);
+        setSearchResults({ indexed, code: [] });
+      } else setSearchResults({ indexed, code });
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSearchBusy(false);
+    }
+  }
+  async function runAnalyzer(type) {
+    if (!index) return;
+    setDetailBusy(true);
+    try {
+      if (type === 'api') setApi(await discoverApis(index));
+      if (type === 'security') setSecurity(await scanSecurity(index));
+      if (type === 'diagram') setDiagram(buildArchitectureMermaid(index, { limit: 150 }));
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setDetailBusy(false);
+    }
+  }
+  async function runRegisteredAnalyzer(id) {
+    if (!index) return;
+    setAnalyzerBusy(true);
+    setError('');
+    try {
+      const result = await runRegisteredAnalyzerService(index, id);
+      setAnalyzerResults((s) => ({ ...s, [id]: result }));
+    } catch (e) {
+      setError(e?.message || 'Analyzer failed');
+    } finally {
+      setAnalyzerBusy(false);
+    }
+  }
+  function toggle(path) {
+    setSelected((s) => {
+      const n = new Set(s);
+      n.has(path) ? n.delete(path) : n.add(path);
+      return n;
+    });
+  }
+  async function generateContext() {
+    if (!index) return;
+    setBusy(true);
+    try {
+      const r = await buildContext(index, [...selected], {
+        includeMetadata: metadata,
+        includeDependencies: includeDeps,
+        includeDependents,
+      });
+      setContext(r.content);
+      setContextTokens(r.tokens);
+      setContextFiles(r.files.length);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  function selectAll() {
+    setSelected(new Set((index?.files || []).map((f) => f.path)));
+  }
+  if (!project)
+    return (
+      <section>
+        <div className="empty">📂 Open a local folder first to build its codebase index.</div>
+      </section>
+    );
+  return (
+    <section className="codebase-intelligence">
+      <div className="head">
+        <div>
+          <h1>🧠 Codebase Intelligence</h1>
+          <small>
+            Local repository intelligence: symbols, search, architecture, APIs, security and
+            AI-ready context.
+          </small>
+        </div>
+        <div className="index-actions">
+          <button onClick={indexing ? cancelIndex : indexProject}>
+            {indexing ? '✕ Cancel' : '⚙ Build / Refresh Index'}
+          </button>
+          {index && (
+            <button
+              onClick={async () => {
+                await clearCachedIndex(project);
+                setIndex(null);
+                setIndexSource('');
+              }}
+            >
+              ♻ Clear Cache
+            </button>
+          )}
+        </div>
+      </div>
+      {error && <div className="error">{error}</div>}
+      {indexing && progress && (
+        <div className="index-progress">
+          <div>
+            <b>
+              {{ read: 'Reading', analyze: 'Indexing' }[progress.phase] || 'Finalizing'}{' '}
+              {progress.current || 0}/{progress.total || 0}
+            </b>
+            <span>{progress.path || ''}</span>
+          </div>
+          <i>
+            <b
+              style={{
+                width: Math.max(4, ((progress.current || 0) / (progress.total || 1)) * 100) + '%',
+              }}
+            />
+          </i>
+        </div>
+      )}
+      {!index ? (
+        <div className="panel">
+          <h2>Repository Intelligence</h2>
+          <p className="muted">Build one local index. Source stays in your browser.</p>
+          <button onClick={indexProject}>🚀 Build Project Index</button>
+        </div>
+      ) : (
+        <>
+          <div className="index-source">
+            <span>{indexSource === 'cached' ? '⚡ Cached index' : '✓ Fresh index'}</span>
+            <small>
+              {index.cachedAt
+                ? new Date(index.cachedAt).toLocaleString()
+                : index.generatedAt
+                  ? new Date(index.generatedAt).toLocaleString()
+                  : ''}
+            </small>
+          </div>
+          <div className="cards intelligence-cards">
+            <article>
+              <b>{index.stats.files}</b>
+              <span>Files</span>
+            </article>
+            <article>
+              <b>{index.stats.symbols}</b>
+              <span>Symbols</span>
+            </article>
+            <article>
+              <b>{index.stats.references}</b>
+              <span>References</span>
+            </article>
+            <article>
+              <b>{index.stats.resolvedReferences}</b>
+              <span>Resolved</span>
+            </article>
+            <article>
+              <b>{index.stats.internalEdges}</b>
+              <span>Internal edges</span>
+            </article>
+            <article>
+              <b>{security.length}</b>
+              <span>Security findings</span>
+            </article>
+          </div>
+          <div className="tabs">
+            {[
+              ['overview', 'Overview'],
+              ['search', 'Search'],
+              ['symbols', 'Symbols'],
+              ['architecture', 'Architecture'],
+              ['health', 'Health'],
+              ['analyzers', 'Analyzers'],
+              ['impact', 'Impact'],
+              ['api', 'API Discovery'],
+              ['security', 'Security'],
+              ['diagram', 'Diagram'],
+              ['git', 'Git'],
+              ['reports', 'Reports'],
+              ['context', 'Context Builder'],
+              ['ai', 'AI Workspace'],
+            ].map(([k, l]) => (
+              <button key={k} className={view === k ? 'active' : ''} onClick={() => setView(k)}>
+                {l}
+              </button>
+            ))}
+          </div>
+          {['overview', 'files', 'symbols', 'architecture', 'impact'].includes(view) && (
+            <div className="search">
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Filter files, symbols or dependencies"
+              />
+              <button onClick={() => setQuery('')}>✕ Clear</button>
+            </div>
+          )}
+          {view === 'overview' && (
+            <div className="analyze-grid">
+              <div className="analytics-panel">
+                <h2>Project Profile</h2>
+                {profile.frameworks.map((x) => (
+                  <div className="index-row" key={x.name}>
+                    <b>{x.name}</b>
+                    <span>detected</span>
+                    <small>{x.evidence}</small>
+                  </div>
+                ))}
+                {packages.slice(0, 20).map((x) => (
+                  <div className="index-row" key={x.package}>
+                    <b>{x.package}</b>
+                    <span>{x.version}</span>
+                    <small>{x.category}</small>
+                  </div>
+                ))}
+                {profile.languages.map(([l, c]) => (
+                  <div className="index-row" key={l}>
+                    <b>{l}</b>
+                    <span>{c} files</span>
+                    <small>{Math.round((c / index.stats.files) * 100)}%</small>
+                  </div>
+                ))}
+              </div>
+              <div className="analytics-panel">
+                <h2>Health Signals</h2>
+                <Metric
+                  label="Unresolved relative imports"
+                  value={index.unresolvedImports.length}
+                />
+                <Metric label="Circular dependency paths" value={cycles.length} />
+                <Metric label="Unresolved references" value={index.stats.unresolvedReferences} />
+                <Metric
+                  label="Parser errors"
+                  value={index.files.reduce((s, f) => s + (f.parseErrors?.length || 0), 0)}
+                />
+                <Metric label="External imports" value={index.externalDependencies.length} />
+                <Metric label="Security findings" value={security.length} />
+              </div>
+            </div>
+          )}
+          {view === 'search' && (
+            <div className="analytics-panel">
+              <div className="transform-toolbar">
+                <b>🔎 Indexed + Full-text Search</b>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={regex}
+                    onChange={(e) => setRegex(e.target.checked)}
+                  />{' '}
+                  Regex
+                </label>
+                <button onClick={runSearch} disabled={searchBusy}>
+                  {searchBusy ? '⏳ Searching...' : '▶ Search'}
+                </button>
+              </div>
+              <div className="search">
+                <input
+                  autoFocus
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && runSearch()}
+                  placeholder="Search symbols, files and source text"
+                />
+                <button
+                  onClick={() => {
+                    setQuery('');
+                    setSearchResults([]);
+                  }}
+                >
+                  ✕ Clear
+                </button>
+              </div>
+              {searchResults?.indexed?.map((r, i) => (
+                <button
+                  className="index-row clickable"
+                  key={'i' + i}
+                  onClick={() => setSelectedFile(r.path)}
+                >
+                  <b>{r.label}</b>
+                  <span>{r.type}</span>
+                  <small>
+                    {r.path}
+                    {r.line ? ':' + r.line : ''} · {r.detail}
+                  </small>
+                </button>
+              ))}
+              {searchResults?.code?.map((r, i) => (
+                <button
+                  className="index-row clickable"
+                  key={'c' + i}
+                  onClick={() => {
+                    setSelectedFile(r.path);
+                    onOpenFile?.(
+                      project.files.find((f) => f.path === r.path),
+                      true,
+                    );
+                  }}
+                >
+                  <b>
+                    {r.path}:{r.line}
+                  </b>
+                  <span>{r.language}</span>
+                  <small>{r.text}</small>
+                </button>
+              ))}
+              {searchResults && !searchResults.indexed?.length && !searchResults.code?.length && (
+                <p className="muted">No results.</p>
+              )}
+            </div>
+          )}
+          {view === 'symbols' && (
+            <div className="analytics-panel">
+              <h2>Symbol Intelligence</h2>
+              {symbols.slice(0, 500).map((s) => (
+                <button
+                  className="index-row clickable"
+                  key={s.definitionKey}
+                  onClick={() => setSelectedSymbol(s.definitionKey)}
+                >
+                  <b>{s.name}</b>
+                  <span>
+                    {s.kind}
+                    {s.parent ? ' · ' + s.parent : ''}
+                  </span>
+                  <small>
+                    {s.path}:{s.line}
+                  </small>
+                </button>
+              ))}
+              {details && (
+                <SymbolDetails details={details} onClose={() => setSelectedSymbol(null)} />
+              )}
+            </div>
+          )}
+          {view === 'architecture' && (
+            <div className="analyze-grid">
+              <div className="analytics-panel">
+                <h2>Architecture Hotspots</h2>
+                {architecture.slice(0, 100).map((x) => (
+                  <button
+                    className="index-row clickable"
+                    key={x.path}
+                    onClick={() => {
+                      setSelectedFile(x.path);
+                      setView('impact');
+                    }}
+                  >
+                    <b>{x.path}</b>
+                    <span>
+                      {x.dependencies} out · {x.dependents} in
+                    </span>
+                    <small>
+                      {x.symbols} symbols · ~{x.tokens.toLocaleString()} tokens
+                    </small>
+                  </button>
+                ))}
+              </div>
+              <div className="analytics-panel">
+                <h2>Cycles</h2>
+                {cycles.map((c, i) => (
+                  <div className="cycle-row" key={i}>
+                    {c.join(' → ')}
+                  </div>
+                ))}
+                {!cycles.length && <p className="muted">No circular dependency paths detected.</p>}
+              </div>
+            </div>
+          )}
+          {view === 'health' && <HealthView health={health} />}
+          {view === 'reports' && (
+            <div className="analytics-panel">
+              <div className="transform-toolbar">
+                <b>📄 Documentation & Reports</b>
+                <span className="muted">
+                  Generate local Markdown documentation from the current index.
+                </span>
+                <button onClick={generateReport}>▶ Project Report</button>
+                <button onClick={generateModuleReport} disabled={!selectedFile}>
+                  ▶ Module Report
+                </button>
+                <button onClick={() => cp(report)} disabled={!report}>
+                  📋 Copy
+                </button>
+                <button
+                  onClick={() => dl((project.name || 'repository') + '-report.md', report)}
+                  disabled={!report}
+                >
+                  ⬇ Download
+                </button>
+              </div>
+              <div className="search">
+                <select value={selectedFile} onChange={(e) => setSelectedFile(e.target.value)}>
+                  <option value="">Select a module/file</option>
+                  {index.files.map((f) => (
+                    <option key={f.path}>{f.path}</option>
+                  ))}
+                </select>
+              </div>
+              <textarea
+                className="context-output report-output"
+                value={report}
+                onChange={(e) => setReport(e.target.value)}
+                placeholder="Generate a project or module report."
+              />
+            </div>
+          )}
+          {view === 'analyzers' && (
+            <AnalyzerRegistryView
+              catalog={analyzerCatalog}
+              results={analyzerResults}
+              summary={resolutionSummary}
+              busy={analyzerBusy}
+              onRun={runRegisteredAnalyzer}
+            />
+          )}
+          {view === 'impact' && (
+            <div className="analyze-grid">
+              <div className="analytics-panel">
+                <h2>File Impact</h2>
+                <select value={selectedFile} onChange={(e) => setSelectedFile(e.target.value)}>
+                  <option value="">Select a file</option>
+                  {index.files.map((f) => (
+                    <option key={f.path}>{f.path}</option>
+                  ))}
+                </select>
+                {selectedFile && (
+                  <>
+                    <h3>Dependencies</h3>
+                    {findDependencies(index, selectedFile).map((p) => (
+                      <div className="index-row" key={p}>
+                        <b>{p}</b>
+                        <span>outgoing</span>
+                      </div>
+                    ))}
+                    <h3>Imported by</h3>
+                    {findDependents(index, selectedFile).map((p) => (
+                      <div className="index-row" key={p}>
+                        <b>{p}</b>
+                        <span>incoming</span>
+                      </div>
+                    ))}
+                  </>
+                )}
+              </div>
+              <div className="analytics-panel">
+                <h2>Symbols</h2>
+                {selectedFile ? (
+                  index.symbols
+                    .filter((s) => s.path === selectedFile)
+                    .map((s) => (
+                      <button
+                        className="index-row clickable"
+                        key={s.definitionKey}
+                        onClick={() => {
+                          setSelectedSymbol(s.definitionKey);
+                          setView('symbols');
+                        }}
+                      >
+                        <b>{s.name}</b>
+                        <span>{s.references.length} refs</span>
+                        <small>{s.importedBy.length} importers</small>
+                      </button>
+                    ))
+                ) : (
+                  <p className="muted">Select a file.</p>
+                )}
+              </div>
+            </div>
+          )}
+          {view === 'api' && (
+            <AnalyzerView
+              title="🌐 API / Route Discovery"
+              items={api}
+              empty="Run discovery to find route/controller declarations."
+              busy={detailBusy}
+              onRun={() => runAnalyzer('api')}
+              columns={['method', 'path', 'framework', 'file', 'line']}
+            />
+          )}
+          {view === 'security' && (
+            <AnalyzerView
+              title="🔐 Security / Secret Scan"
+              items={security}
+              empty="Run a local heuristic scan for likely secrets and credentials."
+              busy={detailBusy}
+              onRun={() => runAnalyzer('security')}
+              columns={['severity', 'id', 'path', 'line', 'text']}
+            />
+          )}
+          {view === 'diagram' && (
+            <div className="analytics-panel">
+              <div className="transform-toolbar">
+                <b>🏗️ Architecture Diagram</b>
+                <span className="muted">Mermaid.js renderer</span>
+                <button onClick={() => runAnalyzer('diagram')}>
+                  {detailBusy ? '⏳' : '▶ Generate'}
+                </button>
+                <button
+                  onClick={() => {
+                    setDiagramSvg('');
+                    setDiagramError('');
+                    setView('diagram');
+                  }}
+                  disabled={!diagram || diagramBusy}
+                >
+                  ↻ Re-render
+                </button>
+                <button onClick={() => cp(diagram)}>📋 Copy</button>
+                <button
+                  onClick={() => dl((project.name || 'repository') + '-architecture.mmd', diagram)}
+                >
+                  ⬇ Download
+                </button>
+              </div>
+              <textarea
+                className="diagram-output"
+                value={diagram}
+                onChange={(e) => setDiagram(e.target.value)}
+              />
+              {diagramBusy && <p className="muted">⏳ Rendering Mermaid diagram…</p>}
+              {diagramError && <div className="error">{diagramError}</div>}
+              <div className="diagram-preview">
+                {diagramSvg ? (
+                  <div className="mermaid-svg" dangerouslySetInnerHTML={{ __html: diagramSvg }} />
+                ) : (
+                  <pre>{diagram}</pre>
+                )}
+              </div>
+              <p className="muted">
+                RepoMind renders the diagram with Mermaid.js in the browser. Mermaid is loaded only
+                when this tab is opened.
+              </p>
+            </div>
+          )}
+          {view === 'git' && (
+            <GitView
+              git={git}
+              busy={gitBusy}
+              onRefresh={refreshGit}
+              onSelect={(path) => {
+                setSelectedFile(path);
+                setView('impact');
+              }}
+            />
+          )}
+          {view === 'ai' && (
+            <AIWorkspace
+              project={project}
+              index={index}
+              selected={selected}
+              context={context}
+              setContext={setContext}
+              contextTokens={contextTokens}
+              contextFiles={contextFiles}
+              prompt={prompt}
+              setPrompt={setPrompt}
+              promptTask={promptTask}
+              setPromptTask={setPromptTask}
+              buildPrompt={buildPrompt}
+              savedContexts={savedContexts}
+              contextName={contextName}
+              setContextName={setContextName}
+              saveContext={saveContext}
+              loadContext={loadContext}
+              deleteContext={deleteContext}
+              aiSettings={aiSettings}
+              setAiSettings={setAiSettings}
+              aiBusy={aiBusy}
+              setAiBusy={setAiBusy}
+              aiResponse={aiResponse}
+              setAiResponse={setAiResponse}
+              showAiSettings={showAiSettings}
+              setShowAiSettings={setShowAiSettings}
+            />
+          )}
+          {view === 'context' && (
+            <div className="context-builder">
+              <div className="panel">
+                <div className="transform-toolbar">
+                  <b>AI Context Builder</b>
+                  <span className="muted">{selected.size} selected</span>
+                  <button onClick={selectAll}>☑ Select All</button>
+                  <button onClick={() => setSelected(new Set())}>☐ Clear</button>
+                </div>
+                <div className="search">
+                  <input
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Filter files"
+                  />
+                  <button onClick={() => setQuery('')}>✕ Clear</button>
+                </div>
+                <div className="file-checks">
+                  {files.map((f) => (
+                    <label key={f.path}>
+                      <input
+                        type="checkbox"
+                        checked={selected.has(f.path)}
+                        onChange={() => toggle(f.path)}
+                      />
+                      {f.path}
+                    </label>
+                  ))}
+                </div>
+                <label className="context-option">
+                  <input
+                    type="checkbox"
+                    checked={metadata}
+                    onChange={(e) => setMetadata(e.target.checked)}
+                  />{' '}
+                  Include file metadata
+                </label>
+                <label className="context-option">
+                  <input
+                    type="checkbox"
+                    checked={includeDeps}
+                    onChange={(e) => setIncludeDeps(e.target.checked)}
+                  />{' '}
+                  Include direct dependencies
+                </label>
+                <label className="context-option">
+                  <input
+                    type="checkbox"
+                    checked={includeDependents}
+                    onChange={(e) => setIncludeDependents(e.target.checked)}
+                  />{' '}
+                  Include direct importers
+                </label>
+                <div className="tool-run-strip">
+                  <button onClick={generateContext} disabled={!selected.size || busy}>
+                    {busy ? '⏳ Generating...' : '▶ Generate Context'}
+                  </button>
+                  <button onClick={() => cp(context)} disabled={!context}>
+                    📋 Copy
+                  </button>
+                  <button
+                    onClick={() => dl((project.name || 'repository') + '-context.md', context)}
+                    disabled={!context}
+                  >
+                    ⬇ Download
+                  </button>
+                  <input
+                    className="context-name"
+                    value={contextName}
+                    onChange={(e) => setContextName(e.target.value)}
+                    placeholder="Snapshot name"
+                  />
+                  <button onClick={saveContext} disabled={!context}>
+                    💾 Save Snapshot
+                  </button>
+                </div>
+              </div>
+              <div className="panel">
+                <div className="transform-toolbar">
+                  <b>Generated Context</b>
+                  <span>
+                    ~{contextTokens.toLocaleString()} tokens · {contextFiles} files
+                  </span>
+                </div>
+                <textarea className="context-output" value={context} readOnly />
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </section>
+  );
 }
-function GitView({git,busy,onRefresh,onSelect}){if(!git?.available)return <div className="analytics-panel"><div className="transform-toolbar"><b>🌿 Git Intelligence</b><button onClick={onRefresh}disabled={busy}>{busy?'⏳':'↻ Refresh'}</button></div><p className="muted">{git?.error||'No .git directory detected. Git intelligence stays local and never indexes .git contents.'}</p></div>;const s=git.status||{};return <div className="git-workspace"><div className="analyze-grid"><div className="analytics-panel"><div className="transform-toolbar"><b>🌿 Repository</b><button onClick={onRefresh}disabled={busy}>{busy?'⏳ Refreshing...':'↻ Refresh'}</button></div><div className="index-row"><b>Branch</b><span>{git.branch||'Detached HEAD'}</span><small>{git.head?.slice(0,12)}</small></div><div className="index-row"><b>Remote</b><span>{git.remote||'Local only'}</span><small>metadata only</small></div><div className="git-stat-grid"><article><b>{s.modified?.length||0}</b><span>Modified</span></article><article><b>{s.untracked?.length||0}</b><span>Untracked</span></article><article><b>{s.deleted?.length||0}</b><span>Deleted</span></article><article><b>{git.activity?.length||0}</b><span>Activity</span></article></div></div><div className="analytics-panel"><h2>Working Tree</h2>{[['Modified',s.modified],['Untracked',s.untracked],['Deleted',s.deleted]].map(([label,items])=><div key={label}><h3>{label} ({items?.length||0})</h3>{(items||[]).slice(0,30).map(x=><button className="mini-row clickable"key={x}onClick={()=>onSelect?.(x)}>{x}</button>)}</div>)}</div></div><div className="analytics-panel"><h2>Recent Git Activity</h2><p className="muted">Derived from local reflog metadata; .git objects are not indexed or uploaded.</p>{(git.activity||[]).slice(0,20).map((x,i)=><div className="git-activity"key={i}><code>{x.hash?.slice(0,10)}</code><span>{x.message||x.action}</span><small>{x.date?new Date(x.date).toLocaleString():''}</small></div>)}</div></div>}
-function AIWorkspace({project,index,selected,context,setContext,contextTokens,contextFiles,prompt,setPrompt,promptTask,setPromptTask,buildPrompt,savedContexts,contextName,setContextName,saveContext,loadContext,deleteContext,aiSettings,setAiSettings,aiBusy,setAiBusy,aiResponse,setAiResponse,showAiSettings,setShowAiSettings}){async function ask(){if(!context&&!prompt)return;setAiBusy(true);try{const body=context||prompt;const result=await askAI(aiSettings,buildAIMessages(promptTask,body));setAiResponse(result)}catch(e){setAiResponse('Error: '+e.message)}finally{setAiBusy(false)}}function saveSettings(){setAiSettings(saveAISettings(aiSettings));setShowAiSettings(false)}return <div className="ai-workspace"><div className="analyze-grid"><div className="analytics-panel"><div className="transform-toolbar"><b>🤖 Ask RepoMind</b><span className="muted">Provider-neutral</span></div><p className="muted">Build a ready-to-paste prompt from the current codebase context. No AI provider or source upload is required.</p><textarea className="ai-task" value={promptTask} onChange={e=>setPromptTask(e.target.value)} placeholder="What do you want to understand or change?"/><div className="tool-run-strip"><button onClick={buildPrompt}>▶ Build Prompt</button><button onClick={ask}disabled={aiBusy||(!context&&!prompt)}>{aiBusy?'⏳ Asking...':'🤖 Ask AI'}</button><button onClick={()=>setShowAiSettings(!showAiSettings)}>⚙ AI Settings</button><button onClick={()=>navigator.clipboard?.writeText(prompt)}disabled={!prompt}>📋 Copy Prompt</button><button onClick={()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([prompt],{type:'text/markdown'}));a.download=(project.name||'repository')+'-ai-prompt.md';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),500)}}disabled={!prompt}>⬇ Export</button></div>{showAiSettings&&<div className="ai-settings"><label>Provider<select value={aiSettings.provider||'openai'}onChange={e=>setAiSettings({...aiSettings,provider:e.target.value,model:''})}>{Object.entries(AI_PROVIDERS).map(([k,v])=><option key={k}value={k}>{v.label}</option>)}</select></label><label>Model<input value={aiSettings.model||''}onChange={e=>setAiSettings({...aiSettings,model:e.target.value})}placeholder="Provider model"/></label><label>Endpoint<input value={aiSettings.endpoint||''}onChange={e=>setAiSettings({...aiSettings,endpoint:e.target.value})}placeholder={AI_PROVIDERS[aiSettings.provider||'openai']?.endpoint}/></label><label>API Key<input type="password"value={aiSettings.apiKey||''}onChange={e=>setAiSettings({...aiSettings,apiKey:e.target.value})}placeholder="Stored only in this browser"/></label><div className="tool-run-strip"><button onClick={saveSettings}>💾 Save Settings</button><span className="muted">Direct browser calls require provider CORS support. Never use a shared/public browser profile for secrets.</span></div></div>}</div><div className="analytics-panel"><h2>Context Snapshot</h2><div className="index-row"><b>Selected files</b><span>{selected.size}</span><small>{contextFiles} in generated context</small></div><div className="index-row"><b>Estimated tokens</b><span>{contextTokens.toLocaleString()}</span><small>~4 chars/token</small></div><p className="muted">Current selection is shared with Context Builder.</p></div></div><div className="analytics-panel"><div className="transform-toolbar"><b>Generated Prompt</b><span className="muted">{prompt?prompt.length.toLocaleString()+' chars':''}</span></div><textarea className="ai-output"value={prompt}onChange={e=>setPrompt(e.target.value)}placeholder="Build a prompt to create an AI-ready task context."/><h3>AI Response</h3><textarea className="ai-response"value={aiResponse}readOnly placeholder="Ask AI to analyze the current context."/><div className="transform-toolbar"><input className="context-name" value={contextName} onChange={e=>setContextName(e.target.value)} placeholder="Snapshot name"/><button onClick={saveContext}disabled={!context}>💾 Save Current Context</button></div></div><div className="analytics-panel"><div className="transform-toolbar"><b>Saved Contexts</b><span>{savedContexts.length}/20</span></div>{savedContexts.map(item=><div className="saved-context"key={item.id}><div><b>{item.name}</b><small>{item.files} files · ~{item.tokens?.toLocaleString()||0} tokens · {new Date(item.createdAt).toLocaleString()}</small></div><div><button onClick={()=>loadContext(item)}>Load</button><button onClick={()=>deleteContext(item.id)}>Delete</button></div></div>)}{!savedContexts.length&&<p className="muted">No saved contexts yet.</p>}</div></div>}
-function Metric({label,value}){return <div className="index-row"><b>{label}</b><span>{value}</span><small>{value?'Review':'None detected'}</small></div>}
-function AnalyzerView({title,items,empty,busy,onRun,columns}){return <div className="analytics-panel"><div className="transform-toolbar"><b>{title}</b><span>{items.length} findings</span><button onClick={onRun}disabled={busy}>{busy?'⏳ Scanning...':'▶ Run Scan'}</button></div>{items.map((x,i)=><div className="index-row analyzer-row"key={i}>{columns.map(c=><span key={c}title={String(x[c]??'')}>{String(x[c]??'')}</span>)}</div>)}{!items.length&&<p className="muted">{empty}</p>}</div>}
-function SymbolDetails({details,onClose}){const{symbol}=details;return <div className="symbol-inspector panel"><div className="transform-toolbar"><div><b>{symbol.name}</b><span className="muted"> · {symbol.kind} · {symbol.path}:{symbol.line}</span></div><button onClick={onClose}>✕ Close</button></div><div className="analyze-grid"><div><h3>Definition</h3><p className="muted">{symbol.path}:{symbol.line}:{symbol.column}</p><h3>Methods</h3>{details.methods.length?details.methods.map(x=><div className="mini-row"key={x.definitionKey}>{x.name}()</div>):<p className="muted">No class methods.</p>}</div><div><h3>References ({details.references.length})</h3>{details.references.slice(0,100).map((r,i)=><div className="mini-row"key={i}>{r.from}:{r.line}:{r.column}</div>)}</div></div><h3>Imported by ({details.importedBy.length})</h3>{details.importedBy.map((x,i)=><div className="index-row"key={i}><b>{x.from}</b><span>{x.local}</span><small>{x.imported} · line {x.line}</small></div>)}</div>}
+function GitView({ git, busy, onRefresh, onSelect }) {
+  if (!git?.available)
+    return (
+      <div className="analytics-panel">
+        <div className="transform-toolbar">
+          <b>🌿 Git Intelligence</b>
+          <button onClick={onRefresh} disabled={busy}>
+            {busy ? '⏳' : '↻ Refresh'}
+          </button>
+        </div>
+        <p className="muted">
+          {git?.error ||
+            'No .git directory detected. Git intelligence stays local and never indexes .git contents.'}
+        </p>
+      </div>
+    );
+  const s = git.status || {};
+  return (
+    <div className="git-workspace">
+      <div className="analyze-grid">
+        <div className="analytics-panel">
+          <div className="transform-toolbar">
+            <b>🌿 Repository</b>
+            <button onClick={onRefresh} disabled={busy}>
+              {busy ? '⏳ Refreshing...' : '↻ Refresh'}
+            </button>
+          </div>
+          <div className="index-row">
+            <b>Branch</b>
+            <span>{git.branch || 'Detached HEAD'}</span>
+            <small>{git.head?.slice(0, 12)}</small>
+          </div>
+          <div className="index-row">
+            <b>Remote</b>
+            <span>{git.remote || 'Local only'}</span>
+            <small>metadata only</small>
+          </div>
+          <div className="git-stat-grid">
+            <article>
+              <b>{s.modified?.length || 0}</b>
+              <span>Modified</span>
+            </article>
+            <article>
+              <b>{s.untracked?.length || 0}</b>
+              <span>Untracked</span>
+            </article>
+            <article>
+              <b>{s.deleted?.length || 0}</b>
+              <span>Deleted</span>
+            </article>
+            <article>
+              <b>{git.activity?.length || 0}</b>
+              <span>Activity</span>
+            </article>
+          </div>
+        </div>
+        <div className="analytics-panel">
+          <h2>Working Tree</h2>
+          {[
+            ['Modified', s.modified],
+            ['Untracked', s.untracked],
+            ['Deleted', s.deleted],
+          ].map(([label, items]) => (
+            <div key={label}>
+              <h3>
+                {label} ({items?.length || 0})
+              </h3>
+              {(items || []).slice(0, 30).map((x) => (
+                <button className="mini-row clickable" key={x} onClick={() => onSelect?.(x)}>
+                  {x}
+                </button>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="analytics-panel">
+        <h2>Recent Git Activity</h2>
+        <p className="muted">
+          Derived from local reflog metadata; .git objects are not indexed or uploaded.
+        </p>
+        {(git.activity || []).slice(0, 20).map((x, i) => (
+          <div className="git-activity" key={i}>
+            <code>{x.hash?.slice(0, 10)}</code>
+            <span>{x.message || x.action}</span>
+            <small>{x.date ? new Date(x.date).toLocaleString() : ''}</small>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+function AIWorkspace({
+  project,
+  index,
+  selected,
+  context,
+  setContext,
+  contextTokens,
+  contextFiles,
+  prompt,
+  setPrompt,
+  promptTask,
+  setPromptTask,
+  buildPrompt,
+  savedContexts,
+  contextName,
+  setContextName,
+  saveContext,
+  loadContext,
+  deleteContext,
+  aiSettings,
+  setAiSettings,
+  aiBusy,
+  setAiBusy,
+  aiResponse,
+  setAiResponse,
+  showAiSettings,
+  setShowAiSettings,
+}) {
+  async function ask() {
+    if (!context && !prompt) return;
+    setAiBusy(true);
+    try {
+      const body = context || prompt;
+      const result = await askAI(aiSettings, buildAIMessages(promptTask, body));
+      setAiResponse(result);
+    } catch (e) {
+      setAiResponse('Error: ' + e.message);
+    } finally {
+      setAiBusy(false);
+    }
+  }
+  function saveSettings() {
+    setAiSettings(saveAISettings(aiSettings));
+    setShowAiSettings(false);
+  }
+  return (
+    <div className="ai-workspace">
+      <div className="analyze-grid">
+        <div className="analytics-panel">
+          <div className="transform-toolbar">
+            <b>🤖 Ask RepoMind</b>
+            <span className="muted">Provider-neutral</span>
+          </div>
+          <p className="muted">
+            Build a ready-to-paste prompt from the current codebase context. No AI provider or
+            source upload is required.
+          </p>
+          <textarea
+            className="ai-task"
+            value={promptTask}
+            onChange={(e) => setPromptTask(e.target.value)}
+            placeholder="What do you want to understand or change?"
+          />
+          <div className="tool-run-strip">
+            <button onClick={buildPrompt}>▶ Build Prompt</button>
+            <button onClick={ask} disabled={aiBusy || (!context && !prompt)}>
+              {aiBusy ? '⏳ Asking...' : '🤖 Ask AI'}
+            </button>
+            <button onClick={() => setShowAiSettings(!showAiSettings)}>⚙ AI Settings</button>
+            <button onClick={() => navigator.clipboard?.writeText(prompt)} disabled={!prompt}>
+              📋 Copy Prompt
+            </button>
+            <button
+              onClick={() => {
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(new Blob([prompt], { type: 'text/markdown' }));
+                a.download = (project.name || 'repository') + '-ai-prompt.md';
+                a.click();
+                setTimeout(() => URL.revokeObjectURL(a.href), 500);
+              }}
+              disabled={!prompt}
+            >
+              ⬇ Export
+            </button>
+          </div>
+          {showAiSettings && (
+            <div className="ai-settings">
+              <label>
+                Provider
+                <select
+                  value={aiSettings.provider || 'openai'}
+                  onChange={(e) =>
+                    setAiSettings({ ...aiSettings, provider: e.target.value, model: '' })
+                  }
+                >
+                  {Object.entries(AI_PROVIDERS).map(([k, v]) => (
+                    <option key={k} value={k}>
+                      {v.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Model
+                <input
+                  value={aiSettings.model || ''}
+                  onChange={(e) => setAiSettings({ ...aiSettings, model: e.target.value })}
+                  placeholder={AI_PROVIDERS[aiSettings.provider || 'openai']?.modelHint}
+                />
+              </label>
+              <label>
+                Endpoint
+                <input
+                  value={aiSettings.endpoint || ''}
+                  onChange={(e) => setAiSettings({ ...aiSettings, endpoint: e.target.value })}
+                  placeholder={AI_PROVIDERS[aiSettings.provider || 'openai']?.endpoint}
+                />
+              </label>
+              <label>
+                API Key
+                <input
+                  type="password"
+                  value={aiSettings.apiKey || ''}
+                  onChange={(e) => setAiSettings({ ...aiSettings, apiKey: e.target.value })}
+                  placeholder="Stored only in this browser"
+                />
+              </label>
+              <div className="tool-run-strip">
+                <button onClick={saveSettings}>💾 Save Settings</button>
+                <span className="muted">
+                  Direct browser calls require provider CORS support. Never use a shared/public
+                  browser profile for secrets.
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="analytics-panel">
+          <h2>Context Snapshot</h2>
+          <div className="index-row">
+            <b>Selected files</b>
+            <span>{selected.size}</span>
+            <small>{contextFiles} in generated context</small>
+          </div>
+          <div className="index-row">
+            <b>Estimated tokens</b>
+            <span>{contextTokens.toLocaleString()}</span>
+            <small>~4 chars/token</small>
+          </div>
+          <p className="muted">Current selection is shared with Context Builder.</p>
+        </div>
+      </div>
+      <div className="analytics-panel">
+        <div className="transform-toolbar">
+          <b>Generated Prompt</b>
+          <span className="muted">{prompt ? prompt.length.toLocaleString() + ' chars' : ''}</span>
+        </div>
+        <textarea
+          className="ai-output"
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+          placeholder="Build a prompt to create an AI-ready task context."
+        />
+        <h3>AI Response</h3>
+        <textarea
+          className="ai-response"
+          value={aiResponse}
+          readOnly
+          placeholder="Ask AI to analyze the current context."
+        />
+        <div className="transform-toolbar">
+          <input
+            className="context-name"
+            value={contextName}
+            onChange={(e) => setContextName(e.target.value)}
+            placeholder="Snapshot name"
+          />
+          <button onClick={saveContext} disabled={!context}>
+            💾 Save Current Context
+          </button>
+        </div>
+      </div>
+      <div className="analytics-panel">
+        <div className="transform-toolbar">
+          <b>Saved Contexts</b>
+          <span>{savedContexts.length}/20</span>
+        </div>
+        {savedContexts.map((item) => (
+          <div className="saved-context" key={item.id}>
+            <div>
+              <b>{item.name}</b>
+              <small>
+                {item.files} files · ~{item.tokens?.toLocaleString() || 0} tokens ·{' '}
+                {new Date(item.createdAt).toLocaleString()}
+              </small>
+            </div>
+            <div>
+              <button onClick={() => loadContext(item)}>Load</button>
+              <button onClick={() => deleteContext(item.id)}>Delete</button>
+            </div>
+          </div>
+        ))}
+        {!savedContexts.length && <p className="muted">No saved contexts yet.</p>}
+      </div>
+    </div>
+  );
+}
+function Metric({ label, value }) {
+  return (
+    <div className="index-row">
+      <b>{label}</b>
+      <span>{value}</span>
+      <small>{value ? 'Review' : 'None detected'}</small>
+    </div>
+  );
+}
+function AnalyzerView({ title, items, empty, busy, onRun, columns }) {
+  return (
+    <div className="analytics-panel">
+      <div className="transform-toolbar">
+        <b>{title}</b>
+        <span>{items.length} findings</span>
+        <button onClick={onRun} disabled={busy}>
+          {busy ? '⏳ Scanning...' : '▶ Run Scan'}
+        </button>
+      </div>
+      {items.map((x, i) => (
+        <div className="index-row analyzer-row" key={i}>
+          {columns.map((c) => (
+            <span key={c} title={String(x[c] ?? '')}>
+              {String(x[c] ?? '')}
+            </span>
+          ))}
+        </div>
+      ))}
+      {!items.length && <p className="muted">{empty}</p>}
+    </div>
+  );
+}
+function SymbolDetails({ details, onClose }) {
+  const { symbol } = details;
+  return (
+    <div className="symbol-inspector panel">
+      <div className="transform-toolbar">
+        <div>
+          <b>{symbol.name}</b>
+          <span className="muted">
+            {' '}
+            · {symbol.kind} · {symbol.path}:{symbol.line}
+          </span>
+        </div>
+        <button onClick={onClose}>✕ Close</button>
+      </div>
+      <div className="analyze-grid">
+        <div>
+          <h3>Definition</h3>
+          <p className="muted">
+            {symbol.path}:{symbol.line}:{symbol.column}
+          </p>
+          <h3>Methods</h3>
+          {details.methods.length ? (
+            details.methods.map((x) => (
+              <div className="mini-row" key={x.definitionKey}>
+                {x.name}()
+              </div>
+            ))
+          ) : (
+            <p className="muted">No class methods.</p>
+          )}
+        </div>
+        <div>
+          <h3>References ({details.references.length})</h3>
+          {details.references.slice(0, 100).map((r, i) => (
+            <div className="mini-row" key={i}>
+              {r.from}:{r.line}:{r.column}
+            </div>
+          ))}
+        </div>
+      </div>
+      <h3>Imported by ({details.importedBy.length})</h3>
+      {details.importedBy.map((x, i) => (
+        <div className="index-row" key={i}>
+          <b>{x.from}</b>
+          <span>{x.local}</span>
+          <small>
+            {x.imported} · line {x.line}
+          </small>
+        </div>
+      ))}
+    </div>
+  );
+}
 
-function HealthView({health}){if(!health)return <div className="analytics-panel"><p className="muted">Build an index first.</p></div>;return <div className="ai-health"><div className="cards intelligence-cards">{health.signals.map(x=><article key={x.id}><b>{x.count}</b><span>{x.label}</span><small className={'severity '+x.severity}>{x.severity}</small></article>)}</div><div className="analyze-grid"><div className="analytics-panel"><h2>Architecture Risk Signals</h2>{health.signals.map(x=><div className="index-row"key={x.id}><b>{x.label}</b><span>{x.count}</span><small>{x.detail}</small></div>)}</div><div className="analytics-panel"><h2>Hotspot Files</h2>{health.hotspots.slice(0,30).map(x=><div className="index-row"key={x.path}><b>{x.path}</b><span>{x.score} edges</span><small>{x.dependencies} out · {x.dependents} in · {x.symbols} symbols</small></div>)}</div></div></div>}
+function HealthView({ health }) {
+  if (!health)
+    return (
+      <div className="analytics-panel">
+        <p className="muted">Build an index first.</p>
+      </div>
+    );
+  return (
+    <div className="ai-health">
+      <div className="cards intelligence-cards">
+        {health.signals.map((x) => (
+          <article key={x.id}>
+            <b>{x.count}</b>
+            <span>{x.label}</span>
+            <small className={'severity ' + x.severity}>{x.severity}</small>
+          </article>
+        ))}
+      </div>
+      <div className="analyze-grid">
+        <div className="analytics-panel">
+          <h2>Architecture Risk Signals</h2>
+          {health.signals.map((x) => (
+            <div className="index-row" key={x.id}>
+              <b>{x.label}</b>
+              <span>{x.count}</span>
+              <small>{x.detail}</small>
+            </div>
+          ))}
+        </div>
+        <div className="analytics-panel">
+          <h2>Hotspot Files</h2>
+          {health.hotspots.slice(0, 30).map((x) => (
+            <div className="index-row" key={x.path}>
+              <b>{x.path}</b>
+              <span>{x.score} edges</span>
+              <small>
+                {x.dependencies} out · {x.dependents} in · {x.symbols} symbols
+              </small>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
-function AnalyzerRegistryView({catalog,results,summary,busy,onRun}){return <div className="analyzer-registry"><div className="cards intelligence-cards"><article><b>{summary.resolved}</b><span>Resolved refs</span></article><article><b>{summary.ambiguous}</b><span>Ambiguous refs</span></article><article><b>{summary.unresolved}</b><span>Unresolved refs</span></article><article><b>{catalog.length}</b><span>Registered analyzers</span></article></div><div className="analyze-grid">{catalog.map(a=><div className="analytics-panel"key={a.id}><div className="transform-toolbar"><b>{a.name}</b><button onClick={()=>onRun(a.id)}disabled={busy}>{busy?'⏳':'▶ Run'}</button></div><small className="muted">{a.category}</small><p>{a.description}</p>{results[a.id]&&<AnalyzerResult id={a.id}items={results[a.id]}/>} {!results[a.id]&&<p className="muted">No result yet. Run this analyzer against the current index.</p>}</div>)}</div></div>}
-function AnalyzerResult({id,items}){if(id==='symbol-resolution'){const counts={resolved:0,ambiguous:0,unresolved:0};items.forEach(x=>counts[x.status]++);return <div><div className="index-row"><b>Resolved</b><span>{counts.resolved}</span></div><div className="index-row"><b>Ambiguous</b><span>{counts.ambiguous}</span></div><div className="index-row"><b>Unresolved</b><span>{counts.unresolved}</span></div>{items.filter(x=>x.status!=='resolved').slice(0,30).map((x,i)=><div className="index-row"key={i}><b>{x.name}</b><span>{x.status}</span><small>{x.file}:{x.line} {x.targets}</small></div>)}</div>}return <div>{items.slice(0,50).map((x,i)=><div className="index-row"key={i}><b>{x.name||x.path||x.file}</b><span>{x.method||x.framework||x.score||x.status||''}</span><small>{x.path||x.file}{x.line?':'+x.line:''}{x.evidence?' · '+x.evidence:''}</small></div>)}{items.length>50&&<small className="muted">Showing first 50 of {items.length} findings.</small>}</div>}
+function AnalyzerRegistryView({ catalog, results, summary, busy, onRun }) {
+  return (
+    <div className="analyzer-registry">
+      <div className="cards intelligence-cards">
+        <article>
+          <b>{summary.resolved}</b>
+          <span>Resolved refs</span>
+        </article>
+        <article>
+          <b>{summary.ambiguous}</b>
+          <span>Ambiguous refs</span>
+        </article>
+        <article>
+          <b>{summary.unresolved}</b>
+          <span>Unresolved refs</span>
+        </article>
+        <article>
+          <b>{catalog.length}</b>
+          <span>Registered analyzers</span>
+        </article>
+      </div>
+      <div className="analyze-grid">
+        {catalog.map((a) => (
+          <div className="analytics-panel" key={a.id}>
+            <div className="transform-toolbar">
+              <b>{a.name}</b>
+              <button onClick={() => onRun(a.id)} disabled={busy}>
+                {busy ? '⏳' : '▶ Run'}
+              </button>
+            </div>
+            <small className="muted">{a.category}</small>
+            <p>{a.description}</p>
+            {results[a.id] && <AnalyzerResult id={a.id} items={results[a.id]} />}{' '}
+            {!results[a.id] && (
+              <p className="muted">No result yet. Run this analyzer against the current index.</p>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+function AnalyzerResult({ id, items }) {
+  if (id === 'symbol-resolution') {
+    const counts = { resolved: 0, ambiguous: 0, unresolved: 0 };
+    items.forEach((x) => counts[x.status]++);
+    return (
+      <div>
+        <div className="index-row">
+          <b>Resolved</b>
+          <span>{counts.resolved}</span>
+        </div>
+        <div className="index-row">
+          <b>Ambiguous</b>
+          <span>{counts.ambiguous}</span>
+        </div>
+        <div className="index-row">
+          <b>Unresolved</b>
+          <span>{counts.unresolved}</span>
+        </div>
+        {items
+          .filter((x) => x.status !== 'resolved')
+          .slice(0, 30)
+          .map((x, i) => (
+            <div className="index-row" key={i}>
+              <b>{x.name}</b>
+              <span>{x.status}</span>
+              <small>
+                {x.file}:{x.line} {x.targets}
+              </small>
+            </div>
+          ))}
+      </div>
+    );
+  }
+  return (
+    <div>
+      {items.slice(0, 50).map((x, i) => (
+        <div className="index-row" key={i}>
+          <b>{x.name || x.path || x.file}</b>
+          <span>{x.method || x.framework || x.score || x.status || ''}</span>
+          <small>
+            {x.path || x.file}
+            {x.line ? ':' + x.line : ''}
+            {x.evidence ? ' · ' + x.evidence : ''}
+          </small>
+        </div>
+      ))}
+      {items.length > 50 && (
+        <small className="muted">Showing first 50 of {items.length} findings.</small>
+      )}
+    </div>
+  );
+}

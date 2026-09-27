@@ -2,6 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'none'; form-action 'none'; base-uri 'none'">
+<script src="repomind-bridge.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>RepoMind OFS Generator</title>
 <style>
@@ -487,12 +489,12 @@ textarea{resize:vertical;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,
   function saveConfig(){
     syncAll();
     var config={type:state.type,fields:state.fields,application:selectedValue('application'),version:selectedValue('version'),fn:selectedValue('function'),processing:selectedValue('processing'),gts:selectedValue('gts'),auth:selectedValue('authCount'),user:selectedValue('user'),password:selectedValue('password'),company:selectedValue('company'),transactionId:selectedValue('transactionId')};
-    try{localStorage.setItem('repomind.ofs.config',JSON.stringify(config));setStatus('parseStatus','Configuration saved locally.','ok');}catch(e){setStatus('parseStatus','Could not save configuration.','err');}
+    try{RepoMindBridge.set('repomind.ofs.config',JSON.stringify(config));setStatus('parseStatus','Configuration saved locally.','ok');}catch(e){setStatus('parseStatus','Could not save configuration.','err');}
   }
 
   function loadConfig(){
     try{
-      var c=JSON.parse(localStorage.getItem('repomind.ofs.config')||'null');
+      var c=JSON.parse(RepoMindBridge.get('repomind.ofs.config')||'null');
       if(!c){setStatus('parseStatus','No saved configuration found.','info');return;}
       state.type=c.type||'Transaction';state.fields=c.fields||[];
       setInputValue('application',c.application);setInputValue('version',c.version);setInputValue('function',c.fn||'I');setInputValue('processing',c.processing||'PROCESS');setInputValue('gts',c.gts);setInputValue('authCount',c.auth);setInputValue('user',c.user);setInputValue('password',c.password);setInputValue('company',c.company);setInputValue('transactionId',c.transactionId);
@@ -515,7 +517,7 @@ textarea{resize:vertical;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,
 
   function loadT24Context(){
     try{
-      var raw=localStorage.getItem('repomind.t24.ofsContext');if(!raw)return;
+      var raw=RepoMindBridge.get('repomind.t24.ofsContext');if(!raw)return;
       var c=JSON.parse(raw);if(!c||!c.application)return;
       setType('Transaction');
       setInputValue('application',c.application);
@@ -531,7 +533,7 @@ textarea{resize:vertical;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,
       renderFields();
       $('rawData').value=generateData();
       setStatus('parseStatus','Loaded OFS context from T24 Log Analyzer. Authentication fields were left blank intentionally.','ok');
-      localStorage.removeItem('repomind.t24.ofsContext');
+      RepoMindBridge.remove('repomind.t24.ofsContext');
       generate();
     }catch(e){setStatus('parseStatus','T24 handoff data could not be loaded: '+e.message,'err');}
   }
@@ -554,7 +556,7 @@ textarea{resize:vertical;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,
   renderGeneric('Transaction');
   renderFields();
   updateOptionPreview();
-  loadT24Context();
+  RepoMindBridge.ready(loadT24Context);
 })();
 </script>
 </body>

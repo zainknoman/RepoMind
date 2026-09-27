@@ -11,10 +11,16 @@ on:
 permissions:
   contents: read
 
+# One run per branch/PR: a newer push cancels the run it supersedes.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  frontend:
-    name: Frontend build
+  quality:
+    name: Format, lint, unit tests and build
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: frontend
@@ -33,27 +39,59 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm test
+
       - name: Build production bundle
         run: npm run build
 
       - name: Verify build output
         run: test -f dist/index.html
 
-  backend:
-    name: Backend validation
+  e2e:
+    name: End-to-end tests (production build)
+    needs: quality
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: frontend
 
     steps:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Setup Python
-        uses: actions/setup-python@v6
+      - name: Setup Node
+        uses: actions/setup-node@v6
         with:
-          python-version: "3.12"
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
 
-      - name: Install backend dependencies
-        run: pip install -r backend/requirements.txt
+      - name: Install dependencies
+        run: npm ci
 
-      - name: Compile Python sources
-        run: python -m compileall -q backend/app
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Build production bundle
+        run: npm run build
+
+      - name: Run end-to-end tests
+        run: npm run test:e2e
+        env:
+          E2E_SKIP_BUILD: '1'
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: repomind-playwright-report
+          path: frontend/playwright-report/
+          retention-days: 14

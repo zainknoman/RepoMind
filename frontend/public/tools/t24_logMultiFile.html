@@ -2,10 +2,17 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'none'; form-action 'none'; base-uri 'none'">
+    <script src="repomind-bridge.js"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>T24 Log Analyzer</title>
-    <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        /* Utilities previously supplied by the Tailwind Play CDN. */
+        .container { width: 100%; margin-left: auto; margin-right: auto; }
+        .block { display: block; } .grid { display: grid; } .grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+        .gap-4 { gap: 1rem; } .mb-2 { margin-bottom: .5rem; } .mb-4 { margin-bottom: 1rem; }
+        .font-semibold { font-weight: 600; } .text-lg { font-size: 1.125rem; line-height: 1.75rem; } .text-gray-600 { color: #4b5563; }
+        @media (min-width: 768px) { .md\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
         /* Shared styles from consolidatedFiles.html */
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -478,6 +485,7 @@
     <div id="copyFeedback" class="copy-feedback">Copied!</div>
 
     <script>
+        const escapeHtml = (v) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
         const logFileInput1 = document.getElementById('logFileInput1');
         const logFileInput2 = document.getElementById('logFileInput2');
         const logFileInput3 = document.getElementById('logFileInput3');
@@ -726,12 +734,12 @@
                         const headerDiv = document.createElement('div');
                         headerDiv.className = 'log-header';
                         headerDiv.innerHTML = `
-                            <span><strong>Level:</strong> <span class="${entryData.hasError ? 'error-message' : ''}">${entryData.level}</span></span>
-                            <span><strong>Timestamp:</strong> ${entryData.timestamp}</span>
-                            <span><strong>Thread ID:</strong> ${entryData.threadId}</span>
-                            <span><strong>Session ID:</strong> ${entryData.sessionId}</span>
-                            <span><strong>User/Context:</strong> ${entryData.userContext}</span>
-                            <span><strong>Module:</strong> ${entryData.module}</span>
+                            <span><strong>Level:</strong> <span class="${entryData.hasError ? 'error-message' : ''}">${escapeHtml(entryData.level)}</span></span>
+                            <span><strong>Timestamp:</strong> ${escapeHtml(entryData.timestamp)}</span>
+                            <span><strong>Thread ID:</strong> ${escapeHtml(entryData.threadId)}</span>
+                            <span><strong>Session ID:</strong> ${escapeHtml(entryData.sessionId)}</span>
+                            <span><strong>User/Context:</strong> ${escapeHtml(entryData.userContext)}</span>
+                            <span><strong>Module:</strong> ${escapeHtml(entryData.module)}</span>
                         `;
                         entryDiv.appendChild(headerDiv);
 
@@ -755,7 +763,7 @@
                         if (entryData.remainingMessage.trim().length > 200) {
                             snippet += '...';
                         }
-                        messageSummaryDiv.innerHTML = summaryIndicator + (snippet || '<em>Click for full details...</em>');
+                        messageSummaryDiv.innerHTML = summaryIndicator + (snippet ? escapeHtml(snippet) : '<em>Click for full details...</em>');
                         
                         entryDiv.appendChild(messageSummaryDiv);
 
@@ -777,7 +785,7 @@
                     alert('Could not extract an OFS application from this log entry.');
                     return;
                 }
-                localStorage.setItem('repomind.t24.ofsContext', JSON.stringify({
+                RepoMindBridge.set('repomind.t24.ofsContext', JSON.stringify({
                     application: data.application || '',
                     version: data.version || '',
                     ofsFunction: data.ofsFunction || 'I',
@@ -787,7 +795,7 @@
                     fields: data.fields || [],
                     rawXml: entryData.ofsDetails.rawXml || ''
                 }));
-                window.top.location.assign('/RepoMind/?tool=ofs');
+                RepoMindBridge.openTool('ofs');
             } catch (e) {
                 console.error('Unable to hand off OFS context:', e);
                 alert('Unable to open this OFS message in the generator: ' + e.message);
@@ -811,12 +819,12 @@
                 <div class="log-header">
                     <span><strong>Source:</strong> ${entryData.source === 'textarea' ? 'Pasted Content' : `File ${entryData.source.replace('file','')}`}</span>
                     <span><strong>Original Line No:</strong> ${entryData.originalLineIndex + 1}</span>
-                    <span><strong>Level:</strong> <span class="${entryData.hasError ? 'error-message' : ''}">${entryData.level}</span></span>
-                    <span><strong>Timestamp:</strong> ${entryData.timestamp}</span>
-                    <span><strong>Thread ID:</strong> ${entryData.threadId}</span>
-                    <span><strong>Session ID:</strong> ${entryData.sessionId}</span>
-                    <span><strong>User/Context:</strong> ${entryData.userContext}</span>
-                    <span><strong>Module:</strong> ${entryData.module}</span>
+                    <span><strong>Level:</strong> <span class="${entryData.hasError ? 'error-message' : ''}">${escapeHtml(entryData.level)}</span></span>
+                    <span><strong>Timestamp:</strong> ${escapeHtml(entryData.timestamp)}</span>
+                    <span><strong>Thread ID:</strong> ${escapeHtml(entryData.threadId)}</span>
+                    <span><strong>Session ID:</strong> ${escapeHtml(entryData.sessionId)}</span>
+                    <span><strong>User/Context:</strong> ${escapeHtml(entryData.userContext)}</span>
+                    <span><strong>Module:</strong> ${escapeHtml(entryData.module)}</span>
                 </div>
                 <hr style="margin: 15px 0; border: none; border-top: 1px solid #eee;">
             `;
@@ -828,7 +836,7 @@
                 warningSection.className = 'warning-section';
                 warningSection.innerHTML = '<strong>Warnings:</strong><ul>';
                 entryData.warnings.forEach(warning => {
-                    warningSection.innerHTML += `<li>${warning}</li>`;
+                    warningSection.innerHTML += `<li>${escapeHtml(warning)}</li>`;
                 });
                 warningSection.innerHTML += '</ul>';
                 modalBody.appendChild(warningSection);
@@ -919,7 +927,7 @@
                         const element = ofsApplication.querySelector(fieldName);
                         if (element && element.textContent !== undefined && element.textContent !== null) {
                             const listItem = document.createElement('li');
-                            listItem.innerHTML = `<strong>${capitalizeFirstLetter(fieldName.replace(/([A-Z])/g, ' $1').trim())}:</strong> ${element.textContent}`;
+                            listItem.innerHTML = `<strong>${capitalizeFirstLetter(fieldName.replace(/([A-Z])/g, ' $1').trim())}:</strong> ${escapeHtml(element.textContent)}`;
                             detailsList.appendChild(listItem);
                         }
                     });
@@ -961,10 +969,10 @@
 
                                 const row = document.createElement('tr');
                                 row.innerHTML = `
-                                    <td style="border: 1px solid #ddd; padding: 8px;">${fieldName}</td>
-                                    <td style="border: 1px solid #ddd; padding: 8px; font-family: monospace;">${value}</td>
-                                    <td style="border: 1px solid #ddd; padding: 8px;">${displayType}</td>
-                                    <td style="border: 1px solid #ddd; padding: 8px;">${multiValueNumber ? `${multiValueNumber}${subValueNumber ? `.${subValueNumber}` : ''}` : 'N/A'}</td>
+                                    <td style="border: 1px solid #ddd; padding: 8px;">${escapeHtml(fieldName)}</td>
+                                    <td style="border: 1px solid #ddd; padding: 8px; font-family: monospace;">${escapeHtml(value)}</td>
+                                    <td style="border: 1px solid #ddd; padding: 8px;">${escapeHtml(displayType)}</td>
+                                    <td style="border: 1px solid #ddd; padding: 8px;">${multiValueNumber ? escapeHtml(multiValueNumber + (subValueNumber ? '.' + subValueNumber : '')) : 'N/A'}</td>
                                 `;
                                 tbody.appendChild(row);
                             });

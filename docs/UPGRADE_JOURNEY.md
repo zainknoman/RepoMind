@@ -105,12 +105,6 @@ Git + AI Workspace
 Production-grade Local Code Intelligence
 ```
 
-## Milestone 5 — AI + Advanced Code Intelligence v1
-
-**Commit:** `1e540dc2e87c42ee1a3d0f4a793fc047a3811731`
-
-Completed direct provider adapters, AI Workspace responses, architecture health signals and local AI settings.
-
 ## Next planned direction
 
 - Direct AI provider adapters while preserving provider-neutral context generation.
@@ -122,9 +116,10 @@ Completed direct provider adapters, AI Workspace responses, architecture health 
 
 ## Milestone 5 — AI + Advanced Code Intelligence v1
 
-**Implementation branch:** `milestone/ai-advanced-intelligence-v1`
+**Implementation branch:** `milestone/ai-advanced-intelligence-v1`  
+**Commit:** `1e540dc2e87c42ee1a3d0f4a793fc047a3811731`
 
-Planned for this milestone:
+Completed direct provider adapters, AI Workspace responses, architecture health signals and local AI settings. Scope:
 
 - Direct browser-side AI provider adapters for OpenAI, OpenAI-compatible endpoints, Anthropic and Google Gemini.
 - Local AI settings with provider/model/endpoint/API key controls.
@@ -185,3 +180,17 @@ RepoMind now has a first-class **Document** stage that converts local codebase i
 `Scan → Search → Inspect → Analyze → Visualize → Transform → Document → Understand → Export`
 
 RepoMind now treats architecture visualization as a first-class workspace rather than only exporting Mermaid source.
+
+## Milestone 9 — Production Readiness v1
+
+**Audit:** [`docs/PROJECT_AUDIT.md`](PROJECT_AUDIT.md)
+
+- Repaired the broken `main` build (duplicated/corrupted `App.jsx`, invalid `indexCache.js`) and gated Pages deployment on a green CI run.
+- Fixed silently broken workspaces: Compare now uses an LCS line diff; Project Analysis indexes JS/TS again.
+- Split the 147 KB hand-minified `App.jsx` into feature modules; added Prettier, ESLint and Vitest to CI.
+- Workspaces load lazily; repository indexing runs in a Web Worker; long lists are virtualised.
+- Embedded tools run in an opaque-origin sandbox and talk to RepoMind through an allow-listed bridge.
+- JSZip and Mermaid are bundled from npm; production builds carry a Content Security Policy.
+- Added dark mode, focus styles, error boundaries, an unsaved-changes guard and an unsupported-browser notice.
+- E2E runs against the production build under `/RepoMind/`; unit tests cover the core services.
+- Bumped frontend version to 0.9.0.
