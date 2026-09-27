@@ -59,6 +59,8 @@ Folders with more than 50,000 files are truncated with a warning; open a subfold
 
 ### Tools
 
+The Tools workspaces are not shown in the header navigation. Open them with a deep link.
+
 | Workspace | Purpose |
 |---|---|
 | **Developer Tools** | JSON Formatter, Text Cleanup, Base64, Regex, JWT Decoder (decode only), UUID and Timestamp utilities. Deep link: `?tool=json`, `?tool=regex`, … |

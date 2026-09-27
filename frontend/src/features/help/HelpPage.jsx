@@ -168,7 +168,7 @@ export function HelpPage() {
         'UUID generator',
         'Timestamp conversion',
       ],
-      how: 'Select the utility, enter the input and click Run. Clear resets the working fields. Operations run in the browser.',
+      how: 'Open ?tool=json (or ?tool=regex, ?tool=uuid, …), select the utility, enter the input and click Run. Clear resets the working fields. Operations run in the browser.',
       example: 'Paste minified JSON, choose JSON Formatter and click Run to produce readable JSON.',
     },
     {
@@ -179,7 +179,7 @@ export function HelpPage() {
       definition:
         'Temenos-oriented utilities for developers working with OFS and related banking integration data.',
       features: ['OFS Generator', 'T24 Log Analyzer', 'Temenos-focused developer workflow'],
-      how: 'Open Tools → Temenos / OFS and select the utility. From a T24 log entry you can send its OFS data straight to the OFS Generator. The tools run in an isolated sandbox.',
+      how: 'Open ?tool=ofs and select the utility. From a T24 log entry you can send its OFS data straight to the OFS Generator. The tools run in an isolated sandbox.',
       example:
         'Use OFS Generator to build a transaction message from the required application, field and value inputs before testing it in a controlled environment.',
     },
@@ -211,7 +211,7 @@ export function HelpPage() {
         'Unit/conversion helpers',
         'Engineering-focused calculations',
       ],
-      how: 'Choose the required engineering utility, enter values and run the calculation.',
+      how: 'Open ?tool=eng, choose the required engineering utility, enter values and run the calculation.',
       example: 'Use a timestamp utility to convert an epoch value into a human-readable date/time.',
     },
     {

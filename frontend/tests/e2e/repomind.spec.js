@@ -137,10 +137,16 @@ test.describe('RepoMind parent navigation', () => {
     ['Transform', /Transform/],
     ['Compare', /Intelligent Diff/],
     ['Markdown', /Markdown Viewer/],
-    ['Developer Tools', 'Developer Tools'],
-    ['Temenos / OFS', /Temenos \/ OFS/],
-    ['Engineering', /Engineering Tools/],
   ];
+
+  test('Tools group is hidden from the header', async ({ page }) => {
+    await openFixture(page);
+    const nav = page.getByRole('navigation');
+    await expect(nav.getByText('Tools', { exact: true })).toHaveCount(0);
+    for (const label of ['Developer Tools', 'Temenos / OFS', 'Engineering']) {
+      await expect(nav.getByRole('button', { name: label, exact: true })).toHaveCount(0);
+    }
+  });
 
   for (const [button, heading] of tabs) {
     test(`parent tab: ${button}`, async ({ page }) => {
@@ -484,7 +490,7 @@ test.describe('RepoMind workspaces', () => {
 
   test('Developer Tools format JSON and run a regex against typed text', async ({ page }) => {
     await openFixture(page);
-    await goTo(page, 'Developer Tools');
+    await page.goto('./?tool=json');
     await page.getByRole('textbox', { name: 'Tool input' }).fill('{"a":1}');
     await page.getByRole('button', { name: '▶ Run' }).click();
     await expect(page.getByRole('textbox', { name: 'Tool output' })).toHaveValue('{\n  "a": 1\n}');
@@ -497,7 +503,9 @@ test.describe('RepoMind workspaces', () => {
 
   test('Tools open from a ?tool= deep link', async ({ page }) => {
     await page.goto('./?tool=uuid');
-    await expect(page.locator('nav button.active')).toHaveText('Developer Tools');
+    await expect(
+      page.getByRole('main').getByRole('heading', { level: 1, name: 'Developer Tools' }),
+    ).toBeVisible();
     await expect(page.getByRole('tab', { name: /UUID/ })).toHaveAttribute('aria-selected', 'true');
   });
 
@@ -505,7 +513,7 @@ test.describe('RepoMind workspaces', () => {
     page,
   }) => {
     await openFixture(page);
-    await goTo(page, 'Temenos / OFS');
+    await page.goto('./?tool=ofs');
     const iframe = page.locator('iframe[title="OFS Generator"]');
     await expect(iframe).toHaveAttribute('sandbox', /allow-scripts/);
     await expect(iframe).not.toHaveAttribute('sandbox', /allow-same-origin/);
@@ -528,12 +536,12 @@ test.describe('RepoMind workspaces', () => {
 
   test('Engineering and T24 tools load inside the sandbox', async ({ page }) => {
     await openFixture(page);
-    await goTo(page, 'Temenos / OFS');
+    await page.goto('./?tool=ofs');
     await page.getByRole('tab', { name: /T24 Log Analyzer/ }).click();
     await expect(page.frameLocator('iframe[title="T24 Log Analyzer"]').locator('h1')).toContainText(
       'T24 Log Analyzer',
     );
-    await goTo(page, 'Engineering');
+    await page.goto('./?tool=eng');
     await expect(page.locator('iframe[title="Engineering Utilities"]')).toHaveAttribute(
       'sandbox',
       /allow-scripts/,

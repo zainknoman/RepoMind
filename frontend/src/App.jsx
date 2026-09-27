@@ -47,6 +47,10 @@ export const NAV_GROUPS = [
       ['mdviewer', 'Markdown'],
     ],
   ],
+];
+
+// Tools workspaces are hidden from the header; they still open from ?tool= deep links.
+export const HIDDEN_NAV_GROUPS = [
   [
     'Tools',
     [
