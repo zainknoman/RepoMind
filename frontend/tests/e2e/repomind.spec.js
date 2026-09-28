@@ -316,6 +316,22 @@ test.describe('RepoMind Codebase Intelligence end-to-end', () => {
     await page.locator('select').first().selectOption('src/app.js');
     await expect(page.getByRole('heading', { name: 'Dependencies', exact: true })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Imported by', exact: true })).toBeVisible();
+
+    // Symbol impact: greet is used by UserCard in app.tsx; unanalysed languages are blind spots.
+    await page.locator('select').first().selectOption('src/service.js');
+    await expect(
+      page.locator('.codebase-intelligence .index-row').filter({ hasText: 'src/app.tsx' }),
+    ).toBeVisible();
+    await page.locator('.index-row').filter({ hasText: 'greet' }).click();
+    const row = page.locator('.impact-row').filter({ hasText: 'UserCard' });
+    await expect(row).toContainText('src/app.tsx');
+    await expect(row.locator('.confidence')).toHaveText('high');
+    await expect(
+      page
+        .locator('.analytics-panel')
+        .filter({ hasText: 'Symbol Impact' })
+        .getByText(/Not analysed: .*Python/),
+    ).toBeVisible();
   });
 
   test('Analyzers API discovery finds routes from multiple frameworks', async ({ page }) => {

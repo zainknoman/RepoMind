@@ -343,6 +343,9 @@ function parseJavaScript(content, file) {
       const module = dynamicModule(node);
       if (module !== null) {
         const required = node.type === 'CallExpression' && node.callee.type === 'Identifier';
+        // const { a } = require('m'): `a` is declared here, not used.
+        if (required && parent?.type === 'VariableDeclarator')
+          for (const id of patternIdentifiers(parent.id)) bindingStarts.add(id.start);
         imports.push({
           module,
           line,
@@ -436,15 +439,13 @@ function parseJavaScript(content, file) {
   });
 
   const symbolLines = new Set(symbols.map((s) => `${s.line}:${s.column}:${s.name}`));
-  const importLines = new Set(imports.map((i) => i.line));
-  const exportLines = new Set(exports.map((e) => e.line));
 
   walk(ast, (node, parent) => {
     if (node.type !== 'Identifier') return;
     const line = lineOf(node);
     const column = columnOf(node);
     const marker = `${line}:${column}:${node.name}`;
-    if (symbolLines.has(marker) || importLines.has(line) || exportLines.has(line)) return;
+    if (symbolLines.has(marker)) return;
     if (bindingStarts.has(node.start)) return;
 
     const p = parent;
@@ -469,6 +470,15 @@ function parseJavaScript(content, file) {
       p.type === 'ImportNamespaceSpecifier' ||
       (p.type === 'RestElement' && p.argument === node);
     if (isDeclaration) return;
+    // Names in export statements (export { a }, export default a, module.exports = a) are what a
+    // file exports, resolved through its exports, not usages.
+    const isExportName =
+      p.type === 'ExportSpecifier' ||
+      p.type === 'ExportNamespaceSpecifier' ||
+      p.type === 'ExportDefaultSpecifier' ||
+      (p.type === 'ExportDefaultDeclaration' && p.declaration === node) ||
+      (p.type === 'AssignmentExpression' && p.right === node && isModuleExports(p.left));
+    if (isExportName) return;
 
     references.push({
       name: node.name,

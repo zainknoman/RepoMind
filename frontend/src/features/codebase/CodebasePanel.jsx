@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { findDependencies, findDependents, getSymbolDetails } from '../../services/repository';
+import { getSymbolDetails } from '../../services/repository';
 import { readGitRepository, gitStatusSummary, gitActivity } from '../../services/git';
 import { listAnalyzers, runAnalyzers, analyzerSummary } from '../../services/analyzers';
 // Registers the Temenos analyzers; they are listed only for indexes with BASIC sources.
@@ -9,11 +9,11 @@ import { buildArchitectureMermaid, renderMermaid } from '../../services/diagram'
 import { fileCoupling } from '../../services/health';
 import { IndexProgress, indexSourceLabel } from './IndexProgress';
 import { AnalyzersView } from './AnalyzersView';
+import { ImpactView } from './ImpactView';
 import { AIWorkspace, ContextBuilderView } from './AIViews';
 import { useAIContext } from './useAIContext';
 import { cp, dl } from '../../lib/text';
 import { toast } from '../../lib/toast';
-import { coverageFor } from '../../services/coverage';
 
 const IMPORT_LEVELS = { resolved: 'resolved by name', relative: 'relative paths', none: 'none' };
 
@@ -44,6 +44,7 @@ export default function CodebasePanel({
   const { index, indexing, progress, source: indexSource, cycles, health } = codebase;
   const [query, setQuery] = useState(''),
     [selectedSymbol, setSelectedSymbol] = useState(null),
+    [impactSymbol, setImpactSymbol] = useState(null),
     [error, setError] = useState('');
   const [diagram, setDiagram] = useState(''),
     [analyzerResults, setAnalyzerResults] = useState({}),
@@ -354,7 +355,15 @@ export default function CodebasePanel({
                 </button>
               ))}
               {details && (
-                <SymbolDetails details={details} onClose={() => setSelectedSymbol(null)} />
+                <SymbolDetails
+                  details={details}
+                  onClose={() => setSelectedSymbol(null)}
+                  onImpact={(symbol) => {
+                    setSelectedFile(symbol.path);
+                    setImpactSymbol(symbol.definitionKey);
+                    setView('impact');
+                  }}
+                />
               )}
             </div>
           )}
@@ -443,61 +452,14 @@ export default function CodebasePanel({
             />
           )}
           {view === 'impact' && (
-            <div className="analyze-grid">
-              <div className="analytics-panel">
-                <h2>File Impact</h2>
-                <select value={selectedFile} onChange={(e) => setSelectedFile(e.target.value)}>
-                  <option value="">Select a file</option>
-                  {index.files.map((f) => (
-                    <option key={f.path}>{f.path}</option>
-                  ))}
-                </select>
-                {selectedFile && coverageFor(index, selectedFile)?.gap && (
-                  <p className="coverage-note">{coverageFor(index, selectedFile).note}</p>
-                )}
-                {selectedFile && (
-                  <>
-                    <h3>Dependencies</h3>
-                    {findDependencies(index, selectedFile).map((p) => (
-                      <div className="index-row" key={p}>
-                        <b>{p}</b>
-                        <span>outgoing</span>
-                      </div>
-                    ))}
-                    <h3>Imported by</h3>
-                    {findDependents(index, selectedFile).map((p) => (
-                      <div className="index-row" key={p}>
-                        <b>{p}</b>
-                        <span>incoming</span>
-                      </div>
-                    ))}
-                  </>
-                )}
-              </div>
-              <div className="analytics-panel">
-                <h2>Symbols</h2>
-                {selectedFile ? (
-                  index.symbols
-                    .filter((s) => s.path === selectedFile)
-                    .map((s) => (
-                      <button
-                        className="index-row clickable"
-                        key={s.definitionKey}
-                        onClick={() => {
-                          setSelectedSymbol(s.definitionKey);
-                          setView('symbols');
-                        }}
-                      >
-                        <b>{s.name}</b>
-                        <span>{s.references.length} refs</span>
-                        <small>{s.importedBy.length} importers</small>
-                      </button>
-                    ))
-                ) : (
-                  <p className="muted">Select a file.</p>
-                )}
-              </div>
-            </div>
+            <ImpactView
+              index={index}
+              selectedFile={selectedFile}
+              setSelectedFile={setSelectedFile}
+              impactSymbol={impactSymbol}
+              setImpactSymbol={setImpactSymbol}
+              onOpenFile={openFile}
+            />
           )}
           {view === 'diagram' && (
             <div className="analytics-panel">
@@ -684,7 +646,7 @@ function Metric({ label, value, note }) {
     </div>
   );
 }
-function SymbolDetails({ details, onClose }) {
+function SymbolDetails({ details, onClose, onImpact }) {
   const { symbol } = details;
   return (
     <div className="symbol-inspector panel">
@@ -696,7 +658,10 @@ function SymbolDetails({ details, onClose }) {
             · {symbol.kind} · {symbol.path}:{symbol.line}
           </span>
         </div>
-        <button onClick={onClose}>✕ Close</button>
+        <div>
+          <button onClick={() => onImpact(symbol)}>Show impact</button>
+          <button onClick={onClose}>✕ Close</button>
+        </div>
       </div>
       <div className="analyze-grid">
         <div>

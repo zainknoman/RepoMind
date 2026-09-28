@@ -88,4 +88,22 @@ export const GRAPH_FIXTURES = [
     edges: ['x.js -> y.js', 'y.js -> x.js', 'z.js -> y.js'],
     links: ['z.js:2 fromX -> x.js::fromX'],
   },
+  {
+    // Usage on an export line (a one-line exported function) is still a reference.
+    name: 'one-line-export',
+    files: {
+      'lib.js': 'export function greet() {}',
+      'card.js': lines(
+        "import { greet } from './lib';",
+        'export function card() { return greet(); }',
+      ),
+      'alias.js': lines(
+        'function inner() {}',
+        'export { inner as outer };',
+        'export default inner;',
+      ),
+    },
+    edges: ['card.js -> lib.js'],
+    links: ['card.js:2 greet -> lib.js::greet'],
+  },
 ];
