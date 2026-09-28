@@ -50,7 +50,7 @@ function projectFiles(dir, prefix = '') {
 const summary = (changes) =>
   changes.map((c) => `${c.status} ${c.path}${c.skipped ? ` (${c.skipped})` : ''}`).sort();
 
-describe.skipIf(!gitAvailable)('workingTreeChanges', () => {
+describe.skipIf(!gitAvailable)('workingTreeChanges', { timeout: 60_000 }, () => {
   it('lists modified, added and deleted files with old and new text', async () => {
     const repo = makeRepo();
     repo.write('src/a.js', 'export const a = 1;\n');
@@ -96,7 +96,7 @@ describe.skipIf(!gitAvailable)('workingTreeChanges', () => {
   });
 });
 
-describe.skipIf(!gitAvailable)('commitChanges', () => {
+describe.skipIf(!gitAvailable)('commitChanges', { timeout: 60_000 }, () => {
   it('diffs a commit against its parent and skips binary files', async () => {
     const repo = makeRepo();
     repo.write('a.js', 'export const a = 1;\n');

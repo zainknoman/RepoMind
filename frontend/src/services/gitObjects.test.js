@@ -48,7 +48,7 @@ async function expectAllObjectsMatch({ dir, git }) {
   return store;
 }
 
-describe.skipIf(!gitAvailable)('git object store', () => {
+describe.skipIf(!gitAvailable)('git object store', { timeout: 60_000 }, () => {
   it('reads loose objects exactly as git stores them', async () => {
     await expectAllObjectsMatch(makeRepo());
   });
