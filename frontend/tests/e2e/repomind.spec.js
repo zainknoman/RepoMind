@@ -330,7 +330,7 @@ test.describe('RepoMind Codebase Intelligence end-to-end', () => {
       page
         .locator('.analytics-panel')
         .filter({ hasText: 'Symbol Impact' })
-        .getByText(/Not analysed: .*Python/),
+        .getByText(/Not analysed: .*C#/),
     ).toBeVisible();
 
     // The impact becomes an AI investigation: briefing and affected files, prompt built, not sent.

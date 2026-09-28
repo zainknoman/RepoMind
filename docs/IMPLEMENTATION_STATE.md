@@ -5,10 +5,10 @@ Update at the end of every phase.
 
 ## Current phase
 
-**Phases B1–B3, C1 and C2 done and on `main`.** Plans with per-task status and outcomes:
+**Phases B1–B3 and C1–C3 done and on `main`.** Plans with per-task status and outcomes:
 `docs/superpowers/plans/2026-09-28-graph-trust.md` (B1), `…-transitive-impact.md` (B2),
-`…-git-change-impact.md` (B3), `…-member-calls.md` (C1), `…-ai-investigation.md` (C2). Phases
-C3–C7 follow in that order.
+`…-git-change-impact.md` (B3), `…-member-calls.md` (C1), `…-ai-investigation.md` (C2),
+`…-import-resolution.md` (C3). Phases C4–C7 follow in that order.
 Plans live in `docs/superpowers/plans/`.
 
 ## Roadmap
@@ -28,6 +28,7 @@ Plans live in `docs/superpowers/plans/`.
 | B3 | Git change impact (diff → changed symbols → impact) | Done |
 | C1 | Member calls (`this.m()`, `obj.m()`) in references and impact | Done |
 | C2 | AI investigation of impact and changes; graph-aware and T24 file ranking | Done |
+| C3 | Import resolution: tsconfig/jsconfig paths, Python, Java | Done |
 
 ## Completed work (Phase 1)
 
@@ -252,6 +253,21 @@ Plans live in `docs/superpowers/plans/`.
   Impact, **Explain this change with AI** in Git Change Impact.
 - Tests: 156 unit, 62 E2E.
 
+## Completed work (Phase C3 — import resolution)
+
+- `services/moduleResolution.js`: `parseModuleConfig` (JSONC), `createJsResolver` (relative, then
+  nearest config's `paths`/`baseUrl` with `extends`), `createPythonResolver`, `createJavaResolver`,
+  `createModuleResolver().entries/module/aliasesResolved`. Relative-path helpers moved here from
+  `repository.js`. Config settings are stored on the config file's analysis (`moduleConfig`) so
+  incremental reuse keeps them; imports are resolved after all files are analysed.
+- `services/pythonParser.js`, `services/javaParser.js`: blanking scanners producing symbols with
+  extent, imports with bindings, references (C1 receiver model), local and typed bindings.
+- Index: Python `from pkg import submodule` edges; Java wildcard and implicit same-package edges
+  for referenced class names; Python `__init__` re-exports; module references counted separately.
+- Coverage: `imports: 'modules'` for Python/Java; `aliasImports` per language. Cache version 8.
+- Results on Flask, Spring PetClinic, shadcn taxonomy: see the plan's outcome.
+- Tests: 170 unit, 62 E2E.
+
 ## Architectural decisions
 
 - **No router introduced.** Tab ids remain App state keys; renames change labels only, so `?tool=`
@@ -290,6 +306,9 @@ Plans live in `docs/superpowers/plans/`.
   share it: the second evicts the first's snapshot, and reuse still requires matching path, size and
   time.
 - **Scopes are function-level**, not block-level; parameters are not symbols.
+- **Python and Java use purpose-built scanners, not full parsers** (no new dependencies): comments
+  and literals are blanked, then declarations, imports and references are read by indentation
+  (Python) or braces (Java). Java references exclude lower-case non-call names (locals, fields).
 - **Member calls are resolved from local evidence only** (enclosing class, `new`, type
   annotations, imports); there is no type inference across calls or returns. An unknown receiver
   is a low-confidence name guess, never a high-confidence link.
@@ -336,7 +355,6 @@ Carried forward:
 ## Next recommended task
 
 Phases in progress, in order (owner's list, 2026-09-28):
-- **C3** Import resolution: tsconfig/jsconfig `paths`, Python and Java imports.
 - **C4** Change-impact follow-ups: affected test files; exact Git "Modified" detection; trace old
   commits against their own code.
 - **C5** Cache save/restore in the worker; block scopes; lower-case extensionless T24 routines.

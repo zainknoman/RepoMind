@@ -7,6 +7,10 @@ export const languageFor = (ext) =>
     '.jsx': 'JavaScript JSX',
     '.ts': 'TypeScript',
     '.tsx': 'TypeScript TSX',
+    '.mjs': 'JavaScript',
+    '.cjs': 'JavaScript',
+    '.mts': 'TypeScript',
+    '.cts': 'TypeScript',
     '.vue': 'Vue',
     '.py': 'Python',
     '.java': 'Java',
@@ -35,7 +39,10 @@ export const languageFor = (ext) =>
 
 import { parse } from '@babel/parser';
 import { parseBasic, routineName } from './temenosBasic';
+import { parsePython } from './pythonParser';
+import { parseJava } from './javaParser';
 import { analysisCoverage } from './coverage';
+import { createModuleResolver, isModuleConfigFile, parseModuleConfig } from './moduleResolution';
 
 const BABEL_PLUGINS = [
   'jsx',
@@ -51,7 +58,7 @@ const BABEL_PLUGINS = [
   'objectRestSpread',
 ];
 
-const BABEL_EXTENSIONS = new Set(['.js', '.jsx', '.ts', '.tsx']);
+const BABEL_EXTENSIONS = new Set(['.js', '.jsx', '.ts', '.tsx', '.mjs', '.cjs', '.mts', '.cts']);
 
 const SKIP_KEYS = new Set(['loc', 'start', 'end', 'tokens', 'comments', 'errors']);
 
@@ -555,7 +562,12 @@ function parseJavaScript(content, file) {
       (p.type === 'ObjectMethod' && p.key === node && !p.computed) ||
       (p.type === 'ClassMethod' && p.key === node && !p.computed) ||
       (p.type === 'ClassProperty' && p.key === node && !p.computed) ||
-      (p.type === 'LabeledStatement' && p.label === node);
+      (p.type === 'LabeledStatement' && p.label === node) ||
+      // TypeScript: `A.B` in a type names B through A; type-literal members are keys.
+      (p.type === 'TSQualifiedName' && p.right === node) ||
+      ((p.type === 'TSPropertySignature' || p.type === 'TSMethodSignature') &&
+        p.key === node &&
+        !p.computed);
     if (isPropertyKey) return;
 
     const isDeclaration =
@@ -683,6 +695,13 @@ function fallbackAnalyzeSource(file, content) {
 
 export function analyzeSource(file, content) {
   if (file.ext === '.b') return { ...fileSummary(file, content), ...parseBasic(file, content) };
+  if (file.ext === '.py') return { ...fileSummary(file, content), ...parsePython(file, content) };
+  if (file.ext === '.java') return { ...fileSummary(file, content), ...parseJava(file, content) };
+  if (isModuleConfigFile(file.path)) {
+    // Kept on the analysis so an unchanged config still resolves aliases when it is reused.
+    const moduleConfig = parseModuleConfig(content);
+    return { ...fallbackAnalyzeSource(file, content), ...(moduleConfig ? { moduleConfig } : {}) };
+  }
   if (!BABEL_EXTENSIONS.has(file.ext)) return fallbackAnalyzeSource(file, content);
   try {
     return parseJavaScript(content, file);
@@ -693,45 +712,6 @@ export function analyzeSource(file, content) {
       parseErrors: [{ message: error.message, line: error.loc?.line || 1 }],
     };
   }
-}
-
-function candidatePaths(path) {
-  const normalized = path.replace(/\\/g, '/').replace(/^\.\//, '');
-  const exts = [
-    '.js',
-    '.jsx',
-    '.ts',
-    '.tsx',
-    '.vue',
-    '.py',
-    '.java',
-    '.kt',
-    '.go',
-    '.rs',
-    '.php',
-    '.cs',
-    '.json',
-  ];
-  return unique([
-    normalized,
-    ...exts.map((ext) => normalized + ext),
-    ...exts.map((ext) => normalized + '/index' + ext),
-  ]);
-}
-
-function resolveImport(fromPath, module, fileMap) {
-  if (!module?.startsWith('.')) return null;
-  const base = fromPath.includes('/') ? fromPath.slice(0, fromPath.lastIndexOf('/') + 1) : '';
-  const target = (base + module).replace(/\\/g, '/');
-  const normalized = [];
-  for (const part of target.split('/')) {
-    if (!part || part === '.') continue;
-    if (part === '..') normalized.pop();
-    else normalized.push(part);
-  }
-  for (const candidate of candidatePaths(normalized.join('/')))
-    if (fileMap.has(candidate)) return candidate;
-  return null;
 }
 
 function frameworkSignals(files) {
@@ -811,7 +791,51 @@ const JS_GLOBALS = new Set([
   'parseFloat',
   'encodeURIComponent',
   'decodeURIComponent',
+  'Response',
+  'Request',
+  'Headers',
+  'FormData',
+  'Blob',
+  'File',
+  'Event',
+  'CustomEvent',
+  'AbortController',
+  'TextEncoder',
+  'TextDecoder',
+  'crypto',
+  'performance',
+  'localStorage',
+  'sessionStorage',
+  'indexedDB',
+  'requestAnimationFrame',
+  'Element',
+  'Node',
+  'Document',
+  'Window',
+  'KeyboardEvent',
+  'MouseEvent',
+  // TypeScript utility types.
+  'Partial',
+  'Required',
+  'Readonly',
+  'Record',
+  'Pick',
+  'Omit',
+  'Exclude',
+  'Extract',
+  'NonNullable',
+  'ReturnType',
+  'Parameters',
+  'InstanceType',
+  'Awaited',
+  'Promise',
+  'PromiseLike',
+  'Iterable',
+  'ArrayLike',
 ]);
+
+// DOM element types (HTMLDivElement, SVGPathElement, …) are globals too.
+const isJsGlobal = (name) => JS_GLOBALS.has(name) || /^(?:HTML|SVG)\w*Element$/.test(name);
 
 // Methods of built-in types (arrays, strings, maps, promises, the DOM, streams, loggers). A call
 // through an object of unknown class with one of these names is almost never a repository method,
@@ -964,6 +988,7 @@ export async function buildRepositoryIndex(project, options = {}) {
       localReferences: 0,
       globalReferences: 0,
       memberReferences: 0,
+      moduleReferences: 0,
       untracedMemberCalls: 0,
       referenceConfidence: { high: 0, medium: 0, low: 0, none: 0 },
     },
@@ -1004,37 +1029,52 @@ export async function buildRepositoryIndex(project, options = {}) {
     index.languages[analysis.language] = (index.languages[analysis.language] || 0) + 1;
     for (const s of analysis.symbols) index.symbols.push({ ...s, path: file.path });
     for (const e of analysis.exports) index.exports.push({ ...e, path: file.path });
+  }
 
+  // Imports are resolved once every file is analysed: tsconfig/jsconfig settings come from the
+  // config files' own analyses.
+  const modules = createModuleResolver(index.files, fileMap);
+  for (const analysis of index.files) {
+    const file = { path: analysis.path };
     for (const item of analysis.imports) {
-      const target =
+      const resolved =
         item.kind === 'import'
-          ? resolveImport(file.path, item.module, fileMap)
-          : resolveNamed(item.kind, item.module);
-      const edge = {
-        from: file.path,
-        to: target,
-        module: item.module,
-        kind: item.kind,
-        line: item.line,
-        bindings: item.bindings || [],
-      };
-      index.imports.push(edge);
-      if (target) {
-        index.dependencies.push(edge);
-        index.stats.internalEdges++;
-      } else {
-        if (item.module.startsWith('.'))
-          // A relative import names a file in this repository: missing, not external.
-          index.unresolvedImports.push(edge);
-        else {
-          index.externalDependencies.push(edge);
-          index.stats.externalImports++;
+          ? modules.entries(file.path, item, analysis)
+          : [
+              {
+                module: item.module,
+                target: resolveNamed(item.kind, item.module),
+                bindings: item.bindings,
+              },
+            ];
+      for (const { module, target, bindings } of resolved) {
+        const edge = {
+          from: file.path,
+          to: target,
+          module,
+          kind: item.kind,
+          line: item.line,
+          bindings: bindings || [],
+        };
+        index.imports.push(edge);
+        if (target) {
+          index.dependencies.push(edge);
+          index.stats.internalEdges++;
+        } else {
+          if (module.startsWith('.'))
+            // A relative import names a file in this repository: missing, not external.
+            index.unresolvedImports.push(edge);
+          else {
+            index.externalDependencies.push(edge);
+            index.stats.externalImports++;
+          }
+          for (const binding of edge.bindings) externalLocals.add(`${file.path}::${binding.local}`);
         }
-        for (const binding of edge.bindings) externalLocals.add(`${file.path}::${binding.local}`);
       }
     }
   }
 
+  index.stats.aliasImports = modules.aliasesResolved;
   onProgress?.({ phase: 'resolve', current: files.length, total: files.length, path: null });
   // A definition key (path|name|kind|line) is unique within the index, so symbols are linked
   // directly and compared by their precomputed key.
@@ -1053,6 +1093,7 @@ export async function buildRepositoryIndex(project, options = {}) {
   const topLevelByPathName = groupBy(topLevel, (s) => `${s.path}::${s.name}`);
   const symbolsByPathName = groupBy(index.symbols, (s) => `${s.path}::${s.name}`);
   const exportsByPath = groupBy(index.exports, (e) => e.path);
+  const dependenciesByFrom = groupBy(index.dependencies, (e) => e.from);
   const symbolKey = (s) => s.definitionKey;
   const none = [];
 
@@ -1065,7 +1106,7 @@ export async function buildRepositoryIndex(project, options = {}) {
     seen.add(visit);
     const exports = exportsByPath.get(path) || none;
     const through = (e, exported) => {
-      const target = resolveImport(path, e.source, fileMap);
+      const target = modules.module(path, e.source);
       return target ? resolveExported(target, exported, seen) : none;
     };
     const own = (e) => topLevelByPathName.get(`${path}::${e.local || e.name}`) || none;
@@ -1085,7 +1126,14 @@ export async function buildRepositoryIndex(project, options = {}) {
     const star = exports.filter((e) => e.kind === 're-export').flatMap((e) => through(e, name));
     if (star.length) return unique(star, symbolKey);
     // No export names it (e.g. a file parsed by patterns): a top-level symbol of that name.
-    return topLevelByPathName.get(visit) || none;
+    const declared = topLevelByPathName.get(visit);
+    if (declared || !path.endsWith('.py')) return declared || none;
+    // A Python module also provides what it imports (`from .app import Flask` in __init__.py).
+    for (const edge of dependenciesByFrom.get(path) || none)
+      for (const binding of edge.bindings)
+        if (binding.local === name && binding.kind === 'named')
+          return resolveExported(edge.to, binding.imported, seen);
+    return none;
   };
 
   const importBindings = [];
@@ -1211,7 +1259,7 @@ export async function buildRepositoryIndex(project, options = {}) {
       if (classes.length) return memberLink('local', methodsIn(classes, ref.name));
       const typed = memberLink('member-type', methodsOfInstances(local, ref.name));
       if (typed) return typed;
-      if (!local.length && JS_GLOBALS.has(receiver.object)) return { skip: true };
+      if (!local.length && isJsGlobal(receiver.object)) return { skip: true };
     }
     if (!ref.call || BUILTIN_METHODS.has(ref.name)) return null;
     const guessed = methodsByName.get(ref.name);
@@ -1267,11 +1315,17 @@ export async function buildRepositoryIndex(project, options = {}) {
         index.stats.externalReferences++;
         continue;
       }
+      // A module bound by name (`import pkg`, `import * as ns`) whose own symbols are not the
+      // point: its members are linked as member references.
+      if (binding?.kind === 'namespace' && !resolved.length) {
+        index.stats.moduleReferences++;
+        continue;
+      }
       if (!resolved.length) {
         resolution = 'local';
         resolved = visibleAt(symbolsByPathName.get(local) || none, ref.offset);
       }
-      if (!resolved.length && ref.kind === 'identifier' && JS_GLOBALS.has(ref.name)) {
+      if (!resolved.length && ref.kind === 'identifier' && isJsGlobal(ref.name)) {
         index.stats.globalReferences++;
         continue;
       }

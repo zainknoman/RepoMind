@@ -16,7 +16,12 @@ import { useAIContext } from './useAIContext';
 import { cp, dl } from '../../lib/text';
 import { toast } from '../../lib/toast';
 
-const IMPORT_LEVELS = { resolved: 'resolved by name', relative: 'relative paths', none: 'none' };
+const IMPORT_LEVELS = {
+  resolved: 'resolved by name',
+  relative: 'relative paths and tsconfig aliases',
+  modules: 'modules resolved',
+  none: 'none',
+};
 
 const RESOLUTION_LABELS = {
   import: 'Resolved through an import',

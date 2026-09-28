@@ -133,7 +133,7 @@ RepoMind can show:
 
 Re-exports (`export * from`, `export { a } from`), default exports (including `export default name` and `module.exports = name`), `import()` and `require()` are followed. Names imported from packages, JS globals, parameters and destructured variables are never linked to unrelated repository symbols.
 
-**Analysis coverage** (Codebase › Overview) lists, per language, whether imports and references were extracted. JavaScript/TypeScript resolve relative imports; Temenos BASIC resolves `CALL`, `$INSERT` and `CALLJ` by name; other languages (Python, Java, C#, Go, …) currently have symbols only, so their dependencies and impact are empty, and RepoMind says so rather than showing an empty result as complete. Imports that look like path aliases (`@/…`) are counted.
+**Analysis coverage** (Codebase › Overview) lists, per language, whether imports and references were extracted. JavaScript/TypeScript (including `.mjs`/`.cjs`/`.mts`/`.cts`) resolve relative imports and the `paths` and `baseUrl` of the nearest `tsconfig.json`/`jsconfig.json` (with `extends`); **Python** resolves absolute and relative module imports (also packages under `src/`, and `from pkg import submodule`); **Java** resolves imports, wildcard imports and same-package classes by package; Temenos BASIC resolves `CALL`, `$INSERT` and `CALLJ` by name. Other languages (C#, Go, Kotlin, …) currently have symbols only, so their dependencies and impact are empty, and RepoMind says so rather than showing an empty result as complete. Imports that still look like path aliases (`@/…`, e.g. bundler-only aliases) are counted.
 
 ### Dependencies and architecture
 

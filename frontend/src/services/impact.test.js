@@ -93,9 +93,9 @@ describe('symbolImpact', () => {
   });
 
   it('lists languages that are not analysed as blind spots', async () => {
-    const index = await indexOf({ ...CHAIN, 'app/job.py': 'def run():\n    pass\n' });
+    const index = await indexOf({ ...CHAIN, 'cmd/job.go': 'package main\n\nfunc run() {}\n' });
     const spots = symbolImpact(index, symbolOf(index, 'core.js', 'core')).blindSpots;
-    expect(spots.find((b) => b.kind === 'coverage').message).toContain('Python');
+    expect(spots.find((b) => b.kind === 'coverage').message).toContain('Go');
   });
 
   it('respects maxDepth', async () => {

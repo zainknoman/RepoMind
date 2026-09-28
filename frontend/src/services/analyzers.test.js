@@ -153,7 +153,8 @@ describe('pattern analyzers', () => {
 describe('built-in analyzers', () => {
   it('finds routes across frameworks and lists references that are not certain', async () => {
     const index = await indexOf({
-      'src/app.py': "@app.get('/orders')\ndef orders():\n    return []\n",
+      // `app` comes from another module, as in a real FastAPI app.
+      'src/app.py': "from main import app\n@app.get('/orders')\ndef orders():\n    return []\n",
       'src/Admin.java':
         '@RestController\nclass Admin {\n  @GetMapping("/admin")\n  void a() {}\n}\n',
       'src/one.js': 'export function helper() {}\n',
@@ -164,7 +165,7 @@ describe('built-in analyzers', () => {
     });
     const results = await runAnalyzers(index, ['routes', 'symbol-resolution']);
     expect(results.routes.findings.map((f) => [f.method, f.path, f.framework, f.line])).toEqual([
-      ['GET', '/orders', 'FastAPI', 1],
+      ['GET', '/orders', 'FastAPI', 2],
       ['GET', '/admin', 'Spring', 3],
     ]);
     // Name matches are guesses even with a single candidate: nothing imports the target.

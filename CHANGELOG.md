@@ -2,6 +2,30 @@
 
 All notable changes to RepoMind are recorded here.
 
+## Unreleased — Import resolution (Phase C3)
+
+### Added
+- **tsconfig/jsconfig paths.** Imports such as `@/components/button` or `components/button`
+  resolve through the `paths` and `baseUrl` of the nearest `tsconfig.json` or `jsconfig.json`
+  (comments, trailing commas and relative `extends` supported), including `.d.ts` targets.
+  Coverage counts imports resolved this way and says when alias-like imports still did not
+  resolve (bundler-only aliases).
+- **Python.** Classes, methods, functions and module variables with their extent; `import`,
+  `from … import` (relative, submodules, packages under `src/`), references, `self.method()`
+  calls and calls on objects of a known class; parameters and local assignments are local.
+- **Java.** Classes, interfaces, enums, records (nested), methods, constructors and fields;
+  imports, wildcard and static imports and same-package classes; references to types, constants
+  and calls, with receivers typed from declarations (`Repo repo`, `this.repo`, `new Helper()`).
+- `.mjs`, `.cjs`, `.mts` and `.cts` files are indexed as JavaScript/TypeScript.
+
+### Fixed
+- TypeScript: the right side of a qualified type name (`React.ElementRef`) and type-literal
+  member names are no longer references; DOM element types and TypeScript utility types are
+  globals. On a Next.js app (shadcn taxonomy), unresolved references fell from 611 to 29.
+
+### Changed
+- The index cache version is 8; existing cached indexes are rebuilt once.
+
 ## Unreleased — AI investigation (Phase C2)
 
 ### Added

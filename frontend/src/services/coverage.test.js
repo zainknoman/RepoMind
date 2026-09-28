@@ -19,19 +19,33 @@ async function indexOf(files) {
 describe('analysis coverage', () => {
   it('reports languages whose imports and references are not extracted', async () => {
     const index = await indexOf({
-      'app/models.py': 'from app.db import Base\n\ndef load():\n    pass\n',
-      'src/main/java/com/acme/Foo.java': 'package com.acme;\nimport com.acme.Bar;\nclass Foo {}\n',
+      'cmd/main.go': 'package main\n\nfunc main() {}\n',
       'README.md': '# Readme',
     });
     const coverage = analysisCoverage(index);
-    expect(coverage.map((c) => c.language).sort()).toEqual(['Java', 'Python']);
-    for (const entry of coverage) {
-      expect(entry).toMatchObject({ imports: 'none', references: false, gap: true });
-      expect(entry.note).toContain('Dependencies and Impact are empty');
-    }
+    expect(coverage).toEqual([
+      expect.objectContaining({ language: 'Go', imports: 'none', references: false, gap: true }),
+    ]);
+    expect(coverage[0].note).toContain('Dependencies and Impact are empty');
     expect(index.coverage).toEqual(coverage);
-    expect(coverageFor(index, 'app/models.py').language).toBe('Python');
+    expect(coverageFor(index, 'cmd/main.go').language).toBe('Go');
     expect(coverageFor(index, 'README.md')).toBeNull();
+  });
+
+  it('resolves Python and Java modules', async () => {
+    const index = await indexOf({
+      'app/models.py': 'from app.db import Base\n\ndef load():\n    pass\n',
+      'app/db.py': 'class Base:\n    pass\n',
+      'src/main/java/com/acme/Foo.java': 'package com.acme;\nimport com.acme.Bar;\nclass Foo {}\n',
+    });
+    const coverage = analysisCoverage(index);
+    for (const language of ['Java', 'Python'])
+      expect(coverage.find((c) => c.language === language)).toMatchObject({
+        imports: 'modules',
+        references: true,
+        gap: false,
+      });
+    expect(coverageFor(index, 'app/models.py').note).toContain('relative module imports');
   });
 
   it('counts package-looking imports that are probably path aliases', async () => {
@@ -53,6 +67,18 @@ describe('analysis coverage', () => {
       gap: true,
     });
     expect(js.note).toContain('@/lib/x');
+    expect(js.note).toContain('tsconfig/jsconfig');
+  });
+
+  it('counts imports resolved through tsconfig/jsconfig paths', async () => {
+    const index = await indexOf({
+      'tsconfig.json': '{ "compilerOptions": { "paths": { "@/*": ["src/*"] } } }',
+      'src/lib/x.js': 'export const x = 1;',
+      'src/app.js': "import { x } from '@/lib/x';",
+    });
+    const js = analysisCoverage(index).find((c) => c.language === 'JavaScript');
+    expect(js).toMatchObject({ aliasLikeImports: 0, aliasImports: 1, gap: false });
+    expect(js.note).toContain('1 import resolved through tsconfig/jsconfig paths');
   });
 
   it('reports no gaps for JavaScript with relative imports only', async () => {
