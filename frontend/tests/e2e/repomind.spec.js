@@ -198,31 +198,53 @@ test.describe('RepoMind Codebase Intelligence end-to-end', () => {
     await expect(page.locator('.editor textarea')).toHaveValue(/export function greet/);
   });
 
-  test('Search child tab finds source and indexed symbols', async ({ page }) => {
-    await page.getByRole('button', { name: 'Search', exact: true }).last().click();
-    await page.getByPlaceholder('Search symbols, files and source text').fill('greet');
-    await page.getByRole('button', { name: '▶ Search' }).click();
-    await expect(page.getByText('greet', { exact: false }).first()).toBeVisible();
+  test('Search finds indexed symbols, files and text in one place', async ({ page }) => {
+    await page.getByRole('navigation').getByRole('button', { name: 'Search', exact: true }).click();
+    await page.getByPlaceholder('Find symbols, files and text').fill('greet');
+    await page.getByRole('button', { name: '🔎 Search' }).click();
+    await expect(page.getByRole('heading', { name: 'Symbols (1)' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /^Text \(/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /src\/app\.tsx · Line 3/ })).toBeVisible();
+    // The Codebase workspace no longer has its own search.
+    await page
+      .getByRole('navigation')
+      .getByRole('button', { name: 'Codebase', exact: true })
+      .click();
+    await expect(
+      page.locator('.codebase-intelligence .tabs button', { hasText: 'Search' }),
+    ).toHaveCount(0);
   });
 
-  test('Codebase search result opens the file in the Editor', async ({ page }) => {
-    await page.getByRole('button', { name: 'Search', exact: true }).last().click();
-    await page.getByPlaceholder('Search symbols, files and source text').fill('unusedHelper');
-    await page.getByRole('button', { name: '▶ Search' }).click();
-    await page.getByRole('button', { name: /^src\/service\.js:2 JavaScript/ }).click();
+  test('Search symbol result opens the file, and the viewer opens it in the Editor', async ({
+    page,
+  }) => {
+    await page.getByRole('navigation').getByRole('button', { name: 'Search', exact: true }).click();
+    await page.getByPlaceholder('Find symbols, files and text').fill('unusedHelper');
+    await page.getByRole('button', { name: '🔎 Search' }).click();
+    await page.getByRole('button', { name: /unusedHelper · function/ }).click();
+    await expect(page.getByText('📄 src/service.js')).toBeVisible();
+    await page.getByRole('button', { name: '✏️ Editor' }).click();
     await expect(page.locator('nav button.active')).toHaveText('Editor');
     await expect(page.locator('.editor textarea')).toHaveValue(/export function unusedHelper/);
   });
 
-  test('Codebase regex search reports an invalid pattern', async ({ page }) => {
-    await page.getByRole('button', { name: 'Search', exact: true }).last().click();
+  test('Search regex reports an invalid pattern', async ({ page }) => {
+    await page.getByRole('navigation').getByRole('button', { name: 'Search', exact: true }).click();
     await page.getByLabel('Regex').check();
-    await page.getByPlaceholder('Search symbols, files and source text').fill('(unclosed');
-    await page.getByRole('button', { name: '▶ Search' }).click();
-    await expect(page.locator('.codebase-intelligence .error')).toContainText(
+    await page.getByPlaceholder('Find symbols, files and text').fill('(unclosed');
+    await page.getByRole('button', { name: '🔎 Search' }).click();
+    await expect(page.locator('.search-results .error')).toContainText(
       'Invalid regular expression',
     );
-    await expect(page.getByText('undefined:undefined')).toHaveCount(0);
+  });
+
+  test('Dashboard "Search code" step opens Search', async ({ page }) => {
+    await page
+      .getByRole('navigation')
+      .getByRole('button', { name: 'Dashboard', exact: true })
+      .click();
+    await page.getByRole('button', { name: '🔎 Search code' }).click();
+    await expect(page.locator('nav button.active')).toHaveText('Search');
   });
 
   test('Codebase index survives switching workspace tabs', async ({ page }) => {
@@ -454,19 +476,33 @@ test.describe('RepoMind workspaces', () => {
   test('Search finds text, handles special characters and opens the match', async ({ page }) => {
     await openFolder(page);
     await goTo(page, 'Search');
-    await page.getByPlaceholder('Find text').fill("greet('User')");
+    await expect(page.getByText('Build the code index to also find symbols.')).toBeVisible();
+    await page.getByPlaceholder('Find symbols, files and text').fill("greet('User')");
     await page
       .getByRole('button', { name: /Search/ })
       .last()
       .click();
     const hit = page.getByRole('button', { name: /src\/app\.tsx · Line 3/ });
     await expect(hit).toBeVisible();
-    await page.getByPlaceholder('Find text').fill('no-such-text-anywhere');
+    await page.getByPlaceholder('Find symbols, files and text').fill('no-such-text-anywhere');
     await page
       .getByRole('button', { name: /Search/ })
       .last()
       .click();
     await expect(page.getByText('No matches.')).toBeVisible();
+  });
+
+  test('Search builds the code index on request and then finds symbols', async ({ page }) => {
+    await openFolder(page);
+    await goTo(page, 'Search');
+    await page.getByRole('button', { name: 'Build index' }).click();
+    await expect(page.getByText('Build the code index to also find symbols.')).toHaveCount(0, {
+      timeout: 30_000,
+    });
+    await page.getByPlaceholder('Find symbols, files and text').fill('greet');
+    await page.getByRole('button', { name: '🔎 Search' }).click();
+    await expect(page.getByRole('heading', { name: 'Symbols (1)' })).toBeVisible();
+    await expect(page.locator('nav button.active')).toHaveText('Search');
   });
 
   test('Editor find/replace respects case and does not steal focus while typing', async ({

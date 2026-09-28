@@ -1,7 +1,7 @@
 import './styles.css';
 import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MAX_FILES, applyGitignore, read, supportsFolderAccess, walk } from './lib/files';
-import { esc } from './lib/text';
+import { searchProject } from './services/search';
 import { buildDashboardData } from './features/dashboard/dashboardData';
 import { Dashboard } from './features/dashboard/Dashboard';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -53,7 +53,8 @@ function App() {
     [tab, setTab] = useState(initial.tab),
     [explorerQ, setExplorerQ] = useState(''),
     [searchQ, setSearchQ] = useState(''),
-    [res, setRes] = useState([]),
+    [searchOptions, setSearchOptions] = useState({ regex: false, caseSensitive: false }),
+    [res, setRes] = useState(null),
     [searching, setSearching] = useState(false),
     [text, setText] = useState(''),
     [dirty, setDirty] = useState(false),
@@ -76,7 +77,9 @@ function App() {
   const codebase = useCodebaseIndex(p);
 
   // Opens a Codebase view, optionally focused on one file (used by the Dashboard's investigation links).
+  // Search is one workspace for the whole product, so a 'search' link opens it rather than a view.
   const investigate = useCallback((view, file) => {
+    if (view === 'search') return setTab('search');
     setCodebaseView(view);
     if (file !== undefined) setCodebaseFile(file);
     setTab('codebase');
@@ -122,7 +125,7 @@ function App() {
       setText('');
       setDirty(false);
       setSearchView(null);
-      setRes([]);
+      setRes(null);
       setDiff(null);
       setTab('dashboard');
       setErr('');
@@ -150,7 +153,7 @@ function App() {
       setText(c);
       setDirty(false);
       if (fromSearch) {
-        setSearchView({ file: x, query: searchQ });
+        setSearchView({ file: x, query: res?.query || '', options: res?.options });
         setTab('search');
       } else {
         setSearchView(null);
@@ -190,31 +193,18 @@ function App() {
   }
 
   async function search() {
-    const query = searchQ.trim();
-    if (!p || !query) return;
+    if (!p || !searchQ.trim()) return;
     setSearching(true);
     try {
-      const pattern = new RegExp(esc(query), 'i');
-      const results = [];
-      outer: for (const f of p.files.filter((x) => x.text)) {
-        let content;
-        try {
-          content = await read(f);
-        } catch {
-          continue;
-        }
-        const lines = content.split(/\r?\n/);
-        for (let i = 0; i < lines.length; i++) {
-          if (!pattern.test(lines[i])) continue;
-          results.push({ path: f.path, line: i + 1, text: lines[i].slice(0, 400) });
-          if (results.length >= MAX_SEARCH_RESULTS) {
-            results.truncated = true;
-            break outer;
-          }
-        }
-      }
-      results.query = searchQ;
-      setRes(results);
+      setRes(
+        await searchProject({
+          files: p.files,
+          index: codebase.index,
+          query: searchQ,
+          options: searchOptions,
+          limit: MAX_SEARCH_RESULTS,
+        }),
+      );
       setSearchView(null);
       setTab('search');
     } finally {
@@ -355,6 +345,11 @@ function App() {
                   p={p}
                   q={searchQ}
                   setQ={setSearchQ}
+                  options={searchOptions}
+                  setOptions={setSearchOptions}
+                  indexed={Boolean(codebase.index)}
+                  indexing={codebase.indexing}
+                  onBuildIndex={codebase.build}
                   search={search}
                   searching={searching}
                   res={res}

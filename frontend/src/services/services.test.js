@@ -5,8 +5,9 @@ import {
   detectCycles,
   findDependents,
 } from './repository';
-import { discoverApis, redactSecret, scanSecurity, searchCode } from './intelligence';
-import { toWorkerProject } from './indexProject';
+import { discoverApis, redactSecret, scanSecurity } from './intelligence';
+import { searchProject } from './search';
+import { readProjectFiles, toWorkerProject } from './indexProject';
 import { askAI, buildAIMessages } from './ai';
 import { buildArchitectureHealth } from './health';
 
@@ -52,6 +53,139 @@ describe('repository index', () => {
   });
 });
 
+/** A project whose files look like real handles: content plus size and modification time. */
+function handleProject(sources, modified = {}) {
+  return {
+    name: 'handles',
+    files: Object.entries(sources).map(([path, content]) => ({
+      path,
+      name: path.split('/').pop(),
+      ext: '.' + path.split('.').pop(),
+      text: true,
+      handle: {
+        getFile: async () => ({
+          size: content.length,
+          lastModified: modified[path] || 1,
+          text: async () => content,
+        }),
+      },
+    })),
+  };
+}
+
+const links = (index) =>
+  index.symbols.map((s) => [
+    s.definitionKey,
+    s.references.map((r) => `${r.from}:${r.line}:${r.column}`),
+    s.importedBy.map((b) => `${b.from}:${b.local}`),
+  ]);
+
+describe('reference linking', () => {
+  it('links each symbol to the references and imports that resolve to it', async () => {
+    const project = toWorkerProject('links', [
+      {
+        path: 'a.js',
+        name: 'a.js',
+        ext: '.js',
+        content: "import { b } from './b';\nexport function a() {\n  return b();\n}\n",
+      },
+      { path: 'b.js', name: 'b.js', ext: '.js', content: 'export function b() {}\n' },
+    ]);
+    const index = await buildRepositoryIndex(project);
+    const b = index.symbols.find((s) => s.name === 'b');
+    expect(b.references.map((r) => [r.from, r.line])).toEqual([['a.js', 3]]);
+    expect(b.importedBy.map((i) => i.from)).toEqual(['a.js']);
+    for (const symbol of index.symbols)
+      for (const ref of symbol.references)
+        expect(ref.resolvedSymbols.map((s) => s.definitionKey)).toContain(symbol.definitionKey);
+  });
+  it('resolves references to the declarations in scope only', async () => {
+    const source = [
+      'const shared = 1;', // 1
+      'function first() {', // 2
+      '  const value = 1;', // 3
+      '  return value + shared;', // 4
+      '}', // 5
+      'function second() {', // 6
+      '  const value = 2;', // 7
+      '  const inner = () => {', // 8
+      '    const value = 3;', // 9
+      '    return value;', // 10
+      '  };', // 11
+      '  return value + inner();', // 12
+      '}', // 13
+    ].join('\n');
+    const project = toWorkerProject('scopes', [
+      { path: 's.js', name: 's.js', ext: '.js', content: source },
+      {
+        path: 'other.js',
+        name: 'other.js',
+        ext: '.js',
+        content: 'function f() {\n  return value;\n}\n',
+      },
+    ]);
+    const index = await buildRepositoryIndex(project);
+    const refsTo = (line) =>
+      index.symbols
+        .find((s) => s.name === 'value' && s.line === line)
+        .references.map((r) => `${r.from}:${r.line}`);
+    expect(refsTo(3)).toEqual(['s.js:4']);
+    expect(refsTo(7)).toEqual(['s.js:12']);
+    expect(refsTo(9)).toEqual(['s.js:10']);
+    // Top-level declarations stay visible inside functions.
+    expect(index.symbols.find((s) => s.name === 'shared').references).toHaveLength(1);
+    // Another file's locals are not matched by name.
+    const other = index.references.find((r) => r.from === 'other.js' && r.name === 'value');
+    expect(other.resolvedSymbols).toEqual([]);
+  });
+  it('indexes names that exist on Object.prototype', async () => {
+    const project = toWorkerProject('proto', [
+      {
+        path: 'k.js',
+        name: 'k.js',
+        ext: '.js',
+        content:
+          'export class K {\n  constructor() {}\n  toString() { return valueOf(); }\n}\nfunction valueOf() {}\n',
+      },
+    ]);
+    const index = await buildRepositoryIndex(project);
+    expect(index.symbols.map((s) => s.name)).toEqual(
+      expect.arrayContaining(['K', 'constructor', 'toString', 'valueOf']),
+    );
+  });
+});
+
+describe('incremental indexing', () => {
+  const build = async (project, previous) =>
+    buildRepositoryIndex(
+      toWorkerProject(project.name, await readProjectFiles(project, { previous })),
+    );
+
+  it('reuses unchanged files and matches a full rebuild', async () => {
+    const first = await build(handleProject(SOURCES));
+    const changedSources = {
+      ...SOURCES,
+      'src/b.js': 'export function b() { return 2; }\nexport const extra = () => b();\n',
+    };
+    const changed = handleProject(changedSources, { 'src/b.js': 2 });
+    const incremental = await build(changed, first);
+    const full = await build(changed);
+    expect(incremental.stats.reusedFiles).toBe(3);
+    expect(full.stats.reusedFiles).toBe(0);
+    expect(incremental.symbols.map((s) => s.name)).toContain('extra');
+    expect(links(incremental)).toEqual(links(full));
+    expect(incremental.dependencies).toEqual(full.dependencies);
+  });
+  it('re-reads a file whose size changed even if its time did not', async () => {
+    const first = await build(handleProject(SOURCES));
+    const again = await build(
+      handleProject({ ...SOURCES, 'src/a.js': SOURCES['src/a.js'] + '// more\n' }),
+      first,
+    );
+    expect(again.stats.reusedFiles).toBe(3);
+  });
+});
+
 describe('architecture health', () => {
   it('counts symbols per file and flags the cycle', async () => {
     const index = await indexFixture();
@@ -84,9 +218,58 @@ describe('intelligence', () => {
     );
     expect(redactSecret('token ghp_abcdefghijklmnopqrstuvwxyz')).toBe('token ghp_••••');
   });
+});
+
+describe('search', () => {
+  const files = () =>
+    toWorkerProject('search', [
+      {
+        path: 'src/greet.js',
+        name: 'greet.js',
+        ext: '.js',
+        content: 'export function greet() {}\nconst Greeting = 1;\n',
+      },
+      { path: 'docs/a.md', name: 'a.md', ext: '.md', content: 'Say greet(x) here\n' },
+    ]).files;
+
+  it('finds symbols, files and text, with symbols only when indexed', async () => {
+    const project = { name: 'search', files: files() };
+    const index = attachFileHandles(await buildRepositoryIndex(project), project);
+    const withIndex = await searchProject({ files: project.files, index, query: ' greet ' });
+    expect(withIndex.query).toBe('greet');
+    expect(withIndex.symbols.map((s) => s.name)).toEqual(['greet', 'Greeting']);
+    expect(withIndex.files.map((f) => f.path)).toEqual(['src/greet.js']);
+    expect(withIndex.text.map((t) => [t.path, t.line])).toEqual([
+      ['src/greet.js', 1],
+      ['src/greet.js', 2],
+      ['docs/a.md', 1],
+    ]);
+    const withoutIndex = await searchProject({ files: project.files, index: null, query: 'greet' });
+    expect(withoutIndex.symbols).toEqual([]);
+    expect(withoutIndex.text).toHaveLength(3);
+  });
+  it('treats the query literally unless regex is on, and honours match case', async () => {
+    const project = { files: files() };
+    const literal = await searchProject({ ...project, query: 'greet(x)' });
+    expect(literal.text.map((t) => t.path)).toEqual(['docs/a.md']);
+    const regex = await searchProject({ ...project, query: '^const', options: { regex: true } });
+    expect(regex.text.map((t) => t.line)).toEqual([2]);
+    const cased = await searchProject({
+      ...project,
+      query: 'Greet',
+      options: { caseSensitive: true },
+    });
+    expect(cased.text.map((t) => t.line)).toEqual([2]);
+  });
   it('reports an invalid regex instead of throwing', async () => {
-    const results = await searchCode(await indexFixture(), '(', { regex: true });
-    expect(results[0]).toMatchObject({ type: 'error' });
+    const results = await searchProject({ files: files(), query: '(', options: { regex: true } });
+    expect(results.error).toMatch(/Invalid regular expression/);
+    expect(results.text).toEqual([]);
+  });
+  it('stops at the result limit and says so', async () => {
+    const results = await searchProject({ files: files(), query: 'e', limit: 2 });
+    expect(results.text).toHaveLength(2);
+    expect(results.truncated).toBe(true);
   });
 });
 

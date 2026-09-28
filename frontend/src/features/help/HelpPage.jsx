@@ -45,7 +45,7 @@ export function HelpPage() {
         'Git and AI workspace integration',
         'Documentation reports and architecture diagrams',
       ],
-      how: 'Open a folder, select Codebase, then click Build / Refresh Index. Use the views (Overview, Search, Symbols, Dependencies, Impact, Health, Analyzers, Git, Diagram, Reports, Context Builder and AI) to investigate the indexed project. The index is cached locally in IndexedDB.',
+      how: 'Open a folder, select Codebase, then click Build / Refresh Index. Use the views (Overview, Symbols, Dependencies, Impact, Health, Analyzers, Git, Diagram, Reports, Context Builder and AI) to investigate the indexed project. The index is cached locally in IndexedDB.',
       example:
         'If src/api/user.js imports src/services/auth.js, the dependency and symbol views can show that relationship and help trace impact before editing auth.js.',
     },
@@ -69,14 +69,15 @@ export function HelpPage() {
       icon: '🔎',
       group: 'Explore',
       definition:
-        'Searches text across supported project files and opens matching files at the relevant result.',
+        'One search for the whole project: symbols from the code index, file paths and source text, opening matching files at the relevant result.',
       features: [
-        'Project-wide text search',
+        'Symbols (when the code index is built), file paths and text in one result list',
+        'Regex and match-case options',
         'Line numbers and matching source snippets',
         'Result viewer with next/previous matches',
         'Open a result directly in Editor',
       ],
-      how: 'Enter a search term and press Enter or Search. Click a result to inspect the surrounding file.',
+      how: 'Enter a search term and press Enter or Search. Build the code index in Codebase to include symbols. Click a result to inspect the surrounding file.',
       example: 'Search for “PhoneNoValidation” to find every source line that references the hook.',
     },
     {

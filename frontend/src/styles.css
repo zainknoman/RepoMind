@@ -777,6 +777,23 @@ footer {
     max-height 0.45s;
   transform-origin: top left;
 }
+.search-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  align-items: center;
+  margin: 8px 0 4px;
+  font-size: 0.9rem;
+}
+.search-options label {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+.search-group {
+  margin: 18px 0 8px;
+  font-size: 1rem;
+}
 .searched-file {
   animation: viewerUp 0.5s ease;
 }

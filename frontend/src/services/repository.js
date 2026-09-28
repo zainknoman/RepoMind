@@ -99,19 +99,43 @@ const BABEL_PLUGINS = [
 
 const BABEL_EXTENSIONS = new Set(['.js', '.jsx', '.ts', '.tsx']);
 
+const SKIP_KEYS = new Set(['loc', 'start', 'end', 'tokens', 'comments', 'errors']);
+
+// `ancestors` is one shared stack (pushed/popped as the walk descends), so visitors that keep it
+// must copy it.
 function walk(node, visitor, parent = null, ancestors = []) {
   if (!node || typeof node !== 'object') return;
   if (Array.isArray(node)) {
-    node.forEach((child) => walk(child, visitor, parent, ancestors));
+    for (const child of node) walk(child, visitor, parent, ancestors);
     return;
   }
-  if (node.type) visitor(node, parent, ancestors);
-  const nextAncestors = node.type ? [...ancestors, node] : ancestors;
-  for (const key of Object.keys(node)) {
-    if (['loc', 'start', 'end', 'tokens', 'comments', 'errors'].includes(key)) continue;
-    const value = node[key];
-    if (value && typeof value === 'object') walk(value, visitor, node, nextAncestors);
+  if (node.type) {
+    visitor(node, parent, ancestors);
+    ancestors.push(node);
   }
+  for (const key of Object.keys(node)) {
+    if (SKIP_KEYS.has(key)) continue;
+    const value = node[key];
+    if (value && typeof value === 'object') walk(value, visitor, node, ancestors);
+  }
+  if (node.type) ancestors.pop();
+}
+
+/** Returns a function mapping a character offset to its 1-based line number. */
+function lineLocator(content) {
+  const starts = [0];
+  for (let i = content.indexOf('\n'); i !== -1; i = content.indexOf('\n', i + 1))
+    starts.push(i + 1);
+  return (offset) => {
+    let lo = 0,
+      hi = starts.length - 1;
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >> 1;
+      if (starts[mid] <= offset) lo = mid;
+      else hi = mid - 1;
+    }
+    return lo + 1;
+  };
 }
 
 const lineOf = (node) => node?.loc?.start?.line || 1;
@@ -170,6 +194,18 @@ function addImportBindings(node) {
     .filter(Boolean);
 }
 
+// Nodes that open a scope for resolving references. Block scopes are not modelled: a let/const is
+// treated as visible in its whole enclosing function.
+const SCOPE_NODES = new Set([
+  'Program',
+  'FunctionDeclaration',
+  'FunctionExpression',
+  'ArrowFunctionExpression',
+  'ClassMethod',
+  'ClassPrivateMethod',
+  'ObjectMethod',
+]);
+
 function parseJavaScript(content, file) {
   const ast = parse(content, {
     sourceType: 'unambiguous',
@@ -182,15 +218,22 @@ function parseJavaScript(content, file) {
   const exports = [];
   const references = [];
   const declaredNames = new Set();
+  let ancestorsOfNode = [];
 
+  // A symbol declared inside a function records that function's source range as its scope;
+  // top-level symbols have none and are visible in the whole file.
   const addSymbol = (name, kind, node, extra = {}) => {
     if (!name) return;
+    const scope = ancestorsOfNode.findLast((x) => SCOPE_NODES.has(x.type));
     const symbol = {
       name,
       kind,
       line: lineOf(node),
       column: columnOf(node),
       path: file.path,
+      ...(scope && scope.type !== 'Program'
+        ? { scopeStart: scope.start, scopeEnd: scope.end }
+        : {}),
       ...extra,
     };
     symbols.push(symbol);
@@ -199,6 +242,7 @@ function parseJavaScript(content, file) {
   };
 
   walk(ast, (node, parent, ancestors) => {
+    ancestorsOfNode = ancestors;
     const line = lineOf(node);
 
     if (node.type === 'ImportDeclaration') {
@@ -279,9 +323,9 @@ function parseJavaScript(content, file) {
           node.value?.type === 'FunctionExpression' ||
           node.value?.type === 'ArrowFunctionExpression')
       ) {
-        const ownerNode = [...(ancestors || [])]
-          .reverse()
-          .find((x) => x.type === 'ClassDeclaration' || x.type === 'ClassExpression');
+        const ownerNode = ancestors.findLast(
+          (x) => x.type === 'ClassDeclaration' || x.type === 'ClassExpression',
+        );
         const owner = ownerNode?.id?.name || null;
         addSymbol(name, 'method', node, { parent: owner });
       }
@@ -326,12 +370,13 @@ function parseJavaScript(content, file) {
       name: node.name,
       line,
       column,
+      offset: node.start,
       kind: 'identifier',
     });
   });
 
   return {
-    ...fallbackAnalyzeSource(file, content),
+    ...fileSummary(file, content),
     parser: 'babel-ast',
     symbols: unique(symbols, (s) => keyOf(file.path, s.name, s.kind, s.line)),
     imports: unique(imports, (i) => `${i.module}|${i.line}`),
@@ -365,10 +410,22 @@ const importPatterns = [
 const exportPattern =
   /^\s*export\s+(?:default\s+)?(?:async\s+)?(?:function|class|interface|type|const|let|var)\s+([A-Za-z_$][\w$]*)/gm;
 
+function fileSummary(file, content) {
+  return {
+    path: file.path,
+    language: languageFor(file.ext),
+    extension: file.ext,
+    lines: content.split(/\r?\n/).length,
+    bytes: new Blob([content]).size,
+    tokens: estimateTokens(content),
+  };
+}
+
 function fallbackAnalyzeSource(file, content) {
   const symbols = [],
     imports = [],
     exports = [];
+  const lineAt = lineLocator(content);
   for (const [pattern, kind] of symbolPatterns) {
     pattern.lastIndex = 0;
     let match;
@@ -376,7 +433,7 @@ function fallbackAnalyzeSource(file, content) {
       symbols.push({
         name: match[1],
         kind,
-        line: content.slice(0, match.index).split(/\r?\n/).length,
+        line: lineAt(match.index),
         column: 1,
       });
   }
@@ -386,7 +443,7 @@ function fallbackAnalyzeSource(file, content) {
     while ((match = pattern.exec(content)))
       imports.push({
         module: match[2] || match[1],
-        line: content.slice(0, match.index).split(/\r?\n/).length,
+        line: lineAt(match.index),
         column: 1,
         kind: 'import',
         bindings: [],
@@ -397,16 +454,11 @@ function fallbackAnalyzeSource(file, content) {
   while ((match = exportPattern.exec(content)))
     exports.push({
       name: match[1],
-      line: content.slice(0, match.index).split(/\r?\n/).length,
+      line: lineAt(match.index),
       kind: 'export',
     });
   return {
-    path: file.path,
-    language: languageFor(file.ext),
-    extension: file.ext,
-    lines: content.split(/\r?\n/).length,
-    bytes: new Blob([content]).size,
-    tokens: estimateTokens(content),
+    ...fileSummary(file, content),
     symbols: unique(symbols),
     imports: unique(imports),
     exports: unique(exports),
@@ -417,13 +469,12 @@ function fallbackAnalyzeSource(file, content) {
 }
 
 export function analyzeSource(file, content) {
-  const fallback = fallbackAnalyzeSource(file, content);
-  if (!BABEL_EXTENSIONS.has(file.ext)) return fallback;
+  if (!BABEL_EXTENSIONS.has(file.ext)) return fallbackAnalyzeSource(file, content);
   try {
     return parseJavaScript(content, file);
   } catch (error) {
     return {
-      ...fallback,
+      ...fallbackAnalyzeSource(file, content),
       parser: 'fallback',
       parseErrors: [{ message: error.message, line: error.loc?.line || 1 }],
     };
@@ -485,6 +536,44 @@ function frameworkSignals(files) {
   return { frameworks: result, packages: [...packages] };
 }
 
+const cancelled = () => new DOMException('Indexing cancelled', 'AbortError');
+
+/**
+ * Of one file's same-name declarations, those a reference at `offset` can see: the ones in the
+ * innermost scope that contains it. Without an offset (pattern-parsed files) all qualify.
+ */
+function visibleAt(symbols, offset) {
+  if (offset === undefined) return symbols;
+  let innermost = -1;
+  const visible = [];
+  for (const symbol of symbols) {
+    const start = symbol.scopeStart ?? -1;
+    if (start >= 0 && (offset < start || offset > symbol.scopeEnd)) continue;
+    if (start > innermost) {
+      innermost = start;
+      visible.length = 0;
+    }
+    if (start === innermost) visible.push(symbol);
+  }
+  return visible.length === symbols.length ? symbols : visible;
+}
+
+function groupBy(items, keyFn) {
+  const groups = new Map();
+  for (const item of items) {
+    const key = keyFn(item);
+    const group = groups.get(key);
+    if (group) group.push(item);
+    else groups.set(key, [item]);
+  }
+  return groups;
+}
+
+/**
+ * Builds the repository index. A file that carries a previous `analysis` (an entry of an earlier
+ * index's `files`, reused because the file is unchanged) is not read or parsed again; every
+ * cross-file link is always recomputed.
+ */
 export async function buildRepositoryIndex(project, options = {}) {
   const { signal, onProgress } = options;
   if (!project) return null;
@@ -501,7 +590,6 @@ export async function buildRepositoryIndex(project, options = {}) {
     dependencies: [],
     externalDependencies: [],
     unresolvedImports: [],
-    symbolMap: {},
     languages: {},
     project: frameworkSignals(files),
     stats: {
@@ -517,20 +605,31 @@ export async function buildRepositoryIndex(project, options = {}) {
       unresolvedReferences: 0,
       internalEdges: 0,
       externalImports: 0,
+      reusedFiles: 0,
     },
   };
 
   for (let fileIndex = 0; fileIndex < files.length; fileIndex++) {
-    if (signal?.aborted) throw new DOMException('Indexing cancelled', 'AbortError');
+    if (signal?.aborted) throw cancelled();
     const file = files[fileIndex];
-    const content = await (await file.handle.getFile()).text();
-    onProgress?.({
-      phase: 'analyze',
-      current: fileIndex + 1,
-      total: files.length,
-      path: file.path,
-    });
-    const analysis = analyzeSource(file, content);
+    // Progress is throttled: one message per file floods the main thread on large repositories.
+    if (fileIndex % 25 === 0 || fileIndex === files.length - 1)
+      onProgress?.({
+        phase: 'analyze',
+        current: fileIndex + 1,
+        total: files.length,
+        path: file.path,
+        reused: index.stats.reusedFiles,
+      });
+    let analysis = file.analysis;
+    if (analysis) index.stats.reusedFiles++;
+    else {
+      const raw = await file.handle.getFile();
+      analysis = analyzeSource(file, await raw.text());
+      // Kept so the next build can tell whether this file changed.
+      analysis.size = raw.size;
+      analysis.modified = raw.lastModified;
+    }
     index.files.push(analysis);
     index.stats.lines += analysis.lines;
     index.stats.bytes += analysis.bytes;
@@ -540,8 +639,8 @@ export async function buildRepositoryIndex(project, options = {}) {
     index.stats.exports += analysis.exports.length;
     index.stats.references += analysis.references?.length || 0;
     index.languages[analysis.language] = (index.languages[analysis.language] || 0) + 1;
-    index.symbols.push(...analysis.symbols.map((s) => ({ ...s, path: file.path })));
-    index.exports.push(...analysis.exports.map((e) => ({ ...e, path: file.path })));
+    for (const s of analysis.symbols) index.symbols.push({ ...s, path: file.path });
+    for (const e of analysis.exports) index.exports.push({ ...e, path: file.path });
 
     for (const item of analysis.imports) {
       const target = resolveImport(file.path, item.module, fileMap);
@@ -565,35 +664,47 @@ export async function buildRepositoryIndex(project, options = {}) {
   }
 
   onProgress?.({ phase: 'resolve', current: files.length, total: files.length, path: null });
-  const definitions = new Map();
+  // A definition key (path|name|kind|line) is unique within the index, so symbols are linked
+  // directly and compared by their precomputed key.
   for (const symbol of index.symbols) {
-    const key = `${symbol.path}::${symbol.name}`;
-    if (!definitions.has(key)) definitions.set(key, []);
-    definitions.get(key).push(symbol);
-    const publicKey = `${symbol.name}`;
-    if (!index.symbolMap[publicKey]) index.symbolMap[publicKey] = [];
-    index.symbolMap[publicKey].push(symbol);
+    symbol.definitionKey = keyOf(symbol.path, symbol.name, symbol.kind, symbol.line);
+    symbol.references = [];
+    symbol.importedBy = [];
   }
+  // Every lookup below goes through these maps; scanning the symbol list per reference is what made
+  // indexing quadratic. Their groups hold distinct symbols and are shared, read-only, by every
+  // reference that resolves to them. Only top-level symbols can be imported or matched by name from
+  // another file; a function's locals are only visible inside it.
+  const topLevel = index.symbols.filter((s) => s.scopeStart === undefined);
+  const topLevelByName = groupBy(topLevel, (s) => s.name);
+  const topLevelByPath = groupBy(topLevel, (s) => s.path);
+  const topLevelByPathName = groupBy(topLevel, (s) => `${s.path}::${s.name}`);
+  const symbolsByPathName = groupBy(index.symbols, (s) => `${s.path}::${s.name}`);
+  const exportsByPath = groupBy(index.exports, (e) => e.path);
+  const symbolKey = (s) => s.definitionKey;
+  const none = [];
 
-  if (signal?.aborted) throw new DOMException('Indexing cancelled', 'AbortError');
+  if (signal?.aborted) throw cancelled();
   const importBindings = [];
   for (const edge of index.dependencies) {
     for (const binding of edge.bindings || []) {
-      const targetExports = index.exports.filter(
+      const targetExports = (exportsByPath.get(edge.to) || []).filter(
         (e) =>
-          e.path === edge.to &&
-          (binding.imported === '*' ||
-            binding.imported === 'default' ||
-            e.name === binding.imported ||
-            e.local === binding.imported),
+          binding.imported === '*' ||
+          binding.imported === 'default' ||
+          e.name === binding.imported ||
+          e.local === binding.imported,
       );
       const candidates = targetExports.length
-        ? targetExports.flatMap((e) =>
-            index.symbols.filter((s) => s.path === edge.to && s.name === (e.local || e.name)),
+        ? unique(
+            targetExports.flatMap(
+              (e) => topLevelByPathName.get(`${edge.to}::${e.local || e.name}`) || none,
+            ),
+            symbolKey,
           )
-        : index.symbols.filter(
-            (s) => s.path === edge.to && (binding.imported === '*' || s.name === binding.imported),
-          );
+        : binding.imported === '*'
+          ? topLevelByPath.get(edge.to) || none
+          : topLevelByPathName.get(`${edge.to}::${binding.imported}`) || none;
       importBindings.push({
         from: edge.from,
         to: edge.to,
@@ -601,39 +712,34 @@ export async function buildRepositoryIndex(project, options = {}) {
         imported: binding.imported,
         kind: binding.kind,
         line: edge.line,
-        resolvedSymbols: unique(candidates, (s) => keyOf(s.path, s.name, s.kind, s.line)),
+        resolvedSymbols: candidates,
       });
     }
   }
 
-  const symbolByPathName = new Map();
-  for (const symbol of index.symbols) {
-    const key = `${symbol.path}::${symbol.name}`;
-    if (!symbolByPathName.has(key)) symbolByPathName.set(key, []);
-    symbolByPathName.get(key).push(symbol);
+  // The first binding of a local name wins, as before.
+  const bindingByFileLocal = new Map();
+  for (const binding of importBindings) {
+    const key = `${binding.from}::${binding.local}`;
+    if (!bindingByFileLocal.has(key)) bindingByFileLocal.set(key, binding);
   }
 
   for (const file of index.files) {
-    if (signal?.aborted) throw new DOMException('Indexing cancelled', 'AbortError');
-    const importsForFile = importBindings.filter((x) => x.from === file.path);
+    if (signal?.aborted) throw cancelled();
     for (const ref of file.references || []) {
-      let resolved = [];
-      const local = importsForFile.find((x) => x.local === ref.name);
-      if (local) {
-        resolved = local.resolvedSymbols;
-      }
-      if (!resolved.length) {
-        resolved = index.symbols.filter((s) => s.path === file.path && s.name === ref.name);
-      }
-      if (!resolved.length) {
-        resolved = index.symbolMap[ref.name] || [];
-      }
+      let resolved = bindingByFileLocal.get(`${file.path}::${ref.name}`)?.resolvedSymbols || none;
+      if (!resolved.length)
+        resolved = visibleAt(
+          symbolsByPathName.get(`${file.path}::${ref.name}`) || none,
+          ref.offset,
+        );
+      if (!resolved.length) resolved = topLevelByName.get(ref.name) || none;
       const reference = {
         from: file.path,
         name: ref.name,
         line: ref.line,
         column: ref.column,
-        resolvedSymbols: unique(resolved, (s) => keyOf(s.path, s.name, s.kind, s.line)),
+        resolvedSymbols: resolved,
       };
       index.references.push(reference);
       if (reference.resolvedSymbols.length) index.stats.resolvedReferences++;
@@ -643,23 +749,11 @@ export async function buildRepositoryIndex(project, options = {}) {
 
   onProgress?.({ phase: 'finalize', current: files.length, total: files.length, path: null });
   index.importBindings = importBindings;
-  for (const symbol of index.symbols) {
-    symbol.references = index.references.filter((r) =>
-      r.resolvedSymbols.some(
-        (s) =>
-          keyOf(s.path, s.name, s.kind, s.line) ===
-          keyOf(symbol.path, symbol.name, symbol.kind, symbol.line),
-      ),
-    );
-    symbol.importedBy = index.importBindings.filter((i) =>
-      i.resolvedSymbols.some(
-        (s) =>
-          keyOf(s.path, s.name, s.kind, s.line) ===
-          keyOf(symbol.path, symbol.name, symbol.kind, symbol.line),
-      ),
-    );
-    symbol.definitionKey = keyOf(symbol.path, symbol.name, symbol.kind, symbol.line);
-  }
+  // Walking the links once keeps each symbol's lists in index order, exactly as filtering did.
+  for (const reference of index.references)
+    for (const symbol of reference.resolvedSymbols) symbol.references.push(reference);
+  for (const binding of importBindings)
+    for (const symbol of binding.resolvedSymbols) symbol.importedBy.push(binding);
 
   return index;
 }
@@ -811,56 +905,43 @@ export function attachFileHandles(index, project) {
       symbol,
     ]),
   );
-  const resolveSymbols = (value) =>
-    (value || [])
-      .map((item) => {
-        if (typeof item === 'object') return item;
-        return symbolByKey.get(item) || null;
-      })
-      .filter(Boolean);
+  // References that resolve to the same symbols share one array; keep them shared.
+  const resolved = new Map();
+  const resolveSymbols = (value) => {
+    if (!value) return [];
+    if (!resolved.has(value))
+      resolved.set(
+        value,
+        value
+          .map((item) => (typeof item === 'object' ? item : symbolByKey.get(item) || null))
+          .filter(Boolean),
+      );
+    return resolved.get(value);
+  };
 
-  index.references = (index.references || []).map((reference) => ({
+  // A fresh index links symbols to reference objects; a cached snapshot links them by position.
+  const oldReferences = index.references || [];
+  const oldBindings = index.importBindings || [];
+  const referencePosition = new Map(oldReferences.map((item, i) => [item, i]));
+  const bindingPosition = new Map(oldBindings.map((item, i) => [item, i]));
+  index.references = oldReferences.map((reference) => ({
     ...reference,
     resolvedSymbols: resolveSymbols(reference.resolvedSymbols),
   }));
-  index.importBindings = (index.importBindings || []).map((binding) => ({
+  index.importBindings = oldBindings.map((binding) => ({
     ...binding,
     resolvedSymbols: resolveSymbols(binding.resolvedSymbols),
   }));
+  const relink = (items, position, list) =>
+    (items || [])
+      .map((item) => list[typeof item === 'number' ? item : position.get(item)])
+      .filter(Boolean);
 
   for (const symbol of index.symbols || []) {
-    const key = symbol.definitionKey || keyOf(symbol.path, symbol.name, symbol.kind, symbol.line);
-    symbol.definitionKey = key;
-    symbol.references = (symbol.references || [])
-      .map((item) => {
-        const reference =
-          typeof item === 'object' && item.from
-            ? (index.references || []).find(
-                (candidate) =>
-                  candidate.from === item.from &&
-                  candidate.name === item.name &&
-                  candidate.line === item.line &&
-                  candidate.column === item.column,
-              )
-            : (index.references || []).find((candidate) => candidate.definitionKey === item);
-        return reference || null;
-      })
-      .filter(Boolean);
-    symbol.importedBy = (symbol.importedBy || [])
-      .map((item) => {
-        const binding =
-          typeof item === 'object' && item.from
-            ? (index.importBindings || []).find(
-                (candidate) =>
-                  candidate.from === item.from &&
-                  candidate.local === item.local &&
-                  candidate.line === item.line &&
-                  candidate.to === item.to,
-              )
-            : (index.importBindings || []).find((candidate) => candidate.definitionKey === item);
-        return binding || null;
-      })
-      .filter(Boolean);
+    symbol.definitionKey =
+      symbol.definitionKey || keyOf(symbol.path, symbol.name, symbol.kind, symbol.line);
+    symbol.references = relink(symbol.references, referencePosition, index.references);
+    symbol.importedBy = relink(symbol.importedBy, bindingPosition, index.importBindings);
   }
 
   return index;

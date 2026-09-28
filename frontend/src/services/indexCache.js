@@ -1,31 +1,45 @@
 const DB_NAME = 'repomind-cache';
 const STORE = 'indexes';
-const VERSION = 1;
+// Repository name -> key of its most recent snapshot, so a changed repository can still reuse the
+// unchanged files of its previous index, and superseded snapshots can be deleted.
+const LATEST = 'latest';
+const VERSION = 2;
+// Version 3 stores symbol back-links as positions instead of copies of every reference.
+const CACHE_VERSION = 3;
 
 function openDb() {
   if (typeof indexedDB === 'undefined') return Promise.resolve(null);
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, VERSION);
-    req.onupgradeneeded = () => req.result.createObjectStore(STORE);
+    req.onupgradeneeded = (event) => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE);
+      // Version 2 snapshots are unreadable now and were never evicted; drop them.
+      else if (event.oldVersion < 2) req.transaction.objectStore(STORE).clear();
+      if (!db.objectStoreNames.contains(LATEST)) db.createObjectStore(LATEST);
+    };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
   });
 }
+
 async function projectKey(project) {
-  // Runs on every folder open, so iterate the sorted files directly (no per-path lookup). The key
-  // format is unchanged, so existing cached indexes stay valid.
+  // Runs on every folder open, so iterate the sorted files directly (no per-path lookup), reading
+  // metadata in parallel batches. The key format is unchanged.
   const files = (project?.files || [])
     .filter((f) => f.text)
     .sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
   const metadata = [];
-  for (const file of files) {
-    const { path } = file;
-    try {
-      const raw = await file.handle.getFile();
-      metadata.push(`${path}|${raw.size}|${raw.lastModified}`);
-    } catch {
-      metadata.push(`${path}|unreadable`);
-    }
+  for (let start = 0; start < files.length; start += 64) {
+    const batch = files.slice(start, start + 64).map(async ({ path, handle }) => {
+      try {
+        const raw = await handle.getFile();
+        return `${path}|${raw.size}|${raw.lastModified}`;
+      } catch {
+        return `${path}|unreadable`;
+      }
+    });
+    metadata.push(...(await Promise.all(batch)));
   }
   let hash = 2166136261;
   for (const value of [project?.name || '', ...metadata])
@@ -36,36 +50,76 @@ async function projectKey(project) {
   return (hash >>> 0).toString(16);
 }
 
-function serializeIndex(index) {
-  return JSON.parse(
-    JSON.stringify(index, (key, value) => {
-      if (key === '_fileHandles') return undefined;
-      if (key === 'resolvedSymbols' && Array.isArray(value)) {
-        return value
-          .map(
-            (symbol) =>
-              symbol?.definitionKey ||
-              [symbol?.path, symbol?.name, symbol?.kind, symbol?.line].join('::'),
-          )
-          .filter(Boolean);
-      }
-      if ((key === 'references' || key === 'importedBy') && Array.isArray(value)) {
-        return value.map((item) => item?.definitionKey || item);
-      }
-      return value;
-    }),
-  );
+const symbolKey = (symbol) =>
+  symbol?.definitionKey || [symbol?.path, symbol?.name, symbol?.kind, symbol?.line].join('|');
+
+/**
+ * A plain, structured-cloneable snapshot: file handles dropped, resolved symbols stored as keys and
+ * each symbol's references/importers stored as positions in `references`/`importBindings`.
+ */
+export function serializeIndex(index) {
+  const { _fileHandles, ...rest } = index;
+  const references = index.references || [];
+  const importBindings = index.importBindings || [];
+  const referencePosition = new Map(references.map((item, i) => [item, i]));
+  const bindingPosition = new Map(importBindings.map((item, i) => [item, i]));
+  const positions = (items, position) =>
+    (items || [])
+      .map((item) => (typeof item === 'number' ? item : position.get(item)))
+      .filter((item) => item !== undefined);
+  // References that resolve to the same symbols share one array; the snapshot shares it too.
+  const keys = new Map();
+  const withKeys = (item) => {
+    const symbols = item.resolvedSymbols || [];
+    if (!keys.has(symbols)) keys.set(symbols, symbols.map(symbolKey));
+    return { ...item, resolvedSymbols: keys.get(symbols) };
+  };
+  return {
+    ...rest,
+    references: references.map(withKeys),
+    importBindings: importBindings.map(withKeys),
+    symbols: (index.symbols || []).map((symbol) => ({
+      ...symbol,
+      references: positions(symbol.references, referencePosition),
+      importedBy: positions(symbol.importedBy, bindingPosition),
+    })),
+  };
 }
+
+function request(req) {
+  return new Promise((resolve) => {
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => resolve(undefined);
+  });
+}
+
+const current = (record) => (record?.index?.cacheVersion === CACHE_VERSION ? record.index : null);
 
 export async function loadCachedIndex(project) {
   const db = await openDb();
   if (!db) return null;
   // Resolve the key before opening the transaction: awaiting inside it would let IndexedDB auto-commit.
   const key = await projectKey(project);
+  return current(await request(db.transaction(STORE, 'readonly').objectStore(STORE).get(key)));
+}
+
+/**
+ * The most recent snapshot saved for a repository of this name, even if its files have changed
+ * since. Used only to reuse the analysis of unchanged files, never shown as the current index.
+ */
+export async function loadLatestCachedIndex(project) {
+  const db = await openDb();
+  if (!db || !project?.name) return null;
+  const tx = db.transaction([STORE, LATEST], 'readonly');
   return new Promise((resolve) => {
-    const req = db.transaction(STORE, 'readonly').objectStore(STORE).get(key);
-    req.onsuccess = () => resolve(req.result?.index || null);
-    req.onerror = () => resolve(null);
+    const pointer = tx.objectStore(LATEST).get(project.name);
+    pointer.onerror = () => resolve(null);
+    pointer.onsuccess = () => {
+      if (pointer.result === undefined) return resolve(null);
+      const record = tx.objectStore(STORE).get(pointer.result);
+      record.onsuccess = () => resolve(current(record.result));
+      record.onerror = () => resolve(null);
+    };
   });
 }
 
@@ -74,17 +128,24 @@ export async function saveCachedIndex(project, index) {
   if (!db) return false;
   try {
     const snapshot = serializeIndex(index);
-    snapshot.cacheVersion = 2;
+    snapshot.cacheVersion = CACHE_VERSION;
     snapshot.cachedAt = new Date().toISOString();
     const key = await projectKey(project);
-    return await new Promise((resolve) => {
-      const req = db
-        .transaction(STORE, 'readwrite')
-        .objectStore(STORE)
-        .put({ index: snapshot }, key);
-      req.onsuccess = () => resolve(true);
-      req.onerror = () => resolve(false);
+    const tx = db.transaction([STORE, LATEST], 'readwrite');
+    const done = new Promise((resolve) => {
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => resolve(false);
+      tx.onabort = () => resolve(false);
     });
+    const indexes = tx.objectStore(STORE);
+    const latest = tx.objectStore(LATEST);
+    indexes.put({ index: snapshot }, key);
+    const previous = latest.get(project.name);
+    previous.onsuccess = () => {
+      if (previous.result !== undefined && previous.result !== key) indexes.delete(previous.result);
+      latest.put(key, project.name);
+    };
+    return await done;
   } catch {
     return false;
   }
@@ -94,9 +155,15 @@ export async function clearCachedIndex(project) {
   const db = await openDb();
   if (!db) return;
   const key = await projectKey(project);
-  await new Promise((resolve) => {
-    const req = db.transaction(STORE, 'readwrite').objectStore(STORE).delete(key);
-    req.onsuccess = () => resolve();
-    req.onerror = () => resolve();
+  const tx = db.transaction([STORE, LATEST], 'readwrite');
+  const done = new Promise((resolve) => {
+    tx.oncomplete = tx.onerror = tx.onabort = () => resolve();
   });
+  tx.objectStore(STORE).delete(key);
+  const latest = tx.objectStore(LATEST);
+  const pointer = latest.get(project.name);
+  pointer.onsuccess = () => {
+    if (pointer.result === key) latest.delete(project.name);
+  };
+  await done;
 }

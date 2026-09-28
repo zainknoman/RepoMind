@@ -12,6 +12,7 @@
     "format:check": "prettier --check .",
     "test": "vitest run",
     "test:e2e": "playwright test",
+    "bench:index": "node --expose-gc scripts/bench-index.mjs",
     "check": "npm run format:check && npm run lint && npm test && npm run build"
   },
   "dependencies": {

@@ -2,7 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { buildIndex } from '../../services/indexClient';
 import { attachFileHandles, detectCycles } from '../../services/repository';
 import { detectProjectPackages } from '../../services/intelligence';
-import { loadCachedIndex, saveCachedIndex, clearCachedIndex } from '../../services/indexCache';
+import {
+  loadCachedIndex,
+  loadLatestCachedIndex,
+  saveCachedIndex,
+  clearCachedIndex,
+} from '../../services/indexCache';
 import { buildArchitectureHealth } from '../../services/health';
 
 /**
@@ -19,6 +24,11 @@ export function useCodebaseIndex(project) {
   // Bumped per opened project, so work started for a previous folder never lands on the new one.
   const generationRef = useRef(0);
   const freshIndexRef = useRef(false);
+  // The index on screen, read by build() to reuse the analysis of unchanged files.
+  const indexRef = useRef(null);
+  useEffect(() => {
+    indexRef.current = index;
+  }, [index]);
 
   useEffect(() => {
     const generation = ++generationRef.current;
@@ -61,8 +71,12 @@ export function useCodebaseIndex(project) {
     });
     setError('');
     try {
+      // Without an index on screen, the last snapshot of this repository still lets unchanged files
+      // skip parsing; only its per-file analysis is used.
+      const previous = indexRef.current || (await loadLatestCachedIndex(project).catch(() => null));
+      if (generation !== generationRef.current) return;
       const next = attachFileHandles(
-        await buildIndex(project, { signal: controller.signal, onProgress: setProgress }),
+        await buildIndex(project, { signal: controller.signal, onProgress: setProgress, previous }),
         project,
       );
       next.project.packages = await detectProjectPackages(next);

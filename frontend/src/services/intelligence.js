@@ -95,59 +95,6 @@ async function readFile(file) {
   return (await file.handle.getFile()).text();
 }
 
-export async function searchCode(index, query, options = {}) {
-  if (!index || !query?.trim()) return [];
-  const needle = query.trim();
-  let regex = null;
-  if (options.regex) {
-    try {
-      regex = new RegExp(needle, options.caseSensitive ? '' : 'i');
-    } catch (error) {
-      return [{ type: 'error', message: `Invalid regular expression: ${error.message}` }];
-    }
-  }
-  const results = [];
-  for (const file of index.files) {
-    const source = index._fileHandles?.get(file.path);
-    if (!source) continue;
-    const content = await readFile(source);
-    content.split(/\r?\n/).forEach((line, i) => {
-      if (
-        regex
-          ? regex.test(line)
-          : options.caseSensitive
-            ? line.includes(needle)
-            : line.toLowerCase().includes(needle.toLowerCase())
-      ) {
-        results.push({ path: file.path, line: i + 1, text: line.trim(), language: file.language });
-        if (regex) regex.lastIndex = 0;
-      }
-    });
-  }
-  return results;
-}
-
-export function searchIndex(index, query) {
-  if (!index || !query?.trim()) return [];
-  const q = query.toLowerCase();
-  return [
-    ...(index.symbols || [])
-      .filter((s) => s.name.toLowerCase().includes(q))
-      .map((s) => ({ type: 'symbol', label: s.name, path: s.path, line: s.line, detail: s.kind })),
-    ...(index.files || [])
-      .filter((f) => f.path.toLowerCase().includes(q))
-      .map((f) => ({ type: 'file', label: f.path, path: f.path, detail: f.language })),
-    ...(index.dependencies || [])
-      .filter((e) => e.from.toLowerCase().includes(q) || e.to.toLowerCase().includes(q))
-      .map((e) => ({
-        type: 'dependency',
-        label: e.from + ' → ' + e.to,
-        path: e.from,
-        detail: 'dependency',
-      })),
-  ];
-}
-
 function apiMethod(rule, match) {
   if (rule.framework === 'Flask') return 'ROUTE';
   if (rule.framework === 'Spring')

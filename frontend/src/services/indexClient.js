@@ -16,10 +16,11 @@ function abortError() {
 /**
  * Builds the repository index in a Web Worker so parsing large repositories does not freeze the UI.
  * Falls back to the main thread when workers are unavailable. Same contract as buildRepositoryIndex.
+ * With a `previous` index (in memory or cached), unchanged files are not read or parsed again.
  */
-export async function buildIndex(project, { signal, onProgress } = {}) {
+export async function buildIndex(project, { signal, onProgress, previous } = {}) {
   if (!project) return null;
-  const files = await readProjectFiles(project, { signal, onProgress });
+  const files = await readProjectFiles(project, { signal, onProgress, previous });
   const worker = createWorker();
   if (!worker)
     return buildRepositoryIndex(toWorkerProject(project.name, files), { signal, onProgress });

@@ -1,4 +1,4 @@
-import { IndexProgress } from '../codebase/IndexProgress';
+import { IndexProgress, indexSourceLabel } from '../codebase/IndexProgress';
 
 // Open Repository → Index → Understand → Investigate → Analyze → Report / AI.
 // The last four steps open the matching Codebase view once an index exists.
@@ -82,9 +82,9 @@ export function Investigation({ codebase, onInvestigate }) {
           <h2 id="investigate-title">🔎 Investigate</h2>
           {index ? (
             <small>
-              {source === 'cached' ? '⚡ Cached index' : '✓ Fresh index'} ·{' '}
-              {index.stats.files.toLocaleString()} files · {index.stats.symbols.toLocaleString()}{' '}
-              symbols · {index.stats.references.toLocaleString()} references
+              {indexSourceLabel(source, index.stats)} · {index.stats.files.toLocaleString()} files ·{' '}
+              {index.stats.symbols.toLocaleString()} symbols ·{' '}
+              {index.stats.references.toLocaleString()} references
             </small>
           ) : (
             <small>Index the code to see what needs attention.</small>

@@ -6,13 +6,7 @@ import {
   getSymbolDetails,
   getArchitecture,
 } from '../../services/repository';
-import {
-  searchCode,
-  searchIndex,
-  discoverApis,
-  scanSecurity,
-  buildArchitectureMermaid,
-} from '../../services/intelligence';
+import { discoverApis, scanSecurity, buildArchitectureMermaid } from '../../services/intelligence';
 import { readGitRepository, gitStatusSummary, gitActivity } from '../../services/git';
 import {
   loadAISettings,
@@ -28,7 +22,7 @@ import {
 } from '../../services/analyzers';
 import { buildDocumentationReport, buildModuleReport } from '../../services/documentation';
 import { renderMermaid } from '../../services/diagram';
-import { IndexProgress } from './IndexProgress';
+import { IndexProgress, indexSourceLabel } from './IndexProgress';
 
 const cp = (v) => v && navigator.clipboard?.writeText(v);
 const dl = (n, t) => {
@@ -63,10 +57,7 @@ export default function CodebasePanel({
     [includeDeps, setIncludeDeps] = useState(true),
     [includeDependents, setIncludeDependents] = useState(false),
     [error, setError] = useState('');
-  const [searchResults, setSearchResults] = useState([]),
-    [searchBusy, setSearchBusy] = useState(false),
-    [regex, setRegex] = useState(false),
-    [api, setApi] = useState([]),
+  const [api, setApi] = useState([]),
     [security, setSecurity] = useState([]),
     [securityScanned, setSecurityScanned] = useState(false),
     [packages, setPackages] = useState([]),
@@ -252,24 +243,6 @@ export default function CodebasePanel({
     setView('reports');
   }
 
-  async function runSearch() {
-    if (!index || !query.trim()) return;
-    setSearchBusy(true);
-    setError('');
-    try {
-      const indexed = searchIndex(index, query);
-      const code = await searchCode(index, query, { regex });
-      const failure = code.find((r) => r.type === 'error');
-      if (failure) {
-        setError(failure.message);
-        setSearchResults({ indexed, code: [] });
-      } else setSearchResults({ indexed, code });
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setSearchBusy(false);
-    }
-  }
   async function runAnalyzer(type) {
     if (!index) return;
     setDetailBusy(true);
@@ -364,8 +337,9 @@ export default function CodebasePanel({
       ) : (
         <>
           <div className="index-source">
-            <span>{indexSource === 'cached' ? '⚡ Cached index' : '✓ Fresh index'}</span>
+            <span>{indexSourceLabel(indexSource, index.stats)}</span>{' '}
             <small>
+              ·{' '}
               {index.cachedAt
                 ? new Date(index.cachedAt).toLocaleString()
                 : index.generatedAt
@@ -402,7 +376,6 @@ export default function CodebasePanel({
           <div className="tabs">
             {[
               ['overview', 'Overview'],
-              ['search', 'Search'],
               ['symbols', 'Symbols'],
               ['dependencies', 'Dependencies'],
               ['impact', 'Impact'],
@@ -474,77 +447,6 @@ export default function CodebasePanel({
                   note={securityScanned ? undefined : 'Run the scan in Analyzers'}
                 />
               </div>
-            </div>
-          )}
-          {view === 'search' && (
-            <div className="analytics-panel">
-              <div className="transform-toolbar">
-                <b>🔎 Indexed + Full-text Search</b>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={regex}
-                    onChange={(e) => setRegex(e.target.checked)}
-                  />{' '}
-                  Regex
-                </label>
-                <button onClick={runSearch} disabled={searchBusy}>
-                  {searchBusy ? '⏳ Searching...' : '▶ Search'}
-                </button>
-              </div>
-              <div className="search">
-                <input
-                  autoFocus
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && runSearch()}
-                  placeholder="Search symbols, files and source text"
-                />
-                <button
-                  onClick={() => {
-                    setQuery('');
-                    setSearchResults([]);
-                  }}
-                >
-                  ✕ Clear
-                </button>
-              </div>
-              {searchResults?.indexed?.map((r, i) => (
-                <button
-                  className="index-row clickable"
-                  key={'i' + i}
-                  onClick={() => setSelectedFile(r.path)}
-                >
-                  <b>{r.label}</b>
-                  <span>{r.type}</span>
-                  <small>
-                    {r.path}
-                    {r.line ? ':' + r.line : ''} · {r.detail}
-                  </small>
-                </button>
-              ))}
-              {searchResults?.code?.map((r, i) => (
-                <button
-                  className="index-row clickable"
-                  key={'c' + i}
-                  onClick={() => {
-                    setSelectedFile(r.path);
-                    onOpenFile?.(
-                      project.files.find((f) => f.path === r.path),
-                      true,
-                    );
-                  }}
-                >
-                  <b>
-                    {r.path}:{r.line}
-                  </b>
-                  <span>{r.language}</span>
-                  <small>{r.text}</small>
-                </button>
-              ))}
-              {searchResults && !searchResults.indexed?.length && !searchResults.code?.length && (
-                <p className="muted">No results.</p>
-              )}
             </div>
           )}
           {view === 'symbols' && (

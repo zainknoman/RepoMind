@@ -2,6 +2,40 @@
 
 All notable changes to RepoMind are recorded here.
 
+## Unreleased — Indexer performance, incremental indexing and unified search (Phase 3)
+
+### Added
+- **Incremental indexing.** Rebuilding the index reuses the analysis of every file whose size and
+  modification time are unchanged, from the index on screen or the repository's last cached index,
+  so only changed files are read and parsed. The Codebase and Dashboard show e.g. "Updated index
+  (3 changed, 1,497 unchanged)".
+- **One Search.** The Search workspace finds symbols (once the code index is built), file paths and
+  source text in one place, with Regex and Match case options.
+- `npm run bench:index`: an indexer benchmark on synthetic small/medium/large repositories or a real
+  folder. Results are in `docs/INDEXER_BENCHMARK.md`.
+
+### Changed
+- References resolve only to declarations in scope: a function's locals are visible inside that
+  function (the innermost declaration wins), and imports and matches by name from other files consider
+  only top-level declarations. Previously a local `value` in one function was also counted as a
+  reference to every other `value` in the file and in the repository; on RepoMind's own source this
+  removes ~78% of reference links, most of them wrong. Symbols show fewer references, and some
+  references become unresolved.
+- The Codebase workspace no longer has its own Search view; links to it open the Search workspace.
+- The index cache format is now version 3. Existing cached indexes are discarded once and rebuilt on
+  the next **Build Project Index**. Only the latest snapshot of each repository is kept.
+- Index progress is reported every 25 files instead of every file.
+
+### Fixed
+- Indexing was quadratic: linking every reference and import to its symbols scanned the whole
+  symbol list, so a 20-file repository took ~47 s and RepoMind's own source ~22 s (now 0.17 s). A
+  1,500-file, 240k-line repository indexes in ~4 s.
+- Indexing crashed on any file declaring a symbol named like an `Object.prototype` member (for
+  example a class `constructor` or a `toString` method).
+- Restoring a cached index took seconds even for small repositories, and snapshots were up to ~14×
+  larger than needed because every symbol stored full copies of its references.
+- The Codebase index status ran the label and date together ("✓ Fresh index9/28/2026").
+
 ## Unreleased — Fixes
 
 ### Fixed

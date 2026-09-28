@@ -53,7 +53,7 @@ The header groups follow one workflow: **Understand → Explore → Analyze**, w
 | Workspace | Purpose |
 |---|---|
 | **Explorer** | Browse and filter local project files (virtualised for large folders). |
-| **Search** | Search source text and jump to matching files/lines. |
+| **Search** | One search for symbols (from the code index), file paths and source text, with regex and match-case options. |
 | **Editor** | Edit supported text files with find/replace (optional match case) and save back to disk. Unsaved changes are protected. |
 
 ### Analyze
@@ -79,7 +79,9 @@ The **Engineering** utilities (sandboxed) are intentionally not in the header. T
 
 Codebase is the main RepoMind workspace. After **Build / Refresh Index**, its views are:
 
-**Overview · Search · Symbols · Dependencies · Impact · Health · Analyzers · Git · Diagram · Reports · Context Builder · AI**
+**Overview · Symbols · Dependencies · Impact · Health · Analyzers · Git · Diagram · Reports · Context Builder · AI**
+
+Searching lives in the **Search** workspace, which includes indexed symbols once the index is built.
 
 API discovery and the security scan run from **Analyzers**.
 
@@ -100,6 +102,8 @@ The local index captures:
 - Architecture relationships
 
 JavaScript, JSX, TypeScript and TSX use Babel AST parsing with conservative pattern fallback for malformed source.
+
+Indexing is incremental: rebuilding reuses the analysis of every file whose size and modification time are unchanged (from the index on screen, or the last cached index of the repository), so only changed files are read and parsed again. Cross-file links are always recomputed. Indexer performance is tracked with `npm run bench:index`; see [docs/INDEXER_BENCHMARK.md](docs/INDEXER_BENCHMARK.md).
 
 ### Symbols and references
 
@@ -134,7 +138,7 @@ The **Impact** workspace uses this information to help inspect the likely affect
 
 ### Search
 
-Codebase provides indexed/full-text search across the local project, including source text and intelligence metadata.
+The **Search** workspace is the one search for the project. It finds matching symbols (once the code index is built), file paths and source lines, with regex and match-case options, and opens a result in the match viewer or the Editor.
 
 ### Health and analyzers
 
@@ -291,9 +295,10 @@ RepoMind caches the index metadata in IndexedDB to make reopening a folder faste
 The cache:
 
 - is keyed by the project name plus every file's path, size and modification time, so any change invalidates it,
+- keeps the latest snapshot per repository name: when files change, the next build reuses the unchanged files' analysis from it, and the superseded snapshot is deleted,
 - stores analysis metadata rather than repository source,
 - excludes file handles,
-- serializes circular symbol/reference relationships into stable keys and rehydrates them on restore,
+- stores symbol/reference relationships as keys and positions and rehydrates them on restore,
 - can be cleared from the Codebase workspace.
 
 A fresh **Build / Refresh Index** remains available whenever you want to regenerate the analysis.
@@ -390,10 +395,11 @@ npm run dev          # http://localhost:5173
 | `npm test` | Vitest unit tests for the services and shared libraries |
 | `npm run test:e2e` | Build, then run Playwright against the production build |
 | `npm run check` | Format check, lint, unit tests and build |
+| `npm run bench:index` | Indexer benchmark on synthetic small/medium/large repositories (`-- --dir <folder>` for a real one) |
 
 ## Testing
 
-- **Unit tests (Vitest)** cover `.gitignore` matching, folder walking, the line diff, find/replace, Transform bundles, developer tools, the embedded-tool bridge, AI request shapes, the IndexedDB cache (via `fake-indexeddb`), the repository indexer, security redaction and the Git index parser (checked against indexes written by the `git` CLI).
+- **Unit tests (Vitest)** cover `.gitignore` matching, folder walking, the line diff, find/replace, Transform bundles, developer tools, the embedded-tool bridge, AI request shapes, the IndexedDB cache (via `fake-indexeddb`), the repository indexer and incremental reuse, unified search, security redaction and the Git index parser (checked against indexes written by the `git` CLI).
 - **End-to-end tests (Playwright)** run against the production bundle served under `/RepoMind/`, so base-path, code-splitting and CSP problems are caught. An in-browser File System Access fixture stands in for the folder picker.
 
 Run E2E locally:
@@ -404,7 +410,7 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-The E2E suite (53 tests) covers every workspace in the header (with heading assertions), the header grouping (including Engineering staying out of it), the Dashboard first-run workflow and its links into Codebase views, each Codebase view, Compare, Quick Analysis, Explorer, Search, Editor find/replace and the unsaved-changes guard, Ingest, Transform, Markdown + Mermaid rendering and sanitisation, Developer Tools opened by deep link, the sandboxed tools and their bridge, index caching, dark mode, AI settings validation and the unsupported-browser notice. Browser-side AI calls are never made during tests.
+The E2E suite (57 tests) covers every workspace in the header (with heading assertions), the header grouping (including Engineering staying out of it), the Dashboard first-run workflow and its links into Codebase views, each Codebase view, Compare, Quick Analysis, Explorer, Search, Editor find/replace and the unsaved-changes guard, Ingest, Transform, Markdown + Mermaid rendering and sanitisation, Developer Tools opened by deep link, the sandboxed tools and their bridge, index caching, dark mode, AI settings validation and the unsupported-browser notice. Browser-side AI calls are never made during tests.
 
 ## CI and deployment
 
