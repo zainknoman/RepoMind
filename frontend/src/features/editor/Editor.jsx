@@ -47,7 +47,7 @@ export function Editor({ sel, text, setText, dirty, save }) {
           <button onClick={() => ref.current?.focus()} disabled={!sel}>
             ✎ Focus editor
           </button>
-          <button onClick={() => cp(text)} disabled={!sel}>
+          <button onClick={() => cp(text, 'File contents copied to clipboard')} disabled={!sel}>
             📋 Copy
           </button>
           <button onClick={() => sel && dl(sel.name, text)} disabled={!sel}>

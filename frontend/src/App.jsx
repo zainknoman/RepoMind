@@ -5,6 +5,8 @@ import { searchProject } from './services/search';
 import { buildDashboardData } from './features/dashboard/dashboardData';
 import { Dashboard } from './features/dashboard/Dashboard';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { Toaster } from './components/Toaster';
+import { toast } from './lib/toast';
 import { TOOL_IDS } from './features/tools/runTool';
 import { NAV_GROUPS, PRIMARY_TAB, SECONDARY_GROUP } from './navigation';
 import { useCodebaseIndex } from './features/codebase/useCodebaseIndex';
@@ -187,8 +189,10 @@ function App() {
       setSel(x);
       setDirty(false);
       if (searchView?.file.path === sel.path) setSearchView({ ...searchView, file: x });
+      toast.success('Saved ' + sel.name);
     } catch (e) {
       setErr('Unable to save: ' + e.message);
+      toast.error('Unable to save: ' + e.message);
     }
   }
 
@@ -392,6 +396,7 @@ function App() {
         </Suspense>
       </main>
       <footer>© {new Date().getFullYear()} RepoMind · Zain Kamali</footer>
+      <Toaster />
     </>
   );
 }

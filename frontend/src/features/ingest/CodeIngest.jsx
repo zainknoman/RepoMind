@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { read } from '../../lib/files';
 import { cp, dl } from '../../lib/text';
+import { toast } from '../../lib/toast';
 
 export function CodeIngest({ p }) {
   const [summary, setSummary] = useState(''),
@@ -46,6 +47,9 @@ export function CodeIngest({ p }) {
       setSummary(s);
       setStructure(d);
       setContent(all.join('\n\n'));
+      toast.success(`Ingest generated · ${files.length} files`);
+    } catch (e) {
+      toast.error('Unable to generate ingest: ' + e.message);
     } finally {
       setBusy(false);
     }
@@ -97,14 +101,16 @@ export function CodeIngest({ p }) {
         <div className="ingest-section">
           <div className="ingest-toolbar">
             <h2>📋 Summary</h2>
-            <button onClick={() => cp(summary)}>📋 Copy</button>
+            <button onClick={() => cp(summary, 'Summary copied to clipboard')}>📋 Copy</button>
           </div>
           <textarea value={summary} readOnly placeholder="Generate to create summary" />
         </div>
         <div className="ingest-section">
           <div className="ingest-toolbar">
             <h2>🗂️ Directory Structure</h2>
-            <button onClick={() => cp(structure)}>📋 Copy</button>
+            <button onClick={() => cp(structure, 'Directory structure copied to clipboard')}>
+              📋 Copy
+            </button>
           </div>
           <textarea
             value={structure}
@@ -117,8 +123,12 @@ export function CodeIngest({ p }) {
         <div className="ingest-toolbar">
           <h2>📄 File Content</h2>
           <div>
-            <button onClick={() => cp(content)}>📋 Copy</button>
-            <button onClick={() => dl((p?.name || 'project') + '_gitingest.md', all)}>
+            <button onClick={() => cp(content, 'File content copied to clipboard')}>📋 Copy</button>
+            <button
+              onClick={() =>
+                dl((p?.name || 'project') + '_gitingest.md', content && all, 'text/markdown')
+              }
+            >
               ⬇ Download All
             </button>
           </div>

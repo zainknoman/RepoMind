@@ -11,15 +11,8 @@ import { IndexProgress, indexSourceLabel } from './IndexProgress';
 import { AnalyzersView } from './AnalyzersView';
 import { AIWorkspace, ContextBuilderView } from './AIViews';
 import { useAIContext } from './useAIContext';
-
-const cp = (v) => v && navigator.clipboard?.writeText(v);
-const dl = (n, t) => {
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([t], { type: 'text/plain' }));
-  a.download = n;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 500);
-};
+import { cp, dl } from '../../lib/text';
+import { toast } from '../../lib/toast';
 
 // The index itself (build, cache, cycles, health) is owned by App through useCodebaseIndex so the
 // Dashboard shares it. The active view and selected file are lifted too, so other workspaces can
@@ -136,11 +129,13 @@ export default function CodebasePanel({
       }),
     );
     setView('reports');
+    toast.success('Project report generated');
   }
   function generateModuleReport() {
     if (!index || !selectedFile) return;
     setReport(buildModuleReport(index, selectedFile));
     setView('reports');
+    toast.success('Module report generated for ' + selectedFile.split('/').pop());
   }
 
   async function runAnalyzerIds(ids) {
@@ -376,11 +371,13 @@ export default function CodebasePanel({
                 <button onClick={generateModuleReport} disabled={!selectedFile}>
                   ▶ Module Report
                 </button>
-                <button onClick={() => cp(report)} disabled={!report}>
+                <button onClick={() => cp(report, 'Report copied to clipboard')} disabled={!report}>
                   📋 Copy
                 </button>
                 <button
-                  onClick={() => dl((project.name || 'repository') + '-report.md', report)}
+                  onClick={() =>
+                    dl((project.name || 'repository') + '-report.md', report, 'text/markdown')
+                  }
                   disabled={!report}
                 >
                   ⬇ Download
@@ -471,7 +468,12 @@ export default function CodebasePanel({
               <div className="transform-toolbar">
                 <b>🏗️ Architecture Diagram</b>
                 <span className="muted">Mermaid.js renderer</span>
-                <button onClick={() => setDiagram(buildArchitectureMermaid(index, { limit: 150 }))}>
+                <button
+                  onClick={() => {
+                    setDiagram(buildArchitectureMermaid(index, { limit: 150 }));
+                    toast.success('Architecture diagram generated');
+                  }}
+                >
                   ▶ Generate
                 </button>
                 <button
@@ -484,7 +486,9 @@ export default function CodebasePanel({
                 >
                   ↻ Re-render
                 </button>
-                <button onClick={() => cp(diagram)}>📋 Copy</button>
+                <button onClick={() => cp(diagram, 'Mermaid source copied to clipboard')}>
+                  📋 Copy
+                </button>
                 <button
                   onClick={() => dl((project.name || 'repository') + '-architecture.mmd', diagram)}
                 >

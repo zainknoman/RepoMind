@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { read } from '../../lib/files';
 import { lineDiff } from '../../lib/diff';
 import { cp, dl } from '../../lib/text';
+import { toast } from '../../lib/toast';
 
 export function Diff({ p, diff, setDiff }) {
   const [a, setA] = useState(''),
@@ -11,10 +12,16 @@ export function Diff({ p, diff, setDiff }) {
   async function go() {
     let f = p?.files.find((x) => x.path === a),
       g = p?.files.find((x) => x.path === b);
-    if (!f || !g) return;
+    if (!f || !g) {
+      toast.info('Select both files to compare');
+      return;
+    }
     const A = (await read(f)).split(/\r?\n/),
       B = (await read(g)).split(/\r?\n/);
-    setDiff({ a, b, rows: lineDiff(A, B) });
+    const rows = lineDiff(A, B);
+    setDiff({ a, b, rows });
+    const n = rows.filter((r) => r.type !== 'same').length;
+    toast.success(n ? `Compared · ${n} difference${n === 1 ? '' : 's'}` : 'Files are identical');
   }
   const rows = (diff?.rows || [])
     .filter((r) => filter === 'all' || r.type === filter)
@@ -111,7 +118,9 @@ export function Diff({ p, diff, setDiff }) {
           <div className="analytics-panel">
             <div className="transform-toolbar">
               <b>Compact Diff</b>
-              <button onClick={() => cp(compact)}>📋 Copy</button>
+              <button onClick={() => cp(compact, 'Compact diff copied to clipboard')}>
+                📋 Copy
+              </button>
               <button onClick={() => dl('repomind-diff.txt', compact)}>⬇ Download</button>
             </div>
             <textarea value={compact} readOnly />

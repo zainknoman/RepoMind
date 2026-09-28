@@ -1,4 +1,5 @@
 import { runTool } from './runTool';
+import { toast } from '../../lib/toast';
 
 const DEFS = {
   text: ['🧹', 'Text Cleanup', 'Paste messy text → Run → remove extra spaces and blank lines.'],
@@ -78,7 +79,15 @@ export function Tools({ state, setState }) {
         <button onClick={() => set({ input: '', regex: '', regexText: '', output: '' })}>
           🧹 Clear
         </button>
-        <button className="primary" onClick={() => set({ output: runTool(tool, state) })}>
+        <button
+          className="primary"
+          onClick={() => {
+            const output = runTool(tool, state);
+            set({ output });
+            if (output.startsWith('Error: ')) toast.error(output.slice(7));
+            else toast.success(DEFS[tool][1] + ' done');
+          }}
+        >
           ▶ Run
         </button>
       </div>

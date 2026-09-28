@@ -1,4 +1,5 @@
 import { safeArchivePath } from './transform';
+import { toast } from './toast';
 
 /** Builds a ZIP from {name, content} items and downloads it. JSZip is loaded on demand. */
 export async function downloadZip(items, filename) {
@@ -11,4 +12,5 @@ export async function downloadZip(items, filename) {
   a.download = filename;
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  toast.success(`Downloaded ${filename} (${items.length} file${items.length === 1 ? '' : 's'})`);
 }

@@ -12,6 +12,7 @@ import {
   readSavedContexts,
   saveContextRecipe,
 } from '../../services/savedContexts';
+import { toast } from '../../lib/toast';
 
 const DEFAULT_TASK = 'Explain this code and identify risks, dependencies and suggested changes.';
 
@@ -64,7 +65,9 @@ export function useAIContext({ index, project, analyzerResults }) {
     try {
       return await fn();
     } catch (e) {
-      setError(e?.message || 'Unable to build context');
+      const message = e?.message || 'Unable to build context';
+      setError(message);
+      toast.error(message);
       return null;
     } finally {
       setBusy(false);
@@ -75,10 +78,11 @@ export function useAIContext({ index, project, analyzerResults }) {
     run(async () => {
       const next = await build([...selected]);
       setContext(next);
+      toast.success(`Context generated · ${next.files.length} files`);
       return next;
     });
 
-  const buildPrompt = () =>
+  const makePrompt = () =>
     run(async () => {
       const files =
         source === 'question'
@@ -94,14 +98,22 @@ export function useAIContext({ index, project, analyzerResults }) {
       return text;
     });
 
+  async function buildPrompt() {
+    const text = await makePrompt();
+    if (text) toast.success('Prompt built');
+    return text;
+  }
+
   async function ask() {
     setAiBusy(true);
     try {
-      const text = prompt || (await buildPrompt());
+      const text = prompt || (await makePrompt());
       if (!text) return;
       setAnswer(await askAI(aiSettings, promptMessages(text)));
+      toast.success('AI response received');
     } catch (e) {
       setAnswer('Error: ' + e.message);
+      toast.error('AI request failed: ' + e.message);
     } finally {
       setAiBusy(false);
     }
@@ -116,9 +128,9 @@ export function useAIContext({ index, project, analyzerResults }) {
   );
 
   function save(name) {
-    if (!context) return;
-    setSaved((list) =>
-      saveContextRecipe(list, {
+    if (!context) return false;
+    try {
+      const next = saveContextRecipe(saved, {
         name,
         repository: project?.name,
         task,
@@ -127,8 +139,14 @@ export function useAIContext({ index, project, analyzerResults }) {
         options,
         tokens: context.tokens,
         fileCount: context.files.length,
-      }),
-    );
+      });
+      setSaved(next);
+      toast.success(`Snapshot “${next[0].name}” saved`);
+      return true;
+    } catch (e) {
+      toast.error('Unable to save snapshot: ' + e.message);
+      return false;
+    }
   }
 
   const load = (item) =>
@@ -157,10 +175,14 @@ export function useAIContext({ index, project, analyzerResults }) {
             : '') +
           '.',
       );
+      toast.success(`Loaded “${item.name}”`);
       return next;
     });
 
-  const remove = (id) => setSaved((list) => deleteSavedContext(list, id));
+  function remove(id) {
+    setSaved((list) => deleteSavedContext(list, id));
+    toast.info('Saved context deleted');
+  }
 
   return {
     selected,

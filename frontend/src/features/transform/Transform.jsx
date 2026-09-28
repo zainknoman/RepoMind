@@ -3,6 +3,7 @@ import { read } from '../../lib/files';
 import { cp, dl } from '../../lib/text';
 import { combineFiles, splitCombined } from '../../lib/transform';
 import { downloadZip } from '../../lib/zip';
+import { toast } from '../../lib/toast';
 
 export function Transform({ p, state, setState, onError }) {
   const { compiled, split, parts } = state;
@@ -20,8 +21,10 @@ export function Transform({ p, state, setState, onError }) {
       const files = [];
       for (const f of chosen) files.push({ path: f.path, content: await read(f) });
       set({ compiled: combineFiles(files) });
+      toast.success(`Compiled ${files.length} file${files.length === 1 ? '' : 's'}`);
     } catch (e) {
       onError?.(e.message);
+      toast.error('Compile failed: ' + e.message);
     } finally {
       setBusy(false);
     }
@@ -31,6 +34,7 @@ export function Transform({ p, state, setState, onError }) {
       await downloadZip(items, 'recovered_files.zip');
     } catch (e) {
       onError?.('Unable to create ZIP: ' + e.message);
+      toast.error('Unable to create ZIP: ' + e.message);
     }
   }
   const filtered = parts.filter((x) => !find || x.name.toLowerCase().includes(find.toLowerCase()));
@@ -54,7 +58,10 @@ export function Transform({ p, state, setState, onError }) {
           <button onClick={build} disabled={!selected.length || busy}>
             {busy ? '⏳ Compiling…' : '⚙ Compile'}
           </button>
-          <button onClick={() => cp(compiled)} disabled={!compiled}>
+          <button
+            onClick={() => cp(compiled, 'Compiled output copied to clipboard')}
+            disabled={!compiled}
+          >
             📋 Copy
           </button>
           <button onClick={() => dl('compiled_output.txt', compiled)} disabled={!compiled}>
@@ -88,7 +95,16 @@ export function Transform({ p, state, setState, onError }) {
       <div className="transform-panel">
         <div className="transform-toolbar">
           <b>Reverse Split</b>
-          <button onClick={() => set({ parts: splitCombined(split) })} disabled={!split}>
+          <button
+            onClick={() => {
+              const next = splitCombined(split);
+              set({ parts: next });
+              if (next.length)
+                toast.success(`Split into ${next.length} file${next.length === 1 ? '' : 's'}`);
+              else toast.info('No files found in the bundle');
+            }}
+            disabled={!split}
+          >
             🔄 Split
           </button>
           <button onClick={() => zip(filtered)} disabled={!filtered.length}>
@@ -116,7 +132,11 @@ export function Transform({ p, state, setState, onError }) {
               <span>{x.content.length} chars</span>
             </div>
             <div>
-              <button onClick={() => cp(x.content)}>📋 Copy</button>
+              <button
+                onClick={() => cp(x.content, x.name.split('/').pop() + ' copied to clipboard')}
+              >
+                📋 Copy
+              </button>
               <button onClick={() => dl(x.name.split('/').pop(), x.content)}>⬇ Download</button>
             </div>
           </div>

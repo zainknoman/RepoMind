@@ -188,7 +188,9 @@ export function SearchFileView({ data, setSearchView, onEdit }) {
         </div>
         <div className="toolbar-actions">
           <button onClick={edit}>✏️ Editor</button>
-          <button onClick={() => cp(file.content)}>📋 Copy</button>
+          <button onClick={() => cp(file.content, file.name + ' copied to clipboard')}>
+            📋 Copy
+          </button>
           <button onClick={() => dl(file.name, file.content)}>⬇ Download</button>
           <button onClick={() => document.getElementById('viewer-find')?.focus()}>
             🔎 Find Text

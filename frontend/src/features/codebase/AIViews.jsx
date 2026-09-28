@@ -2,15 +2,9 @@ import { useMemo, useState } from 'react';
 import { AI_PROVIDERS, saveAISettings } from '../../services/ai';
 import { TOKEN_BUDGETS, exportablePrompt } from '../../services/aiContext';
 import { MAX_SAVED_CONTEXTS } from '../../services/savedContexts';
+import { cp, dl } from '../../lib/text';
+import { toast } from '../../lib/toast';
 
-const cp = (v) => v && navigator.clipboard?.writeText(v);
-const dl = (name, text) => {
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([text], { type: 'text/markdown' }));
-  a.download = name;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 500);
-};
 const tokens = (n) => '~' + (n || 0).toLocaleString() + ' tokens';
 
 function ContextOptions({ ai, analyzersRun }) {
@@ -132,11 +126,16 @@ export function ContextBuilderView({ ai, index, projectName, analyzersRun }) {
           <button onClick={ai.generateContext} disabled={!selected.size || ai.busy}>
             {ai.busy ? '⏳ Generating...' : '▶ Generate Context'}
           </button>
-          <button onClick={() => cp(context?.content)} disabled={!context}>
+          <button
+            onClick={() => cp(context?.content, 'Context copied to clipboard')}
+            disabled={!context}
+          >
             📋 Copy
           </button>
           <button
-            onClick={() => dl((projectName || 'repository') + '-context.md', context.content)}
+            onClick={() =>
+              dl((projectName || 'repository') + '-context.md', context.content, 'text/markdown')
+            }
             disabled={!context}
           >
             ⬇ Download
@@ -171,8 +170,7 @@ function SaveContext({ ai }) {
       />
       <button
         onClick={() => {
-          ai.save(name);
-          setName('');
+          if (ai.save(name)) setName('');
         }}
         disabled={!ai.context}
         title="Saves the file list and options, not the source"
@@ -274,8 +272,13 @@ function AISettings({ ai, onClose }) {
       <div className="tool-run-strip">
         <button
           onClick={() => {
-            setAiSettings(saveAISettings(aiSettings));
-            onClose();
+            try {
+              setAiSettings(saveAISettings(aiSettings));
+              toast.success('AI settings saved');
+              onClose();
+            } catch (e) {
+              toast.error('Unable to save AI settings: ' + e.message);
+            }
           }}
         >
           💾 Save Settings
@@ -338,12 +341,19 @@ export function AIWorkspace({ ai, projectName, analyzersRun, onOpenFile }) {
               {ai.aiBusy ? '⏳ Asking...' : '🤖 Ask AI'}
             </button>
             <button onClick={() => setShowSettings(!showSettings)}>⚙ AI Settings</button>
-            <button onClick={() => cp(exportablePrompt(prompt))} disabled={!prompt}>
+            <button
+              onClick={() => cp(exportablePrompt(prompt), 'Prompt copied to clipboard')}
+              disabled={!prompt}
+            >
               📋 Copy Prompt
             </button>
             <button
               onClick={() =>
-                dl((projectName || 'repository') + '-ai-prompt.md', exportablePrompt(prompt))
+                dl(
+                  (projectName || 'repository') + '-ai-prompt.md',
+                  exportablePrompt(prompt),
+                  'text/markdown',
+                )
               }
               disabled={!prompt}
             >

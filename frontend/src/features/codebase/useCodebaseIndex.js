@@ -9,6 +9,7 @@ import {
   clearCachedIndex,
 } from '../../services/indexCache';
 import { buildArchitectureHealth } from '../../services/health';
+import { toast } from '../../lib/toast';
 
 /**
  * Owns the codebase index for the opened project so the Dashboard and the Codebase workspace share
@@ -84,11 +85,18 @@ export function useCodebaseIndex(project) {
       freshIndexRef.current = true;
       setIndex(next);
       setSource('fresh');
+      toast.success(`Index built · ${next.files.length.toLocaleString()} files`);
       await saveCachedIndex(project, next);
     } catch (e) {
       if (generation !== generationRef.current) return;
-      if (e?.name === 'AbortError') setError('Indexing cancelled');
-      else setError(e?.message || 'Unable to index repository');
+      if (e?.name === 'AbortError') {
+        setError('Indexing cancelled');
+        toast.info('Indexing cancelled');
+      } else {
+        const message = e?.message || 'Unable to index repository';
+        setError(message);
+        toast.error(message);
+      }
     } finally {
       if (abortRef.current === controller) {
         abortRef.current = null;
@@ -102,9 +110,14 @@ export function useCodebaseIndex(project) {
 
   const clear = useCallback(async () => {
     if (!project) return;
-    await clearCachedIndex(project);
-    setIndex(null);
-    setSource('');
+    try {
+      await clearCachedIndex(project);
+      setIndex(null);
+      setSource('');
+      toast.success('Index cache cleared');
+    } catch (e) {
+      toast.error('Unable to clear cache: ' + e.message);
+    }
   }, [project]);
 
   const cycles = useMemo(() => detectCycles(index), [index]);
