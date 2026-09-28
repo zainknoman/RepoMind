@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { attachFileHandles, buildRepositoryIndex } from './repository';
 import { toWorkerProject } from './indexProject';
 import {
+  analyzerSummary,
   defineAnalyzer,
   definePatternAnalyzer,
   lineLocator,
@@ -150,7 +151,7 @@ describe('pattern analyzers', () => {
 });
 
 describe('built-in analyzers', () => {
-  it('finds routes across frameworks and lists only unresolved or ambiguous references', async () => {
+  it('finds routes across frameworks and lists references that are not certain', async () => {
     const index = await indexOf({
       'src/app.py': "@app.get('/orders')\ndef orders():\n    return []\n",
       'src/Admin.java':
@@ -158,19 +159,30 @@ describe('built-in analyzers', () => {
       'src/one.js': 'export function helper() {}\n',
       'src/two.js': 'export function helper() {}\n',
       'src/use.js': 'function used() {\n  return helper();\n}\n',
+      'src/solo.js': 'export function lonely() {}\n',
+      'src/call.js': 'lonely();\n',
     });
     const results = await runAnalyzers(index, ['routes', 'symbol-resolution']);
     expect(results.routes.findings.map((f) => [f.method, f.path, f.framework, f.line])).toEqual([
       ['GET', '/orders', 'FastAPI', 1],
       ['GET', '/admin', 'Spring', 3],
     ]);
+    // Name matches are guesses even with a single candidate: nothing imports the target.
     expect(results['symbol-resolution'].findings).toEqual([
       expect.objectContaining({
         title: 'helper',
-        status: 'ambiguous',
+        status: 'guessed',
         severity: 'low',
         file: 'src/use.js',
+        targets: 'src/one.js::helper, src/two.js::helper',
       }),
+      expect.objectContaining({ title: 'lonely', status: 'guessed', file: 'src/call.js' }),
     ]);
+    expect(analyzerSummary(index)).toMatchObject({
+      resolved: 0,
+      ambiguous: 0,
+      guessed: 2,
+      unresolved: 0,
+    });
   });
 });

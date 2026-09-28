@@ -18,6 +18,10 @@ export function AnalyzersView({ catalog, results, summary, busy, onRun, onOpenFi
           <b>{summary.ambiguous}</b>
           <span>Ambiguous refs</span>
         </article>
+        <article title="Linked to a same-name symbol that nothing imports">
+          <b>{summary.guessed ?? 0}</b>
+          <span>Guessed refs</span>
+        </article>
         <article>
           <b>{summary.unresolved}</b>
           <span>Unresolved refs</span>

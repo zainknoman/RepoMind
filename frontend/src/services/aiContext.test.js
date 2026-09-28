@@ -73,6 +73,15 @@ describe('question terms and ranking', () => {
 });
 
 describe('grounded context', () => {
+  it('lists analysis coverage gaps in the overview', async () => {
+    const index = await fixture({ 'app/models.py': 'def load():\n    pass\n' });
+    const context = await buildGroundedContext(index, { files: ['app/models.py'] });
+    expect(context.content).toContain('- Analysis coverage gaps:');
+    expect(context.content).toContain('Python: Symbols only');
+    const clean = await buildGroundedContext(await fixture(), { files: ['src/config.js'] });
+    expect(clean.content).not.toContain('Analysis coverage gaps');
+  });
+
   it('has an overview, a repository map, findings and numbered, redacted source', async () => {
     const index = await fixture();
     const findings = await runAnalyzers(index, ['security']);

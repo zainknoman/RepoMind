@@ -13,6 +13,21 @@ import { AIWorkspace, ContextBuilderView } from './AIViews';
 import { useAIContext } from './useAIContext';
 import { cp, dl } from '../../lib/text';
 import { toast } from '../../lib/toast';
+import { coverageFor } from '../../services/coverage';
+
+const IMPORT_LEVELS = { resolved: 'resolved by name', relative: 'relative paths', none: 'none' };
+
+const RESOLUTION_LABELS = {
+  import: 'Resolved through an import',
+  local: 'Resolved to a declaration in scope',
+  'name-match': 'Guessed: a top-level symbol with this name; nothing imports it',
+};
+
+const CONFIDENCE_ORDER = { high: 0, medium: 1, low: 2, none: 3 };
+const byConfidence = (refs) =>
+  [...refs].sort(
+    (a, b) => (CONFIDENCE_ORDER[a.confidence] ?? 0) - (CONFIDENCE_ORDER[b.confidence] ?? 0),
+  );
 
 // The index itself (build, cache, cycles, health) is owned by App through useCodebaseIndex so the
 // Dashboard shares it. The active view and selected file are lifted too, so other workspaces can
@@ -299,6 +314,24 @@ export default function CodebasePanel({
                   note={securityScanned ? undefined : 'Run the scan in Analyzers'}
                 />
               </div>
+              <div className="analytics-panel">
+                <h2>Analysis Coverage</h2>
+                <p className="muted">
+                  What the index extracted per language. Dependencies, Impact and AI context are
+                  only as complete as this.
+                </p>
+                {(index.coverage || []).map((c) => (
+                  <div className={'coverage-row' + (c.gap ? ' gap' : '')} key={c.language}>
+                    <b>{c.language}</b>
+                    <span>
+                      {c.files} files · imports {IMPORT_LEVELS[c.imports]} · references{' '}
+                      {c.references ? 'linked' : 'not extracted'}
+                    </span>
+                    <small>{c.note}</small>
+                  </div>
+                ))}
+                {!index.coverage?.length && <p className="muted">No source files indexed.</p>}
+              </div>
             </div>
           )}
           {view === 'symbols' && (
@@ -419,6 +452,9 @@ export default function CodebasePanel({
                     <option key={f.path}>{f.path}</option>
                   ))}
                 </select>
+                {selectedFile && coverageFor(index, selectedFile)?.gap && (
+                  <p className="coverage-note">{coverageFor(index, selectedFile).note}</p>
+                )}
                 {selectedFile && (
                   <>
                     <h3>Dependencies</h3>
@@ -681,11 +717,21 @@ function SymbolDetails({ details, onClose }) {
         </div>
         <div>
           <h3>References ({details.references.length})</h3>
-          {details.references.slice(0, 100).map((r, i) => (
-            <div className="mini-row" key={i}>
-              {r.from}:{r.line}:{r.column}
-            </div>
-          ))}
+          {byConfidence(details.references)
+            .slice(0, 100)
+            .map((r, i) => (
+              <div className="mini-row" key={i}>
+                {r.from}:{r.line}:{r.column}
+                {r.confidence && (
+                  <span
+                    className={'confidence conf-' + r.confidence}
+                    title={RESOLUTION_LABELS[r.resolution] || ''}
+                  >
+                    {r.confidence}
+                  </span>
+                )}
+              </div>
+            ))}
         </div>
       </div>
       <h3>Imported by ({details.importedBy.length})</h3>

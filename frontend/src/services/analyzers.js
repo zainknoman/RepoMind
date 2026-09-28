@@ -261,11 +261,19 @@ const frameworkStructure = definePatternAnalyzer({
   key: (f) => [f.file, f.line, f.framework, f.kind].join('|'),
 });
 
+// References from an index built before confidence existed fall back to their target count.
+const confidenceOf = (ref) =>
+  ref.confidence ||
+  (ref.resolvedSymbols?.length === 1 ? 'high' : ref.resolvedSymbols?.length ? 'medium' : 'none');
+
+const STATUS_BY_CONFIDENCE = { medium: 'ambiguous', low: 'guessed', none: 'unresolved' };
+
 const symbolResolution = defineAnalyzer({
   id: 'symbol-resolution',
   name: 'Symbol Resolution',
   category: 'Code Intelligence',
-  description: 'Lists ambiguous and unresolved references in the index.',
+  description:
+    'Lists references that are not certain: unresolved, guessed by name, or with several targets.',
   scope: 'index',
   columns: [
     ['status', 'Status'],
@@ -276,10 +284,10 @@ const symbolResolution = defineAnalyzer({
   ],
   run: ({ index }) =>
     (index?.references || [])
-      .filter((r) => (r.resolvedSymbols?.length || 0) !== 1)
+      .filter((r) => confidenceOf(r) !== 'high')
       .map((r) => ({
-        severity: r.resolvedSymbols?.length ? 'low' : 'medium',
-        status: r.resolvedSymbols?.length ? 'ambiguous' : 'unresolved',
+        severity: confidenceOf(r) === 'none' ? 'medium' : 'low',
+        status: STATUS_BY_CONFIDENCE[confidenceOf(r)],
         title: r.name,
         file: r.from,
         line: r.line,
@@ -485,8 +493,9 @@ export function analyzerSummary(index) {
   const refs = index?.references || [];
   return {
     analyzers: registry.size,
-    resolved: refs.filter((r) => (r.resolvedSymbols || []).length === 1).length,
-    ambiguous: refs.filter((r) => (r.resolvedSymbols || []).length > 1).length,
-    unresolved: refs.filter((r) => !(r.resolvedSymbols || []).length).length,
+    resolved: refs.filter((r) => confidenceOf(r) === 'high').length,
+    ambiguous: refs.filter((r) => confidenceOf(r) === 'medium').length,
+    guessed: refs.filter((r) => confidenceOf(r) === 'low').length,
+    unresolved: refs.filter((r) => confidenceOf(r) === 'none').length,
   };
 }

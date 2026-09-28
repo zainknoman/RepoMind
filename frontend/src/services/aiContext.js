@@ -3,6 +3,7 @@
 import { estimateTokens, findDependencies, findDependents } from './repository';
 import { fileCoupling } from './health';
 import { SEVERITIES, createSourceReader, looksSecret, redactSecret } from './analyzers';
+import { coverageGaps } from './coverage';
 
 export const TOKEN_BUDGETS = [8000, 16000, 32000, 64000, 128000];
 export const DEFAULT_BUDGET = 32000;
@@ -13,7 +14,8 @@ export const GROUNDING_RULES = `You are RepoMind, a senior software engineer ans
 2. Cite evidence as path:line or path:start-end, using the line numbers shown in the Source section (for example src/app.js:12).
 3. Separate observed facts (with citations) from assumptions and recommendations.
 4. Never invent files, symbols, APIs or line numbers. The repository map lists the files that exist.
-5. Values shown as •••• were redacted from the source; do not try to reconstruct them.`;
+5. Values shown as •••• were redacted from the source; do not try to reconstruct them.
+6. Dependency data is incomplete for languages listed under analysis coverage gaps: never conclude from it that nothing uses a file or symbol there.`;
 
 const STOPWORDS = new Set(
   (
@@ -111,6 +113,7 @@ function overviewSection(index, projectName) {
     .map(([name, count]) => `${name} (${count})`);
   const frameworks = (index.project?.frameworks || []).map((x) => x.name);
   const packages = (index.project?.packages || []).filter((x) => x.known).map((x) => x.package);
+  const gaps = coverageGaps(index);
   return [
     '# Repository: ' + (projectName || index.project?.name || 'repository'),
     '',
@@ -118,6 +121,9 @@ function overviewSection(index, projectName) {
     languages.length ? '- Languages: ' + languages.join(', ') : '',
     frameworks.length ? '- Frameworks: ' + frameworks.join(', ') : '',
     packages.length ? '- Key packages: ' + packages.join(', ') : '',
+    gaps.length
+      ? '- Analysis coverage gaps:\n' + gaps.map((g) => `  - ${g.language}: ${g.note}`).join('\n')
+      : '',
   ]
     .filter((x) => x !== '')
     .join('\n');
