@@ -153,7 +153,8 @@ The Codebase workspace can identify:
 
 - **File impact:** every file that imports the selected file, level by level, with the file it came through.
 - **Symbol impact:** choose a function, class, method or T24 routine to see every function, method, class, routine or module-level code that uses it, directly or indirectly. Each item has a confidence; a chain is only as strong as its weakest link.
-- **Blind spots** are always listed, so an empty result is never read as "safe": languages that are not analysed, unresolved references with the same name, calls through objects (`obj.method()`), dynamic `CALL @var` sites and guessed links.
+- **Method calls through objects** are followed: `this.save()` (also when `save` is inherited), `super.save()`, `ns.fn()`, `Store.create()`, and calls on variables created with `new` or annotated with a class type. A call on an object of unknown class is matched by method name at low confidence.
+- **Blind spots** are always listed, so an empty result is never read as "safe": languages that are not analysed, unresolved references with the same name, calls on objects of unknown class or through computed names (`obj[name]()`), dynamic `CALL @var` sites and guessed links.
 
 The Symbol inspector has **Show impact**.
 

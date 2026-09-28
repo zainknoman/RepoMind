@@ -2,6 +2,24 @@
 
 All notable changes to RepoMind are recorded here.
 
+## Unreleased — Member calls (Phase C1)
+
+### Added
+- **Calls through objects are linked.** `this.method()` (including methods inherited from a
+  superclass in another file), `super.method()`, `ns.fn()` on a namespace import,
+  `Class.staticMethod()`, and calls on variables whose class is known (`const s = new Store()`,
+  `repo: Repository`, an imported `export const api = new Api()`) now appear as references, in
+  Impact and in Change Impact, with high confidence. Calls through an object of unknown class are
+  matched by method name at low confidence; common built-in names (`get`, `map`, `then`, …),
+  package and global objects (`React.x`, `Math.max`) are not linked. `this.handler` passed as a
+  callback counts as a use.
+- The Symbol inspector shows the receiver (`this.`, `store.`) and how each link was made;
+  Symbol Resolution lists member guesses as `obj.name()`. `bench:index` reports member calls
+  linked and not traced.
+
+### Changed
+- The index cache version is 7; existing cached indexes are rebuilt once.
+
 ## Unreleased — Git change impact (Phase B3)
 
 ### Added

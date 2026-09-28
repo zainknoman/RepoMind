@@ -86,7 +86,7 @@ function blindSpots(index, root, affected) {
     spots.push({
       kind: 'member-calls',
       message:
-        'Calls through an object (obj.name()) are not tracked, so method usage is incomplete.',
+        'Calls through an object of unknown class (a parameter, obj.a.b()) are matched by method name at low confidence; calls using common built-in names (get, map, then…) and computed access (obj[name]()) are not tracked.',
     });
   const dynamic = (index.files || []).reduce((n, f) => n + (f.temenos?.dynamicCalls || 0), 0);
   if (dynamic && root?.path?.endsWith('.b'))

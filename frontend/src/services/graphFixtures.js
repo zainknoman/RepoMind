@@ -106,4 +106,44 @@ export const GRAPH_FIXTURES = [
     edges: ['card.js -> lib.js'],
     links: ['card.js:2 greet -> lib.js::greet'],
   },
+  {
+    // Calls through objects: this (inherited), namespace, static, `new` variables; built-in names
+    // and globals are not linked.
+    name: 'member-calls',
+    files: {
+      'base.js': lines('export class Base {', '  save() {}', '  static make() {}', '}'),
+      'ns.js': 'export function tool() {}',
+      'store.js': lines(
+        "import { Base } from './base';",
+        'export class Store extends Base {',
+        '  put() {',
+        '    this.save();',
+        '  }',
+        '}',
+      ),
+      'main.js': lines(
+        "import * as ns from './ns';",
+        "import { Base } from './base';",
+        "import { Store } from './store';",
+        'ns.tool();',
+        'Base.make();',
+        'const s = new Store();',
+        's.put();',
+        '[].map((x) => x);',
+        'Math.max(1, 2);',
+      ),
+    },
+    edges: ['store.js -> base.js', 'main.js -> ns.js', 'main.js -> base.js', 'main.js -> store.js'],
+    links: [
+      'store.js:2 Base -> base.js::Base',
+      'store.js:4 save -> base.js::Base.save',
+      'main.js:4 ns -> ns.js::tool',
+      'main.js:4 tool -> ns.js::tool',
+      'main.js:5 Base -> base.js::Base',
+      'main.js:5 make -> base.js::Base.make',
+      'main.js:6 Store -> store.js::Store',
+      'main.js:7 s -> main.js::s',
+      'main.js:7 put -> store.js::Store.put',
+    ],
+  },
 ];

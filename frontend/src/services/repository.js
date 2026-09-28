@@ -219,6 +219,37 @@ const SCOPE_NODES = new Set([
   'ObjectMethod',
 ]);
 
+/** `Foo` for a `: Foo` annotation, else null. */
+const annotatedClass = (node) => {
+  const type = node?.typeAnnotation?.typeAnnotation;
+  return type?.type === 'TSTypeReference' && type.typeName?.type === 'Identifier'
+    ? type.typeName.name
+    : null;
+};
+
+/** `Foo` for `new Foo(…)`, else null. */
+const constructedClass = (node) =>
+  node?.type === 'NewExpression' && node.callee.type === 'Identifier' ? node.callee.name : null;
+
+/**
+ * The class `this` means at a node: the class of the nearest enclosing method, or null when a
+ * non-arrow function (whose `this` is its own) comes first.
+ */
+function thisClass(ancestors) {
+  for (let i = ancestors.length - 1; i >= 0; i--) {
+    const node = ancestors[i];
+    if (node.type === 'ClassDeclaration' || node.type === 'ClassExpression')
+      return node.id?.name || null;
+    if (
+      node.type === 'FunctionDeclaration' ||
+      node.type === 'FunctionExpression' ||
+      node.type === 'ObjectMethod'
+    )
+      return null;
+  }
+  return null;
+}
+
 function parseJavaScript(content, file) {
   const ast = parse(content, {
     sourceType: 'unambiguous',
@@ -242,6 +273,12 @@ function parseJavaScript(content, file) {
     }
   };
   let ancestorsOfNode = [];
+  // Names whose class is known (`const x = new Foo()`, `x: Foo`), with the scope that declares them.
+  const typedBindings = [];
+  const addTyped = (name, type, scope) => {
+    if (name && type)
+      typedBindings.push({ name, type, scopeStart: scope.start, scopeEnd: scope.end });
+  };
 
   // A symbol declared inside a function records that function's source range as its scope;
   // top-level symbols have none and are visible in the whole file.
@@ -373,13 +410,20 @@ function parseJavaScript(content, file) {
 
     if (node.type === 'FunctionDeclaration' && node.id?.name)
       addSymbol(node.id.name, 'function', node);
-    if (node.type === 'ClassDeclaration' && node.id?.name) addSymbol(node.id.name, 'class', node);
+    if (node.type === 'ClassDeclaration' && node.id?.name)
+      addSymbol(node.id.name, 'class', node, {
+        ...(node.superClass?.type === 'Identifier' ? { superClass: node.superClass.name } : {}),
+      });
     if (node.type === 'TSInterfaceDeclaration' && node.id?.name)
       addSymbol(node.id.name, 'interface', node);
     if (node.type === 'TSTypeAliasDeclaration' && node.id?.name)
       addSymbol(node.id.name, 'type', node);
 
-    if (FUNCTION_NODES.has(node.type)) for (const param of node.params) addBindings(param, node);
+    if (FUNCTION_NODES.has(node.type))
+      for (const param of node.params) {
+        addBindings(param, node);
+        if (param.type === 'Identifier') addTyped(param.name, annotatedClass(param), node);
+      }
     if (node.type === 'CatchClause' && node.param) addBindings(node.param, node);
     if (node.type === 'TSTypeParameterDeclaration' && parent)
       for (const param of node.params) {
@@ -400,9 +444,15 @@ function parseJavaScript(content, file) {
       addBindings(node.id, scope);
     }
 
+    if (node.type === 'VariableDeclarator' && node.id?.type === 'Identifier') {
+      const scope = ancestors.findLast((x) => SCOPE_NODES.has(x.type)) || ast;
+      addTyped(node.id.name, annotatedClass(node.id) || constructedClass(node.init), scope);
+    }
+
     if (node.type === 'VariableDeclarator' && node.id) {
       const names = getBindingNames(node.id);
       const init = node.init;
+      const instanceOf = constructedClass(init);
       for (const name of names) {
         if (init?.type === 'ArrowFunctionExpression' || init?.type === 'FunctionExpression') {
           addSymbol(name, 'function', node, {
@@ -410,7 +460,7 @@ function parseJavaScript(content, file) {
           });
         } else if (node.id.type === 'Identifier' && dynamicModule(init) === null) {
           // `const x = require('./x')` binds an import, not a variable of this file.
-          addSymbol(name, 'variable', node);
+          addSymbol(name, 'variable', node, instanceOf ? { instanceOf } : {});
         }
       }
     }
@@ -439,8 +489,25 @@ function parseJavaScript(content, file) {
   });
 
   const symbolLines = new Set(symbols.map((s) => `${s.line}:${s.column}:${s.name}`));
+  const typedByName = groupBy(typedBindings, (b) => b.name);
+  const shadowsByName = groupBy(
+    [
+      ...localBindings,
+      ...symbols
+        .filter((s) => s.kind === 'variable')
+        .map((s) => ({ name: s.name, scopeStart: s.scopeStart ?? -1, scopeEnd: s.scopeEnd })),
+    ],
+    (b) => b.name,
+  );
+  // The class of `name` at `offset`, unless a binding without a known class shadows it.
+  const typeAt = (name, offset) => {
+    const typed = innermostScoped(typedByName.get(name), offset);
+    if (!typed) return null;
+    const shadow = innermostScoped(shadowsByName.get(name), offset);
+    return shadow && shadow.scopeStart > typed.scopeStart ? null : typed.type;
+  };
 
-  walk(ast, (node, parent) => {
+  walk(ast, (node, parent, ancestors) => {
     if (node.type !== 'Identifier') return;
     const line = lineOf(node);
     const column = columnOf(node);
@@ -450,6 +517,37 @@ function parseJavaScript(content, file) {
 
     const p = parent;
     if (!p) return;
+    if (
+      (p.type === 'MemberExpression' || p.type === 'OptionalMemberExpression') &&
+      p.property === node &&
+      !p.computed
+    ) {
+      // obj.name(): a member reference, resolved through the object's class. A non-call access is
+      // kept only for `this.name` (a method passed as a callback).
+      const outer = ancestors[ancestors.length - 2];
+      const call =
+        (outer?.type === 'CallExpression' || outer?.type === 'OptionalCallExpression') &&
+        outer.callee === p;
+      const object = p.object;
+      if (!call && object.type !== 'ThisExpression') return;
+      let receiver;
+      if (object.type === 'ThisExpression') receiver = { this: thisClass(ancestors) };
+      else if (object.type === 'Super') receiver = { super: thisClass(ancestors) };
+      else if (object.type === 'Identifier') {
+        const type = typeAt(object.name, node.start);
+        receiver = { object: object.name, ...(type ? { type } : {}) };
+      } else receiver = { other: true };
+      references.push({
+        name: node.name,
+        line,
+        column,
+        offset: node.start,
+        kind: 'member',
+        receiver,
+        call,
+      });
+      return;
+    }
     const isPropertyKey =
       (p.type === 'MemberExpression' && p.property === node && !p.computed) ||
       (p.type === 'OptionalMemberExpression' && p.property === node && !p.computed) ||
@@ -715,6 +813,25 @@ const JS_GLOBALS = new Set([
   'decodeURIComponent',
 ]);
 
+// Methods of built-in types (arrays, strings, maps, promises, the DOM, streams, loggers). A call
+// through an object of unknown class with one of these names is almost never a repository method,
+// so it is not guessed.
+const BUILTIN_METHODS = new Set(
+  (
+    'map filter forEach reduce reduceRight find findIndex findLast findLastIndex some every ' +
+    'includes indexOf lastIndexOf push pop shift unshift slice splice concat join sort reverse ' +
+    'flat flatMap fill keys values entries at get set has delete add clear then catch finally ' +
+    'toString valueOf toJSON split replace replaceAll trim trimStart trimEnd startsWith endsWith ' +
+    'toLowerCase toUpperCase match matchAll test exec padStart padEnd charAt charCodeAt ' +
+    'localeCompare normalize repeat substring substr apply call bind addEventListener ' +
+    'removeEventListener dispatchEvent querySelector querySelectorAll getElementById getAttribute ' +
+    'setAttribute removeAttribute appendChild removeChild append remove focus blur click ' +
+    'preventDefault stopPropagation text json blob arrayBuffer send emit on off once close open ' +
+    'write read log error warn info debug assign freeze stringify parse abort next resolve reject ' +
+    'all allSettled race any toFixed getTime toISOString render setState forceUpdate'
+  ).split(' '),
+);
+
 /**
  * How far a reference's link can be trusted. An import binding or an enclosing declaration names
  * its target (several targets: a namespace import or duplicate declarations); a match on a
@@ -754,6 +871,15 @@ function innermostBinding(bindings, offset) {
     if (offset >= b.scopeStart && offset <= b.scopeEnd && b.scopeStart > start)
       start = b.scopeStart;
   return start;
+}
+
+/** The binding with the innermost scope containing `offset`, or null. */
+function innermostScoped(bindings, offset) {
+  let best = null;
+  for (const b of bindings || [])
+    if (offset >= b.scopeStart && offset <= b.scopeEnd && (!best || b.scopeStart > best.scopeStart))
+      best = b;
+  return best;
 }
 
 function groupBy(items, keyFn) {
@@ -837,6 +963,8 @@ export async function buildRepositoryIndex(project, options = {}) {
       externalReferences: 0,
       localReferences: 0,
       globalReferences: 0,
+      memberReferences: 0,
+      untracedMemberCalls: 0,
       referenceConfidence: { high: 0, medium: 0, low: 0, none: 0 },
     },
   };
@@ -983,12 +1111,144 @@ export async function buildRepositoryIndex(project, options = {}) {
     if (!bindingByFileLocal.has(key)) bindingByFileLocal.set(key, binding);
   }
 
+  // Member calls: the receiver's class, then the method in it or its superclasses.
+  const isClass = (s) => s.kind === 'class';
+  const methodsByClass = groupBy(
+    index.symbols.filter((s) => s.kind === 'method' && s.parent),
+    (s) => `${s.path}::${s.parent}::${s.name}`,
+  );
+  const methodsByName = groupBy(
+    index.symbols.filter((s) => s.kind === 'method'),
+    (s) => s.name,
+  );
+  // Classes named `name` in `path`: imported, declared there, or (weak) guessed by name.
+  const resolveClass = (path, name) => {
+    const key = `${path}::${name}`;
+    const binding = bindingByFileLocal.get(key);
+    if (binding) {
+      const classes = binding.resolvedSymbols.filter(isClass);
+      return classes.length ? { classes, resolution: 'import' } : null;
+    }
+    if (externalLocals.has(key)) return null;
+    const local = (symbolsByPathName.get(key) || none).filter(isClass);
+    if (local.length) return { classes: local, resolution: 'local' };
+    const named = (topLevelByName.get(name) || none).filter(isClass);
+    return named.length ? { classes: named, resolution: 'name-match' } : null;
+  };
+  // `name` in the classes or, where a class does not define it, in its superclasses.
+  const methodsIn = (classes, name, depth = 0) => {
+    const result = { methods: [], weak: false };
+    for (const cls of classes) {
+      const own = methodsByClass.get(`${cls.path}::${cls.name}::${name}`);
+      if (own) result.methods.push(...own);
+      else if (cls.superClass && depth < 8) {
+        const parent = resolveClass(cls.path, cls.superClass);
+        if (!parent) continue;
+        const inherited = methodsIn(parent.classes, name, depth + 1);
+        result.methods.push(...inherited.methods);
+        result.weak ||= inherited.weak || parent.resolution === 'name-match';
+      }
+    }
+    return result;
+  };
+  // `name` in the classes of variables created with `new` (`const api = new Api()`).
+  const methodsOfInstances = (symbols, name) => {
+    const result = { methods: [], weak: false };
+    for (const symbol of symbols) {
+      const cls = symbol.instanceOf && resolveClass(symbol.path, symbol.instanceOf);
+      if (!cls) continue;
+      const inner = methodsIn(cls.classes, name);
+      result.methods.push(...inner.methods);
+      result.weak ||= inner.weak || cls.resolution === 'name-match';
+    }
+    return result;
+  };
+  const memberLink = (resolution, result, weak = false) =>
+    result.methods.length
+      ? { resolution, resolved: result.methods, weak: weak || result.weak }
+      : null;
+  // A member reference's link, `{ skip: true }` for package and global objects, or null (untraced).
+  const resolveMember = (path, ref, bindingsByName) => {
+    const receiver = ref.receiver || {};
+    if ('this' in receiver || 'super' in receiver) {
+      const name = receiver.this ?? receiver.super;
+      if (!name) return null;
+      let classes = (symbolsByPathName.get(`${path}::${name}`) || none).filter(isClass);
+      if ('super' in receiver)
+        classes = classes.flatMap(
+          (c) => (c.superClass && resolveClass(c.path, c.superClass)?.classes) || none,
+        );
+      return memberLink('this', methodsIn(classes, ref.name));
+    }
+    if (receiver.type) {
+      const cls = resolveClass(path, receiver.type);
+      return cls
+        ? memberLink(
+            'member-type',
+            methodsIn(cls.classes, ref.name),
+            cls.resolution === 'name-match',
+          )
+        : null;
+    }
+    // An untyped parameter or destructured name: its class is unknown.
+    const shadowed =
+      receiver.object && innermostBinding(bindingsByName?.get(receiver.object), ref.offset) >= 0;
+    if (receiver.object && !shadowed) {
+      const key = `${path}::${receiver.object}`;
+      const binding = bindingByFileLocal.get(key);
+      if (binding) {
+        if (binding.kind === 'namespace') {
+          const exported = resolveExported(binding.to, ref.name);
+          return exported.length ? { resolution: 'import', resolved: exported } : null;
+        }
+        const classes = binding.resolvedSymbols.filter(isClass);
+        if (classes.length) return memberLink('import', methodsIn(classes, ref.name));
+        return memberLink('member-type', methodsOfInstances(binding.resolvedSymbols, ref.name));
+      }
+      if (externalLocals.has(key)) return { skip: true };
+      const local = visibleAt(symbolsByPathName.get(key) || none, ref.offset);
+      const classes = local.filter(isClass);
+      if (classes.length) return memberLink('local', methodsIn(classes, ref.name));
+      const typed = memberLink('member-type', methodsOfInstances(local, ref.name));
+      if (typed) return typed;
+      if (!local.length && JS_GLOBALS.has(receiver.object)) return { skip: true };
+    }
+    if (!ref.call || BUILTIN_METHODS.has(ref.name)) return null;
+    const guessed = methodsByName.get(ref.name);
+    return guessed ? { resolution: 'member-guess', resolved: guessed, weak: true } : null;
+  };
+  const receiverText = (receiver = {}) =>
+    'this' in receiver ? 'this' : 'super' in receiver ? 'super' : receiver.object || '…';
+
   for (const file of index.files) {
     if (signal?.aborted) throw cancelled();
     const bindingsByName = file.localBindings?.length
       ? groupBy(file.localBindings, (b) => b.name)
       : null;
     for (const ref of file.references || []) {
+      if (ref.kind === 'member') {
+        const member = resolveMember(file.path, ref, bindingsByName);
+        // A package or global object is already counted through its own identifier.
+        if (!member) index.stats.untracedMemberCalls++;
+        else if (!member.skip) {
+          const resolved = unique(member.resolved, symbolKey);
+          const reference = {
+            from: file.path,
+            name: ref.name,
+            line: ref.line,
+            column: ref.column,
+            receiver: receiverText(ref.receiver),
+            resolvedSymbols: resolved,
+            resolution: member.resolution,
+            confidence: member.weak ? 'low' : referenceConfidence('import', resolved.length),
+          };
+          index.references.push(reference);
+          index.stats.memberReferences++;
+          index.stats.referenceConfidence[reference.confidence]++;
+          index.stats.resolvedReferences++;
+        }
+        continue;
+      }
       const local = `${file.path}::${ref.name}`;
       const bindingScope = innermostBinding(bindingsByName?.get(ref.name), ref.offset);
       if (bindingScope >= 0) {

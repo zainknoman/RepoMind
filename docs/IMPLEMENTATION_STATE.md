@@ -5,9 +5,10 @@ Update at the end of every phase.
 
 ## Current phase
 
-**Phases B1–B3 done and on `main` (pushed 2026-09-28).** Plans with per-task status and outcomes:
+**Phases B1–B3 and C1 done and on `main`.** Plans with per-task status and outcomes:
 `docs/superpowers/plans/2026-09-28-graph-trust.md` (B1), `…-transitive-impact.md` (B2),
-`…-git-change-impact.md` (B3). Remaining work: "Next recommended task" below. Plans live in `docs/superpowers/plans/`.
+`…-git-change-impact.md` (B3), `…-member-calls.md` (C1). Phases C2–C6 follow in that order.
+Plans live in `docs/superpowers/plans/`.
 
 ## Roadmap
 
@@ -24,6 +25,7 @@ Update at the end of every phase.
 | B1 | Graph trust: reference confidence, coverage, re-exports, accuracy fixtures | Done |
 | B2 | Local bindings, transitive impact with confidence and blind spots | Done |
 | B3 | Git change impact (diff → changed symbols → impact) | Done |
+| C1 | Member calls (`this.m()`, `obj.m()`) in references and impact | Done |
 
 ## Completed work (Phase 1)
 
@@ -222,6 +224,20 @@ Update at the end of every phase.
   real folder as File System Access handles.
 - Tests: 144 unit, 62 E2E.
 
+## Completed work (Phase C1 — member calls)
+
+- Parser: member references (`kind: 'member'`, receiver `this` / `super` / `object` (+ `type`) /
+  `other`, `call`) for calls through objects and `this.x`; class symbols carry `superClass`,
+  `new` variables `instanceOf`; typed bindings from `new Foo()` and `: Foo` respect shadowing.
+- Resolution (`buildRepositoryIndex`): receiver class via enclosing class, import binding, local
+  declaration or unique name; methods looked up through superclasses (8 levels). Resolutions
+  `this`, `member-type`, `member-guess` (low; built-in names skipped), plus `import`/`local` for
+  namespace and static calls. Unresolved member calls are counted (`stats.untracedMemberCalls`),
+  not recorded. Cache version 7. Link keys name methods `path::Class.method`.
+- Impact's `member-calls` blind spot describes what remains untraced. Symbol inspector shows the
+  receiver; Symbol Resolution shows `obj.name()`.
+- Tests: 149 unit (`memberCalls.test.js`, `member-calls` fixture), 62 E2E.
+
 ## Architectural decisions
 
 - **No router introduced.** Tab ids remain App state keys; renames change labels only, so `?tool=`
@@ -257,6 +273,9 @@ Update at the end of every phase.
   share it: the second evicts the first's snapshot, and reuse still requires matching path, size and
   time.
 - **Scopes are function-level**, not block-level; parameters are not symbols.
+- **Member calls are resolved from local evidence only** (enclosing class, `new`, type
+  annotations, imports); there is no type inference across calls or returns. An unknown receiver
+  is a low-confidence name guess, never a high-confidence link.
 - **Index state lives in App (hook), not a global store.** Only the Dashboard and Codebase need it;
   a context/store can come later if more consumers appear.
 - **Codebase panel stays keyed per project**, so per-view state (search, analyzers, AI) still resets on
@@ -299,8 +318,7 @@ Carried forward:
 
 ## Next recommended task
 
-Candidates, in order of value:
-1. Member calls (`obj.method()`, `this.method()`): the largest blind spot for method impact.
+Candidates, in order of value (C1, member calls, is done):
 2. AI investigation (roadmap Phase E): send change impact or symbol impact as grounded context.
 3. Import resolution driven by coverage: tsconfig `paths`, Python and Java imports.
 4. Move cache serialization into the index worker for very large repositories. tsconfig `paths`, Python and Java import resolution follow, driven by coverage.

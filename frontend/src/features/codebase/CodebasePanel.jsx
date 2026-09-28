@@ -22,6 +22,9 @@ const RESOLUTION_LABELS = {
   import: 'Resolved through an import',
   local: 'Resolved to a declaration in scope',
   'name-match': 'Guessed: a top-level symbol with this name; nothing imports it',
+  this: 'A method of the enclosing class or one of its superclasses',
+  'member-type': "A method of the object's class (from new or a type annotation)",
+  'member-guess': "Guessed: a method with this name; the object's class is unknown",
 };
 
 const CONFIDENCE_ORDER = { high: 0, medium: 1, low: 2, none: 3 };
@@ -599,6 +602,7 @@ function SymbolDetails({ details, onClose, onImpact }) {
             .map((r, i) => (
               <div className="mini-row" key={i}>
                 {r.from}:{r.line}:{r.column}
+                {r.receiver && <code> {r.receiver}.</code>}
                 {r.confidence && (
                   <span
                     className={'confidence conf-' + r.confidence}

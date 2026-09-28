@@ -243,6 +243,8 @@ async function benchmark(label, records) {
   row.lowRefs = confidence.low || 0;
   row.unresolvedRefs = confidence.none || 0;
   row.externalRefs = (index.stats.externalReferences || 0) + (index.stats.globalReferences || 0);
+  row.memberRefs = index.stats.memberReferences || 0;
+  row.untracedMembers = index.stats.untracedMemberCalls || 0;
 
   // Main thread: receiving the worker result (postMessage ≈ structuredClone) and attaching handles.
   const transfer = await time(() => structuredClone(index));
@@ -315,6 +317,8 @@ const COLUMNS = [
   ['lowRefs', '· references, low (name match)'],
   ['unresolvedRefs', '· references, unresolved'],
   ['externalRefs', '· package / global names (not linked)'],
+  ['memberRefs', '· member calls linked (obj.method())'],
+  ['untracedMembers', '· member calls not traced'],
   ['readMs', 'Read files (ms, main)'],
   ['buildMs', 'Index build (ms, worker)'],
   ['analyzeMs', '· analyze/parse'],

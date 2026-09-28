@@ -288,7 +288,7 @@ const symbolResolution = defineAnalyzer({
       .map((r) => ({
         severity: confidenceOf(r) === 'none' ? 'medium' : 'low',
         status: STATUS_BY_CONFIDENCE[confidenceOf(r)],
-        title: r.name,
+        title: r.receiver ? `${r.receiver}.${r.name}()` : r.name,
         file: r.from,
         line: r.line,
         targets: (r.resolvedSymbols || []).map((s) => s.path + '::' + s.name).join(', '),

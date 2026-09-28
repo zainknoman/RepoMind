@@ -1,7 +1,7 @@
 /**
  * Scores an index's dependency edges and reference links against hand-written expectations, so
  * changes to resolution can be measured instead of judged by eye. Keys are plain strings:
- * edges `"from -> to"`, links `"from:line name -> path::name"` (one per resolved symbol).
+ * edges `"from -> to"`, links `"from:line name -> path::name"` (`path::Class.name` for methods) (one per resolved symbol).
  */
 
 const ratio = (n, d) => (d ? n / d : 1);
@@ -27,7 +27,8 @@ export const edgeKeys = (index) =>
 export const linkKeys = (index) =>
   (index?.references || []).flatMap((ref) =>
     (ref.resolvedSymbols || []).map(
-      (symbol) => `${ref.from}:${ref.line} ${ref.name} -> ${symbol.path}::${symbol.name}`,
+      (symbol) =>
+        `${ref.from}:${ref.line} ${ref.name} -> ${symbol.path}::${symbol.parent ? symbol.parent + '.' : ''}${symbol.name}`,
     ),
   );
 

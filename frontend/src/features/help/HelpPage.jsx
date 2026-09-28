@@ -42,6 +42,7 @@ export function HelpPage() {
         'Dependency graph, cycles and architecture hotspots',
         'Health and analyzer workspaces',
         'Transitive impact: every file and symbol that could be affected, with confidence and blind spots',
+        'Method calls through objects (this.save(), store.put(), ns.fn()) are linked to the methods they call',
         'Context building',
         'Git change impact: what uncommitted work or a commit could affect, as a Markdown report',
         'Git and AI workspace integration',
