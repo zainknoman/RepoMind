@@ -122,6 +122,19 @@ RepoMind can show:
 - which file imports it,
 - and which files may be affected by a change.
 
+**Every reference has a confidence**, shown as a tag in the Symbol inspector:
+
+| Confidence | Meaning |
+|---|---|
+| high | Linked through an import, or to a declaration in scope |
+| medium | Several possible targets (a namespace import or duplicate declarations) |
+| low | Guessed: a top-level symbol with the same name that nothing imports |
+| none | Unresolved |
+
+Re-exports (`export * from`, `export { a } from`), default exports (including `export default name` and `module.exports = name`), `import()` and `require()` are followed. Names imported from packages, JS globals, parameters and destructured variables are never linked to unrelated repository symbols.
+
+**Analysis coverage** (Codebase › Overview) lists, per language, whether imports and references were extracted. JavaScript/TypeScript resolve relative imports; Temenos BASIC resolves `CALL`, `$INSERT` and `CALLJ` by name; other languages (Python, Java, C#, Go, …) currently have symbols only, so their dependencies and impact are empty, and RepoMind says so rather than showing an empty result as complete. Imports that look like path aliases (`@/…`) are counted.
+
 ### Dependencies and architecture
 
 The Codebase workspace can identify:
@@ -134,7 +147,15 @@ The Codebase workspace can identify:
 - external dependencies,
 - architecture relationships.
 
-The **Impact** workspace uses this information to help inspect the likely affected area around a file or symbol.
+### Impact
+
+**Codebase › Impact** answers "if I change this, what could be affected?":
+
+- **File impact:** every file that imports the selected file, level by level, with the file it came through.
+- **Symbol impact:** choose a function, class, method or T24 routine to see every function, method, class, routine or module-level code that uses it, directly or indirectly. Each item has a confidence; a chain is only as strong as its weakest link.
+- **Blind spots** are always listed, so an empty result is never read as "safe": languages that are not analysed, unresolved references with the same name, calls through objects (`obj.method()`), dynamic `CALL @var` sites and guessed links.
+
+The Symbol inspector has **Show impact**.
 
 ### Search
 
@@ -213,7 +234,7 @@ Mermaid is bundled with RepoMind and loaded on first use, so diagrams render wit
 
 ## Git intelligence
 
-RepoMind reads selected Git metadata locally without indexing or uploading Git object contents.
+RepoMind reads Git data locally from the repository's `.git` folder. Nothing is uploaded, and Git contents are never added to the code index.
 
 Available signals include:
 
@@ -223,7 +244,20 @@ Available signals include:
 - working-tree file signals,
 - recent reflog activity.
 
-Git status is intentionally conservative because browser File System Access does not expose the native `git status` command. Filesystem timestamps are used as probable-modified signals.
+The Modified / Untracked / Deleted counts are timestamp-based signals, because the browser cannot run `git status`.
+
+### Change impact
+
+**Codebase › Git › Impact of uncommitted changes**, or **Impact** next to a commit in Recent Git Activity, shows what a change could affect:
+
+- the changed files, and the functions, methods, classes and routines they modify, add or remove;
+- everything that could be affected through them, with confidence and the changed symbols that reach each item;
+- references broken by removed exports or deleted files;
+- blind spots: binary, large (over 1 MB) and non-code files that are not traced.
+
+**Copy report** / **Download** export it as Markdown for a pull request or review.
+
+To do this, RepoMind reads commits, trees and file contents from `.git` itself (loose objects and packfiles, including deltas). Uncommitted changes are compared with HEAD exactly (by content, tolerant of CRLF line endings). A past commit is compared with its parent, and its changed symbols are traced through the current index.
 
 ## AI
 
@@ -338,6 +372,7 @@ For the normal local workflow:
 - The embedded Temenos/OFS and Engineering tools run in an **opaque-origin sandbox**. They cannot read RepoMind's storage (including the AI key) or navigate the app, and they have no network access. They exchange two allow-listed settings with RepoMind through a `postMessage` bridge.
 - Security-scan findings mask the matched secret value, so reports never repeat a credential.
 - The only outbound requests are AI provider calls that you explicitly trigger.
+- Git data (including file contents at earlier commits, for change impact) is read from `.git` on your device and never uploaded.
 
 ## Current feature map
 
@@ -356,7 +391,9 @@ For the normal local workflow:
 - [x] AST codebase indexing
 - [x] Symbol definitions and references
 - [x] Dependency and architecture analysis
-- [x] Impact analysis
+- [x] Impact analysis (transitive, with confidence and blind spots)
+- [x] Reference confidence and analysis coverage
+- [x] Git change impact (uncommitted work or any commit) with Markdown report
 - [x] API discovery
 - [x] Security heuristics
 - [x] Framework analyzers
@@ -392,10 +429,16 @@ frontend/
         ├── repository.js     # AST indexing (Babel), references, dependencies
         ├── indexClient.js    # runs indexing in a Web Worker (indexWorker.worker.js)
         ├── analyzers.js      # analyzer contract, registry, runner and built-in analyzers
+        ├── coverage.js       # per-language analysis coverage
+        ├── impact.js         # transitive file and symbol impact, blind spots
+        ├── changeImpact.js   # changed symbols → merged impact, broken references, report
+        ├── gitObjects.js     # reads commits, trees and blobs from .git (loose and packed)
+        ├── gitChanges.js     # changed files: working tree vs HEAD, commit vs parent
+        ├── graphAccuracy.js  # scores the graph against graphFixtures.js
         ├── aiContext.js      # grounded AI context, file ranking, citation check
         ├── savedContexts.js  # saved context recipes (no source)
         ├── search.js  frameworks.js  health.js  documentation.js  diagram.js
-        ├── git.js            # .git metadata and index (v2–v4) reader
+        ├── git.js            # .git metadata, reflog and index (v2–v4) reader
         ├── indexCache.js     # IndexedDB cache
         └── ai.js             # provider adapters
 ```
@@ -425,7 +468,7 @@ npm run dev          # http://localhost:5173
 
 ## Testing
 
-- **Unit tests (Vitest)** cover `.gitignore` matching, folder walking, the line diff, find/replace, Transform bundles, developer tools, the embedded-tool bridge, AI request shapes, the IndexedDB cache (via `fake-indexeddb`), the repository indexer and incremental reuse, unified search, security redaction and the Git index parser (checked against indexes written by the `git` CLI).
+- **Unit tests (Vitest)** cover `.gitignore` matching, folder walking, the line diff, find/replace, Transform bundles, developer tools, the embedded-tool bridge, AI request shapes, the IndexedDB cache (via `fake-indexeddb`), the repository indexer and incremental reuse, unified search, security redaction, the Git index parser (checked against indexes written by the `git` CLI), the Git object reader and change detection (checked against `git cat-file`, `git status` and `git diff` on repositories built with the `git` CLI), graph accuracy fixtures (exact expected dependency edges and reference links), transitive impact and change impact.
 - **End-to-end tests (Playwright)** run against the production bundle served under `/RepoMind/`, so base-path, code-splitting and CSP problems are caught. An in-browser File System Access fixture stands in for the folder picker.
 
 Run E2E locally:

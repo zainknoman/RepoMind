@@ -74,3 +74,27 @@ strong as its weakest link. (4) Impact view shows direct + transitive results an
 ### Task 4: Docs
 
 - CHANGELOG, IMPLEMENTATION_STATE (B2 done, B3 next), Help (Impact), benchmark note.
+
+---
+
+## Outcome
+
+**Status: complete** — merged to `main` and pushed on 2026-09-28 (commits `188a4e8`…`b61e2fb`).
+
+| Task | Status | Commit |
+|---|---|---|
+| 1. Local bindings and symbol end lines | Done | `188a4e8` |
+| 2. `services/impact.js` | Done | `1ab970f` |
+| 3. Impact view | Done | `1a3ab67` |
+| 4. Docs | Done | `b61e2fb` |
+
+Differences from the plan:
+
+- **Bug found and fixed (not planned):** identifiers on any line containing `export` or `import`
+  were skipped, so one-line exported functions had no references. Found by the new Impact E2E test;
+  export names are now skipped by syntax. Fixture `one-line-export` pins it.
+- The Impact view is its own component (`features/codebase/ImpactView.jsx`).
+- Local bindings are not symbols (as planned), so the Symbols view and counts are unchanged.
+
+Results on RepoMind `src`: unresolved references 4,466 → 42; guessed (name-match) links 218 → 0.
+Tests: 124 unit, 61 E2E.

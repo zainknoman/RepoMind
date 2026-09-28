@@ -5,8 +5,9 @@ Update at the end of every phase.
 
 ## Current phase
 
-**Phase B3 done on `feature/git-change-impact` (not merged).** Phases 1–6 (first Temenos slice),
-B1 and B2 are on `main` (local; not pushed). Plans live in `docs/superpowers/plans/`.
+**Phases B1–B3 done and on `main` (pushed 2026-09-28).** Plans with per-task status and outcomes:
+`docs/superpowers/plans/2026-09-28-graph-trust.md` (B1), `…-transitive-impact.md` (B2),
+`…-git-change-impact.md` (B3). Remaining work: "Next recommended task" below. Plans live in `docs/superpowers/plans/`.
 
 ## Roadmap
 

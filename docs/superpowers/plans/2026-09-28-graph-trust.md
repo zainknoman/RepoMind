@@ -59,10 +59,10 @@ pattern-parsed languages have no imports/references; impact is one hop; accuracy
 missing: string[], extra: string[] }`; `indexFixture(files)` (test helper in the fixtures module)
   → index built with `toWorkerProject`.
 
-- [ ] **Step 1:** Write tests for `scoreGraph` on a hand-built index (perfect, missing, extra) and
+- [x] **Step 1:** Write tests for `scoreGraph` on a hand-built index (perfect, missing, extra) and
       one baseline fixture (`relative-named-import`) that the current indexer already gets right.
-- [ ] **Step 2:** Run `npx vitest run src/services/graphAccuracy.test.js` → FAIL (module missing).
-- [ ] **Step 3:** Implement:
+- [x] **Step 2:** Run `npx vitest run src/services/graphAccuracy.test.js` → FAIL (module missing).
+- [x] **Step 3:** Implement:
 
 ```js
 const pct = (n, d) => (d ? n / d : 1);
@@ -96,8 +96,8 @@ export function scoreGraph(index, expected) {
 }
 ```
 
-- [ ] **Step 4:** Run the test → PASS. Run full `npx vitest run` → all pass.
-- [ ] **Step 5:** Commit `Add graph accuracy harness and fixtures`.
+- [x] **Step 4:** Run the test → PASS. Run full `npx vitest run` → all pass.
+- [x] **Step 5:** Commit `Add graph accuracy harness and fixtures`.
 
 ### Task 2: Reference provenance and confidence
 
@@ -121,16 +121,16 @@ file) is `external` and never falls through to name matching. Identifiers that a
 `Math`, `Object`, `Array`, `Promise`, `Error`, `undefined`, …) are `global`. External and global
 references are not added to `index.references`.
 
-- [ ] **Step 1:** Add fixtures `name-collision` (two files define top-level `init`; a third calls it
+- [x] **Step 1:** Add fixtures `name-collision` (two files define top-level `init`; a third calls it
       without importing → two low-confidence links) and `external-shadow` (`import { useState } from
 'react'` in a repo that also defines `useState` → no link). Add a test that references carry
       `resolution`/`confidence` and that `console` is not counted unresolved.
-- [ ] **Step 2:** Run → FAIL (`external-shadow` has an extra link; fields undefined).
-- [ ] **Step 3:** Implement in the linking loop: build `externalLocals` (file::local of bindings of
+- [x] **Step 2:** Run → FAIL (`external-shadow` has an extra link; fields undefined).
+- [x] **Step 3:** Implement in the linking loop: build `externalLocals` (file::local of bindings of
       non-internal imports), classify, set fields, update stats.
-- [ ] **Step 4:** Run full suite → PASS (update any existing assertion on `unresolvedReferences`
+- [x] **Step 4:** Run full suite → PASS (update any existing assertion on `unresolvedReferences`
       that changes because globals are no longer counted, noting why).
-- [ ] **Step 5:** Commit `Tag references with resolution and confidence`.
+- [x] **Step 5:** Commit `Tag references with resolution and confidence`.
 
 ### Task 3: Re-exports, default exports, dynamic imports and `require()`
 
@@ -150,15 +150,15 @@ references are not added to `index.references`.
   then `export * from` sources, then the file's own top-level symbol; `default` matches only
   `kind: 'default'` exports. Cycles stop via `seen`.
 
-- [ ] **Step 1:** Fixtures: `barrel` (`lib/index.js` with `export * from './math'` and
+- [x] **Step 1:** Fixtures: `barrel` (`lib/index.js` with `export * from './math'` and
       `export { fmt as format } from './fmt'`; `app.js` imports `{ add, format }` from `./lib`),
       `default-export` (default import links only to the default, including `export default main;`),
       `commonjs-dynamic` (`const util = require('./util')`, `const { a } = require('./a')`,
       `import('./lazy')`), `reexport-cycle` (two barrels re-exporting each other terminate).
-- [ ] **Step 2:** Run → FAIL (missing edges/links).
-- [ ] **Step 3:** Implement parse changes and `resolveExported`; bump cache version.
-- [ ] **Step 4:** Run full suite → PASS.
-- [ ] **Step 5:** Commit `Link re-exports, default exports, dynamic imports and require()`.
+- [x] **Step 2:** Run → FAIL (missing edges/links).
+- [x] **Step 3:** Implement parse changes and `resolveExported`; bump cache version.
+- [x] **Step 4:** Run full suite → PASS.
+- [x] **Step 5:** Commit `Link re-exports, default exports, dynamic imports and require()`.
 
 ### Task 4: Analysis coverage
 
@@ -183,10 +183,10 @@ everything else → `none`, `references: false`, note "Symbols only: imports and
 extracted, so Dependencies and Impact are empty for <language> files." Markdown/JSON/CSS/etc.
 (non-code) are omitted.
 
-- [ ] **Step 1:** Tests: a Python + Java repo reports two gaps with notes; a JS repo importing
+- [x] **Step 1:** Tests: a Python + Java repo reports two gaps with notes; a JS repo importing
       `@/lib/x` reports `aliasLikeImports: 1`; a JS-only relative repo reports no gaps.
-- [ ] **Step 2:** Run → FAIL. **Step 3:** Implement. **Step 4:** Full suite → PASS.
-- [ ] **Step 5:** Commit `Report per-language analysis coverage`.
+- [x] **Step 2:** Run → FAIL. **Step 3:** Implement. **Step 4:** Full suite → PASS.
+- [x] **Step 5:** Commit `Report per-language analysis coverage`.
 
 ### Task 5: Show confidence and coverage
 
@@ -201,24 +201,43 @@ extracted, so Dependencies and Impact are empty for <language> files." Markdown/
 - Modify: `frontend/src/styles.css` (confidence tag)
 - Test: `analyzers.test.js`, `aiContext.test.js`, `tests/e2e/repomind.spec.js`
 
-- [ ] **Step 1:** Unit tests: `symbol-resolution` returns a `guessed` finding for a name-match
+- [x] **Step 1:** Unit tests: `symbol-resolution` returns a `guessed` finding for a name-match
       reference; `buildGroundedContext` overview contains "Analysis coverage" for a Python repo.
-- [ ] **Step 2:** Run → FAIL. **Step 3:** Implement services, then UI: references sorted by
+- [x] **Step 2:** Run → FAIL. **Step 3:** Implement services, then UI: references sorted by
       confidence with a `conf-high|medium|low` tag and a `title` explaining the resolution; Overview
       "Analysis coverage" panel listing `index.coverage` with gap notes; Impact shows the note from
       `coverageFor` above an empty dependency list.
-- [ ] **Step 4:** `npm run check` and `npm run test:e2e` → PASS (adjust E2E only where labels
+- [x] **Step 4:** `npm run check` and `npm run test:e2e` → PASS (adjust E2E only where labels
       changed).
-- [ ] **Step 5:** Commit `Show reference confidence and analysis coverage`.
+- [x] **Step 5:** Commit `Show reference confidence and analysis coverage`.
 
 ### Task 6: Documentation
 
 **Files:** `docs/IMPLEMENTATION_STATE.md`, `README.md`, `CHANGELOG.md`, `docs/ANALYZERS.md`,
 `frontend/src/features/help/HelpPage.jsx`
 
-- [ ] Fix the stale Phase 6 status (it is on `main`), add Phase B1 and the B2 roadmap (transitive
+- [x] Fix the stale Phase 6 status (it is on `main`), add Phase B1 and the B2 roadmap (transitive
       impact with confidence propagation and coverage boundaries → Git change impact → tsconfig paths /
       Python / Java import resolution).
-- [ ] Replace hard-coded test counts in the README with the commands that report them.
-- [ ] CHANGELOG entry; Help text for confidence and coverage.
-- [ ] `npm run check` → PASS. Commit `Document graph trust phase`.
+- [x] Replace hard-coded test counts in the README with the commands that report them.
+- [x] CHANGELOG entry; Help text for confidence and coverage.
+- [x] `npm run check` → PASS. Commit `Document graph trust phase`.
+
+---
+
+## Outcome
+
+**Status: complete** — merged to `main` and pushed on 2026-09-28 (commits `6c723f1`…`6b55b6e`).
+
+Delivered as planned, Tasks 1–6. Differences from the plan:
+
+- `npm run bench:index` also reports references by confidence (not in the plan), so accuracy work
+  can be measured on real repositories.
+- The benchmark on RepoMind's own source showed 4,466 unresolved references, mostly parameters and
+  destructured variables, which are not symbols. That fix moved to Phase B2
+  (`2026-09-28-transitive-impact.md`), where unresolved fell to 42.
+- A Prettier run reformatted unrelated Markdown files; that commit was redone with content-only
+  edits.
+
+Results on RepoMind `src`: 3,821 high / 174 medium / 218 low / 4,466 unresolved references before
+B2. Tests: 111 unit, 61 E2E.

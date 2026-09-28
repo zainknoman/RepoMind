@@ -69,3 +69,33 @@ Vitest with the git CLI building real repositories.
   references, blind spots, Copy / Download report. E2E: fixture without `.git` shows the
   "no Git repository" state; unit tests cover the logic.
 - CHANGELOG, IMPLEMENTATION_STATE, Help.
+
+---
+
+## Outcome
+
+**Status: complete** — merged to `main` and pushed on 2026-09-28 (commits `a0a2683`…`06e6a8b`).
+
+| Task | Status | Commit |
+|---|---|---|
+| 1. Git object store | Done | `a0a2683` |
+| 2. Changed files | Done | `12059bb`, fixes `bbf32d5`, `fc1de82` |
+| 3. `services/changeImpact.js` | Done | `4945b31` |
+| 4. UI and docs | Done | `316a73b`, `06e6a8b` |
+
+Differences from the plan:
+
+- **Racy fast path (fixed):** an index entry vouched for a file rewritten in the same second with
+  the same size. Git's rule now applies: only entries older than the index file are trusted.
+- **Test timeouts:** git-CLI-backed tests exceeded Vitest's 5 s default under a parallel run; they
+  now have 60 s. One commit (`12059bb`) landed while that test was failing; the next commit fixed it.
+- **Off-by-one (fixed before commit):** `lineDiff` line numbers are already 1-based.
+- Changed symbols are not repeated as affected items; added and deleted files count their lines;
+  an unborn branch (HEAD naming a missing ref) is treated as no commit. All found by running the
+  pipeline on RepoMind's own uncommitted work.
+- `GitView` moved out of `CodebasePanel.jsx` into `features/codebase/GitView.jsx`.
+- The E2E fixture has no real Git objects, so E2E covers the uncommitted-changes path; commit
+  reading is covered by unit tests against real repositories.
+
+Verification: every object matches `git cat-file` (loose and after `git gc --aggressive`, delta
+chains asserted); changed files match `git status` / `git diff` on RepoMind. Tests: 144 unit, 62 E2E.
