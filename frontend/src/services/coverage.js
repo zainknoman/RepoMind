@@ -6,7 +6,7 @@
  * bare specifiers treated as packages), 'none' (not extracted).
  */
 
-const CODE_LANGUAGES = new Set([
+export const CODE_LANGUAGES = new Set([
   'JavaScript',
   'JavaScript JSX',
   'TypeScript',
