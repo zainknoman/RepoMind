@@ -533,6 +533,7 @@ section > input {
 }
 .tool-grid textarea,
 .panel textarea,
+.analytics-panel textarea,
 section > textarea {
   width: 100%;
   min-height: 230px;

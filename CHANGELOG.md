@@ -2,6 +2,14 @@
 
 All notable changes to RepoMind are recorded here.
 
+## Unreleased — Fixes
+
+### Fixed
+- After a new deploy, a page opened earlier showed "Failed to fetch dynamically imported module" in
+  the Diagram tab (and could fail to open a workspace). RepoMind now says it was updated and offers a
+  page reload.
+- The Reports, Diagram and AI text areas in Codebase were narrow; they now use the full panel width.
+
 ## Unreleased — Dashboard and first-run workflow (Phase 2)
 
 ### Added

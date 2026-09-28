@@ -77,3 +77,17 @@ describe('text helpers', () => {
     expect(escapeHtml('<a href="x">\'&')).toBe('&lt;a href=&quot;x&quot;&gt;&#39;&amp;');
   });
 });
+
+describe('stale build detection', () => {
+  it('recognises chunk-load failures from each browser engine', async () => {
+    const { isStaleBuildError } = await import('./staleBuild');
+    for (const message of [
+      'Failed to fetch dynamically imported module: https://x/assets/mermaid.core-M6ZU3JGB.js',
+      'error loading dynamically imported module: https://x/assets/a.js',
+      'Importing a module script failed.',
+    ])
+      expect(isStaleBuildError(new TypeError(message))).toBe(true);
+    expect(isStaleBuildError(new Error('Parse error on line 2'))).toBe(false);
+    expect(isStaleBuildError(undefined)).toBe(false);
+  });
+});

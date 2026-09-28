@@ -328,6 +328,31 @@ test.describe('RepoMind Codebase Intelligence end-to-end', () => {
     await expect(page.locator('textarea.diagram-output')).toHaveValue(/graph TD/);
   });
 
+  test('Diagram explains a missing Mermaid chunk after a redeploy', async ({ page }) => {
+    // Simulates a page from a previous deploy whose hashed chunk no longer exists.
+    await page.route(/mermaid.core-[^/]*.js$/, (route) => route.fulfill({ status: 404 }));
+    await page.getByRole('button', { name: 'Diagram', exact: true }).click();
+    await expect(page.locator('.codebase-intelligence .error')).toContainText(
+      'RepoMind was updated after this page was opened',
+    );
+  });
+
+  test('Codebase text outputs use the full panel width', async ({ page }) => {
+    for (const [tab, selector] of [
+      ['Reports', 'textarea.report-output'],
+      ['Diagram', 'textarea.diagram-output'],
+      ['AI', 'textarea.ai-output'],
+    ]) {
+      await page.getByRole('button', { name: tab, exact: true }).click();
+      const area = page.locator(selector);
+      const [box, panel] = await Promise.all([
+        area.boundingBox(),
+        area.locator('xpath=..').boundingBox(),
+      ]);
+      expect(box.width, tab).toBeGreaterThan(panel.width * 0.9);
+    }
+  });
+
   test('Git child tab reads local Git metadata', async ({ page }) => {
     await page.getByRole('button', { name: 'Git', exact: true }).click();
     await expect(page.locator('.tabs button.active')).toHaveText('Git');

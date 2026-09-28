@@ -5,8 +5,8 @@ Update at the end of every phase.
 
 ## Current phase
 
-**Phase 2 — Dashboard + first-run UX: complete** (branch `feature/product-consolidation`, from `main-v2` @ `dbab59d`;
-Phases 1 and 2 are uncommitted in the same working tree).
+**Phase 2 — Dashboard + first-run UX: complete.** Phase 1 (`6aea954`) and Phase 2 (`287e5b9`) are on
+`main`, each with a green CI run and Pages deploy.
 Next: Phase 3a — indexer benchmark.
 
 ## Roadmap
@@ -52,6 +52,14 @@ Next: Phase 3a — indexer benchmark.
 - `npm run check` (Prettier, ESLint, 52 unit tests, production build): passing.
 - Playwright E2E against the production build: 53/53 passing.
 
+## Post-Phase 2 fixes
+
+- Stale-deploy chunk failures (e.g. Mermaid after a redeploy) show a "RepoMind was updated — reload"
+  message; `lib/staleBuild.js` detects the Chrome/Firefox/Safari wording, used by `diagram.js` and
+  `ErrorBoundary`.
+- `.analytics-panel` text areas (Reports, Diagram, AI) are full width.
+- Tests: 53 unit, 55 E2E.
+
 ## Architectural decisions
 
 - **No router introduced.** Tab ids remain App state keys; renames change labels only, so `?tool=`
@@ -77,6 +85,7 @@ Next: Phase 3a — indexer benchmark.
   the index); candidate to derive from the index or move to the worker after the Phase 3a benchmark.
 - Folder open now also runs the cache-key check (one `getFile()` per text file) to restore the index.
 - On phones the header actions overflow the top of the header (pre-existing layout issue).
+- Codebase index-source line runs the label and timestamp together ("✓ Fresh index9/28/2026").
 - `External imports` counts unresolved relative imports too (pre-existing `externalDependencies` semantics).
 - Saved context snapshots store full source in `localStorage` (privacy + quota; Phase 5 or earlier).
 - Name-only reference fallback can over-report resolved references.

@@ -1,5 +1,7 @@
 // Mermaid is bundled from npm and loaded on first use, so it adds nothing to the initial page load
 // and never reaches out to a CDN.
+import { STALE_BUILD_MESSAGE, isStaleBuildError } from '../lib/staleBuild';
+
 let mermaidPromise = null;
 
 export function loadMermaid() {
@@ -11,7 +13,11 @@ export function loadMermaid() {
       })
       .catch((error) => {
         mermaidPromise = null;
-        throw new Error('Unable to load the Mermaid renderer: ' + error.message);
+        throw new Error(
+          isStaleBuildError(error)
+            ? STALE_BUILD_MESSAGE
+            : 'Unable to load the Mermaid renderer: ' + error.message,
+        );
       });
   }
   return mermaidPromise;
