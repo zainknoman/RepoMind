@@ -2,6 +2,19 @@
 
 All notable changes to RepoMind are recorded here.
 
+## Unreleased — Git change impact (Phase B3)
+
+### Added
+- **Change impact.** Codebase › Git › **Impact of uncommitted changes**, or **Impact** next to a
+  commit in Recent Git Activity, lists the changed files and the functions, methods, classes and
+  routines they change (modified, added, removed), everything that could be affected through them
+  (with confidence and the changed symbols that reach each item), references broken by removed
+  exports or deleted files, and blind spots (binary, large and non-code files). Copy or download it
+  as a Markdown report.
+- RepoMind reads commits, trees and file contents from `.git` itself (loose objects and packfiles,
+  including deltas), on this device only. Working copies with CRLF line endings are compared
+  correctly.
+
 ## Unreleased — Transitive impact (Phase B2)
 
 ### Added

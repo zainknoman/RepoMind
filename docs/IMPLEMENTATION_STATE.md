@@ -5,8 +5,8 @@ Update at the end of every phase.
 
 ## Current phase
 
-**Phases B1 and B2 done on `feature/graph-trust` (not merged).** Phases 1–6 (first Temenos slice)
-are on `main`. Next: Phase B3 (Git change impact). Plans live in `docs/superpowers/plans/`.
+**Phase B3 done on `feature/git-change-impact` (not merged).** Phases 1–6 (first Temenos slice),
+B1 and B2 are on `main` (local; not pushed). Plans live in `docs/superpowers/plans/`.
 
 ## Roadmap
 
@@ -22,7 +22,7 @@ are on `main`. Next: Phase B3 (Git change impact). Plans live in `docs/superpowe
 | 6 | Temenos code intelligence | First slice on `main` (indexing, linking, analyzers); more below |
 | B1 | Graph trust: reference confidence, coverage, re-exports, accuracy fixtures | Done |
 | B2 | Local bindings, transitive impact with confidence and blind spots | Done |
-| B3 | Git change impact (diff → changed symbols → impact) | Planned |
+| B3 | Git change impact (diff → changed symbols → impact) | Done |
 
 ## Completed work (Phase 1)
 
@@ -205,6 +205,22 @@ are on `main`. Next: Phase B3 (Git change impact). Plans live in `docs/superpowe
 - Tests: 124 unit (fixtures incl. `one-line-export`, `impact.test.js`), E2E 61/61 (Impact asserts
   symbol impact and blind spots).
 
+## Completed work (Phase B3 — Git change impact)
+
+- `services/gitObjects.js`: object store over `.git` (loose, pack index v2, offset/ref deltas,
+  `DecompressionStream`), `parseCommit`, `parseTree`, `flattenTree`. Verified against
+  `git cat-file` for every object before and after `git gc --aggressive`.
+- `services/gitChanges.js`: `workingTreeChanges` (HEAD vs files; index fast path with Git's racy
+  rule; CRLF-tolerant blob SHA-1; deletions confirmed on disk; unborn branch = all added) and
+  `commitChanges` (vs first parent). Matches `git status` / `git diff` on RepoMind itself.
+- `services/changeImpact.js`: `changedSymbols` (line diff → innermost unit in old/new text),
+  `changeImpact` (merged `symbolImpact`, module-level → importers, broken importers, blind spots;
+  changed symbols are not repeated as affected), `changeImpactMarkdown`.
+- UI: `features/codebase/GitView.jsx` (moved out of CodebasePanel) with the Change Impact panel.
+- `parseIndex` returns each entry's blob SHA. Test helper `src/test-utils/nodeHandles.js` wraps a
+  real folder as File System Access handles.
+- Tests: 144 unit, 62 E2E.
+
 ## Architectural decisions
 
 - **No router introduced.** Tab ids remain App state keys; renames change labels only, so `?tool=`
@@ -282,9 +298,11 @@ Carried forward:
 
 ## Next recommended task
 
-Phase B3: Git change impact — changed lines (working tree or a commit) → changed symbols via
-`endLine` → `symbolImpact` for each → one combined report. Member calls (`obj.method()`) are the
-largest remaining blind spot for method impact. tsconfig `paths`, Python and Java import resolution follow, driven by coverage.
+Candidates, in order of value:
+1. Member calls (`obj.method()`, `this.method()`): the largest blind spot for method impact.
+2. AI investigation (roadmap Phase E): send change impact or symbol impact as grounded context.
+3. Import resolution driven by coverage: tsconfig `paths`, Python and Java imports.
+4. Move cache serialization into the index worker for very large repositories. tsconfig `paths`, Python and Java import resolution follow, driven by coverage.
 
 Phase 6 (Temenos), remaining:
 1. Validate on a real T24 / TAFJ repository (parser coverage, false positives in Coding Practices,

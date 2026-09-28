@@ -43,6 +43,7 @@ export function HelpPage() {
         'Health and analyzer workspaces',
         'Transitive impact: every file and symbol that could be affected, with confidence and blind spots',
         'Context building',
+        'Git change impact: what uncommitted work or a commit could affect, as a Markdown report',
         'Git and AI workspace integration',
         'Documentation reports and architecture diagrams',
       ],
