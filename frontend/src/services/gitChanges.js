@@ -68,11 +68,19 @@ async function treeFiles(store, commitSha) {
   return { commit, files: await flattenTree(store, commit.tree) };
 }
 
-async function stagedEntries(gitDir) {
+/**
+ * Index entries that can vouch for a file without reading it. As in Git, an entry whose file time
+ * is not older than the index itself is "racy" (the file may have changed within the same second
+ * after staging) and is left out, so that file is compared by content.
+ */
+async function trustedEntries(gitDir) {
   try {
-    const handle = await gitDir.getFileHandle('index');
+    const file = await (await gitDir.getFileHandle('index')).getFile();
+    const written = Math.floor(file.lastModified / 1000);
     return new Map(
-      parseIndex(await (await handle.getFile()).arrayBuffer()).map((e) => [e.path, e]),
+      parseIndex(await file.arrayBuffer())
+        .filter((e) => e.mtime < written)
+        .map((e) => [e.path, e]),
     );
   } catch {
     return new Map();
@@ -89,7 +97,7 @@ export async function workingTreeChanges(root, files) {
   const store = createObjectStore(gitDir);
   const { head } = await readGitRepository(root);
   const { files: headFiles } = await treeFiles(store, head);
-  const staged = await stagedEntries(gitDir);
+  const staged = await trustedEntries(gitDir);
   const changes = [];
   const present = new Set(files.map((f) => f.path));
 
