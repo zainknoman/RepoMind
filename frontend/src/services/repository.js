@@ -183,6 +183,30 @@ const isModuleExports = (node) =>
   node.object.name === 'module' &&
   node.property.name === 'exports';
 
+const FUNCTION_NODES = new Set([
+  'FunctionDeclaration',
+  'FunctionExpression',
+  'ArrowFunctionExpression',
+  'ClassMethod',
+  'ClassPrivateMethod',
+  'ObjectMethod',
+]);
+
+/** The identifiers a binding pattern declares (not default values or type annotations). */
+function patternIdentifiers(pattern, out = []) {
+  if (!pattern) return out;
+  if (pattern.type === 'Identifier') out.push(pattern);
+  else if (pattern.type === 'AssignmentPattern') patternIdentifiers(pattern.left, out);
+  else if (pattern.type === 'RestElement') patternIdentifiers(pattern.argument, out);
+  else if (pattern.type === 'TSParameterProperty') patternIdentifiers(pattern.parameter, out);
+  else if (pattern.type === 'ArrayPattern')
+    for (const element of pattern.elements) patternIdentifiers(element, out);
+  else if (pattern.type === 'ObjectPattern')
+    for (const property of pattern.properties)
+      patternIdentifiers(property.type === 'RestElement' ? property.argument : property.value, out);
+  return out;
+}
+
 // Nodes that open a scope for resolving references. Block scopes are not modelled: a let/const is
 // treated as visible in its whole enclosing function.
 const SCOPE_NODES = new Set([
@@ -207,6 +231,16 @@ function parseJavaScript(content, file) {
   const exports = [];
   const references = [];
   const declaredNames = new Set();
+  // Parameters, destructured, catch and type-parameter bindings: not symbols, but a reference to
+  // one of them is local, and it shadows any outer name. `bindingStarts` marks their declarations.
+  const localBindings = [];
+  const bindingStarts = new Set();
+  const addBindings = (pattern, scope) => {
+    for (const id of patternIdentifiers(pattern)) {
+      localBindings.push({ name: id.name, scopeStart: scope.start, scopeEnd: scope.end });
+      bindingStarts.add(id.start);
+    }
+  };
   let ancestorsOfNode = [];
 
   // A symbol declared inside a function records that function's source range as its scope;
@@ -219,6 +253,7 @@ function parseJavaScript(content, file) {
       kind,
       line: lineOf(node),
       column: columnOf(node),
+      endLine: node.loc?.end.line,
       path: file.path,
       ...(scope && scope.type !== 'Program'
         ? { scopeStart: scope.start, scopeEnd: scope.end }
@@ -341,6 +376,27 @@ function parseJavaScript(content, file) {
     if (node.type === 'TSTypeAliasDeclaration' && node.id?.name)
       addSymbol(node.id.name, 'type', node);
 
+    if (FUNCTION_NODES.has(node.type)) for (const param of node.params) addBindings(param, node);
+    if (node.type === 'CatchClause' && node.param) addBindings(node.param, node);
+    if (node.type === 'TSTypeParameterDeclaration' && parent)
+      for (const param of node.params) {
+        localBindings.push({
+          name: param.name?.name || param.name,
+          scopeStart: parent.start,
+          scopeEnd: parent.end,
+        });
+      }
+    if (
+      node.type === 'VariableDeclarator' &&
+      node.id &&
+      node.id.type !== 'Identifier' &&
+      dynamicModule(node.init) === null
+    ) {
+      // const { a, b } = value; (require() destructuring is an import binding instead)
+      const scope = ancestors.findLast((x) => SCOPE_NODES.has(x.type)) || ast;
+      addBindings(node.id, scope);
+    }
+
     if (node.type === 'VariableDeclarator' && node.id) {
       const names = getBindingNames(node.id);
       const init = node.init;
@@ -389,6 +445,7 @@ function parseJavaScript(content, file) {
     const column = columnOf(node);
     const marker = `${line}:${column}:${node.name}`;
     if (symbolLines.has(marker) || importLines.has(line) || exportLines.has(line)) return;
+    if (bindingStarts.has(node.start)) return;
 
     const p = parent;
     if (!p) return;
@@ -429,6 +486,7 @@ function parseJavaScript(content, file) {
     imports: unique(imports, (i) => `${i.module}|${i.line}`),
     exports: unique(exports, (e) => `${e.name}|${e.line}|${e.kind}`),
     references: unique(references, (r) => `${r.name}|${r.line}|${r.column}`),
+    localBindings,
     parseErrors: (ast.errors || []).map((error) => ({
       message: error.message,
       line: error.loc?.line || 1,
@@ -678,6 +736,16 @@ function visibleAt(symbols, offset) {
   return visible.length === symbols.length ? symbols : visible;
 }
 
+/** Start of the innermost local-binding scope containing `offset`, or -1. */
+function innermostBinding(bindings, offset) {
+  if (!bindings || offset === undefined) return -1;
+  let start = -1;
+  for (const b of bindings)
+    if (offset >= b.scopeStart && offset <= b.scopeEnd && b.scopeStart > start)
+      start = b.scopeStart;
+  return start;
+}
+
 function groupBy(items, keyFn) {
   const groups = new Map();
   for (const item of items) {
@@ -757,6 +825,7 @@ export async function buildRepositoryIndex(project, options = {}) {
       externalImports: 0,
       reusedFiles: 0,
       externalReferences: 0,
+      localReferences: 0,
       globalReferences: 0,
       referenceConfidence: { high: 0, medium: 0, low: 0, none: 0 },
     },
@@ -906,8 +975,21 @@ export async function buildRepositoryIndex(project, options = {}) {
 
   for (const file of index.files) {
     if (signal?.aborted) throw cancelled();
+    const bindingsByName = file.localBindings?.length
+      ? groupBy(file.localBindings, (b) => b.name)
+      : null;
     for (const ref of file.references || []) {
       const local = `${file.path}::${ref.name}`;
+      const bindingScope = innermostBinding(bindingsByName?.get(ref.name), ref.offset);
+      if (bindingScope >= 0) {
+        // A parameter or destructured name shadows imports and outer declarations; only a
+        // declaration in the same or an inner function beats it.
+        const declared = visibleAt(symbolsByPathName.get(local) || none, ref.offset);
+        if (!declared.length || (declared[0].scopeStart ?? -1) < bindingScope) {
+          index.stats.localReferences++;
+          continue;
+        }
+      }
       const binding = bindingByFileLocal.get(local);
       let resolution = 'import';
       let resolved = binding?.resolvedSymbols || none;

@@ -119,3 +119,48 @@ describe('graph fixtures', () => {
     });
   }
 });
+
+describe('local bindings', () => {
+  it('lets a parameter shadow an imported name', async () => {
+    const index = await indexFixture({
+      'lib.js': 'export function item() {}',
+      'use.js': [
+        "import { item } from './lib';",
+        'function show(item) {',
+        '  return item;',
+        '}',
+        'item();',
+      ].join('\n'),
+    });
+    const refs = index.references.filter((r) => r.from === 'use.js' && r.name === 'item');
+    expect(refs.map((r) => r.line)).toEqual([5]);
+    expect(index.stats.localReferences).toBe(1);
+  });
+
+  it('does not count parameters, destructured, catch or type-parameter bindings as unresolved', async () => {
+    const index = await indexFixture({
+      'x.ts': [
+        'export function run<T>(value: T, { a, b = 1 }, ...rest) {',
+        '  const { c, d: [e] } = value as any;',
+        '  try {',
+        '    return [a, b, c, e, rest];',
+        '  } catch (err) {',
+        '    return err;',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(index.stats.unresolvedReferences).toBe(0);
+    expect(index.symbols.map((s) => s.name)).toEqual(['run']);
+  });
+
+  it('records where functions, classes and methods end', async () => {
+    const index = await indexFixture({
+      'k.js': ['class K {', '  m() {', '    return 1;', '  }', '}', 'const f = () => {', '};'].join(
+        '\n',
+      ),
+    });
+    const at = (name) => index.symbols.find((s) => s.name === name);
+    expect([at('K').endLine, at('m').endLine, at('f').endLine]).toEqual([5, 4, 7]);
+  });
+});
