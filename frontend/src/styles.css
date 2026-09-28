@@ -1640,7 +1640,7 @@ footer {
 }
 .git-activity {
   display: grid;
-  grid-template-columns: 90px minmax(0, 1fr) 180px;
+  grid-template-columns: 90px minmax(0, 1fr) 180px auto;
   gap: 12px;
   align-items: center;
   padding: 9px 0;
@@ -2764,4 +2764,32 @@ textarea {
   .impact-row {
     grid-template-columns: minmax(0, 1fr) auto;
   }
+}
+.change-impact .analyze-grid {
+  margin-top: 8px;
+}
+.changed-file {
+  margin-bottom: 8px;
+}
+.changed-symbol {
+  padding: 3px 0 3px 18px;
+  font-size: 12px;
+}
+.change-tag {
+  margin-left: 8px;
+  padding: 0 6px;
+  border-radius: 8px;
+  font-size: 11px;
+  border: 1px solid var(--border);
+}
+.change-added {
+  border-color: #16a34a;
+}
+.change-removed {
+  border-color: #dc2626;
+  background: var(--tint-danger);
+}
+.git-activity button {
+  padding: 2px 8px;
+  font-size: 12px;
 }

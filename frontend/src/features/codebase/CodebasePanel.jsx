@@ -10,6 +10,7 @@ import { fileCoupling } from '../../services/health';
 import { IndexProgress, indexSourceLabel } from './IndexProgress';
 import { AnalyzersView } from './AnalyzersView';
 import { ImpactView } from './ImpactView';
+import { GitView } from './GitView';
 import { AIWorkspace, ContextBuilderView } from './AIViews';
 import { useAIContext } from './useAIContext';
 import { cp, dl } from '../../lib/text';
@@ -518,6 +519,9 @@ export default function CodebasePanel({
               git={git}
               busy={gitBusy}
               onRefresh={refreshGit}
+              project={project}
+              index={index}
+              onOpenFile={openFile}
               onSelect={(path) => {
                 setSelectedFile(path);
                 setView('impact');
@@ -543,98 +547,6 @@ export default function CodebasePanel({
         </>
       )}
     </section>
-  );
-}
-function GitView({ git, busy, onRefresh, onSelect }) {
-  if (!git?.available)
-    return (
-      <div className="analytics-panel">
-        <div className="transform-toolbar">
-          <b>🌿 Git Intelligence</b>
-          <button onClick={onRefresh} disabled={busy}>
-            {busy ? '⏳' : '↻ Refresh'}
-          </button>
-        </div>
-        <p className="muted">
-          {git?.error ||
-            'No .git directory detected. Git intelligence stays local and never indexes .git contents.'}
-        </p>
-      </div>
-    );
-  const s = git.status || {};
-  return (
-    <div className="git-workspace">
-      <div className="analyze-grid">
-        <div className="analytics-panel">
-          <div className="transform-toolbar">
-            <b>🌿 Repository</b>
-            <button onClick={onRefresh} disabled={busy}>
-              {busy ? '⏳ Refreshing...' : '↻ Refresh'}
-            </button>
-          </div>
-          <div className="index-row">
-            <b>Branch</b>
-            <span>{git.branch || 'Detached HEAD'}</span>
-            <small>{git.head?.slice(0, 12)}</small>
-          </div>
-          <div className="index-row">
-            <b>Remote</b>
-            <span>{git.remote || 'Local only'}</span>
-            <small>metadata only</small>
-          </div>
-          <div className="git-stat-grid">
-            <article>
-              <b>{s.modified?.length || 0}</b>
-              <span>Modified</span>
-            </article>
-            <article>
-              <b>{s.untracked?.length || 0}</b>
-              <span>Untracked</span>
-            </article>
-            <article>
-              <b>{s.deleted?.length || 0}</b>
-              <span>Deleted</span>
-            </article>
-            <article>
-              <b>{git.activity?.length || 0}</b>
-              <span>Activity</span>
-            </article>
-          </div>
-        </div>
-        <div className="analytics-panel">
-          <h2>Working Tree</h2>
-          {[
-            ['Modified', s.modified],
-            ['Untracked', s.untracked],
-            ['Deleted', s.deleted],
-          ].map(([label, items]) => (
-            <div key={label}>
-              <h3>
-                {label} ({items?.length || 0})
-              </h3>
-              {(items || []).slice(0, 30).map((x) => (
-                <button className="mini-row clickable" key={x} onClick={() => onSelect?.(x)}>
-                  {x}
-                </button>
-              ))}
-            </div>
-          ))}
-        </div>
-      </div>
-      <div className="analytics-panel">
-        <h2>Recent Git Activity</h2>
-        <p className="muted">
-          Derived from local reflog metadata; .git objects are not indexed or uploaded.
-        </p>
-        {(git.activity || []).slice(0, 20).map((x, i) => (
-          <div className="git-activity" key={i}>
-            <code>{x.hash?.slice(0, 10)}</code>
-            <span>{x.message || x.action}</span>
-            <small>{x.date ? new Date(x.date).toLocaleString() : ''}</small>
-          </div>
-        ))}
-      </div>
-    </div>
   );
 }
 function Metric({ label, value, note }) {

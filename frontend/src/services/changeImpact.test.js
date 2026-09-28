@@ -49,6 +49,10 @@ describe('changedSymbols', () => {
 
   it('treats every symbol of an added or deleted file as added or removed', () => {
     const file = 'export function a() {}\nexport function b() {}\n';
+    expect(changedSymbols({ path: 'n.js', status: 'added', newText: file }).lines).toEqual({
+      added: 2,
+      removed: 0,
+    });
     expect(names(changedSymbols({ path: 'n.js', status: 'added', newText: file }).symbols)).toEqual(
       ['a:added', 'b:added'],
     );
@@ -67,6 +71,17 @@ describe('changeImpact', () => {
     expect(names(result.affected)).toEqual(['mid:high', 'top:high']);
     expect(result.affected[0].because).toEqual(['core']);
     expect(result.counts).toMatchObject({ files: 1, symbols: 1, affected: 2, high: 2 });
+  });
+
+  it('does not list changed symbols as affected', async () => {
+    const index = await indexOf(CHAIN);
+    const MID = CHAIN['mid.js'];
+    const result = changeImpact(index, [
+      modified('core.js', CORE_V1, CORE_V2),
+      modified('mid.js', MID.replace('core()', 'core() + 0'), MID),
+    ]);
+    expect(names(result.affected)).toEqual(['top:high']);
+    expect(result.affected[0].because).toEqual(['core', 'mid']);
   });
 
   it('reports importers of a file whose module-level code changed', async () => {

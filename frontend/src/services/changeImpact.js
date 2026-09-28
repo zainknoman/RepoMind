@@ -63,6 +63,9 @@ export function changedSymbols(change, ext = extOf(change.path)) {
   };
   let moduleLevel = false;
   const lines = { added: 0, removed: 0 };
+  const count = (text) => (text ? text.split(/\r?\n/).length - (text.endsWith('\n') ? 1 : 0) : 0);
+  if (change.oldText == null) lines.added = count(change.newText);
+  if (change.newText == null) lines.removed = count(change.oldText);
 
   if (change.oldText != null && change.newText != null) {
     const ops = lineDiff(change.oldText.split(/\r?\n/), change.newText.split(/\r?\n/));
@@ -201,7 +204,12 @@ export function changeImpact(index, changes, options = {}) {
     }
   }
 
+  // A changed symbol is listed under Changed; as an affected item it would only repeat itself.
+  const changed = new Set(
+    files.flatMap((f) => f.symbols.map((s) => `${f.path}|${s.kind}|${s.name}`)),
+  );
   const list = [...affected.values()]
+    .filter((a) => !a.symbol || !changed.has(`${a.path}|${a.kind}|${a.name}`))
     .map((item) => ({ ...item, because: [...item.because].sort() }))
     .sort(
       (a, b) =>

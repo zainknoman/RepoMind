@@ -62,7 +62,8 @@ function change(path, status, oldBytes, newBytes) {
 }
 
 async function treeFiles(store, commitSha) {
-  const object = commitSha ? await store.read(commitSha) : null;
+  // An unborn branch (no commits yet) leaves HEAD naming a ref that does not exist.
+  const object = /^[0-9a-f]{40}$/.test(commitSha || '') ? await store.read(commitSha) : null;
   if (!object || object.type !== 'commit') return { commit: null, files: new Map() };
   const commit = parseCommit(object.bytes);
   return { commit, files: await flattenTree(store, commit.tree) };

@@ -334,6 +334,22 @@ test.describe('RepoMind Codebase Intelligence end-to-end', () => {
     ).toBeVisible();
   });
 
+  test('Git change impact traces uncommitted changes', async ({ page }) => {
+    await page.getByRole('button', { name: 'Git', exact: true }).click();
+    // The fixture's branch has no commits yet, so every file is a new, uncommitted file.
+    await page.getByRole('button', { name: 'Impact of uncommitted changes' }).click();
+    const panel = page.locator('.change-impact');
+    await expect(panel.getByText('Change Impact · Uncommitted changes')).toBeVisible();
+    await expect(
+      panel.locator('.changed-file').filter({ hasText: 'src/service.js' }),
+    ).toContainText('greet');
+    // app.tsx imports the new service.js, so it is affected; UserCard itself is listed as added.
+    await expect(panel.locator('.changed-file').filter({ hasText: 'src/app.tsx' })).toContainText(
+      'UserCard',
+    );
+    await expect(panel.locator('.impact-row').filter({ hasText: 'src/app.tsx' })).toBeVisible();
+  });
+
   test('Analyzers API discovery finds routes from multiple frameworks', async ({ page }) => {
     await page.getByRole('button', { name: 'Analyzers', exact: true }).click();
     await page
