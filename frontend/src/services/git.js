@@ -53,7 +53,7 @@ function readVarint(bytes, pos) {
 }
 
 /**
- * Parses a .git/index file (versions 2, 3 and 4) into {path, mtime, size, flags} entries.
+ * Parses a .git/index file (versions 2, 3 and 4) into {path, mtime, size, sha, flags} entries.
  * Returns [] for anything that is not a recognised index.
  */
 export function parseIndex(buffer) {
@@ -71,6 +71,9 @@ export function parseIndex(buffer) {
     const start = pos;
     const mtime = dv.getUint32(pos + 8),
       size = dv.getUint32(pos + 36),
+      sha = Array.from(bytes.subarray(pos + 40, pos + 60), (b) =>
+        b.toString(16).padStart(2, '0'),
+      ).join(''),
       flags = dv.getUint16(pos + 60);
     pos += 62;
     if (version >= 3 && flags & 0x4000) pos += 2; // extended flags
@@ -90,7 +93,7 @@ export function parseIndex(buffer) {
       pos = start + Math.ceil((end - start + 1) / 8) * 8;
     }
     previousPath = path;
-    out.push({ path, mtime, size, flags });
+    out.push({ path, mtime, size, sha, flags });
   }
   return out;
 }
