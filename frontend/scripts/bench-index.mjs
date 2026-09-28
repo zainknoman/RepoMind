@@ -237,6 +237,12 @@ async function benchmark(label, records) {
   row.references = index.stats.references;
   row.dependencies = index.dependencies.length;
   row.resolvedLinks = index.references.reduce((n, r) => n + r.resolvedSymbols.length, 0);
+  const confidence = index.stats.referenceConfidence || {};
+  row.highRefs = confidence.high || 0;
+  row.mediumRefs = confidence.medium || 0;
+  row.lowRefs = confidence.low || 0;
+  row.unresolvedRefs = confidence.none || 0;
+  row.externalRefs = (index.stats.externalReferences || 0) + (index.stats.globalReferences || 0);
 
   // Main thread: receiving the worker result (postMessage ≈ structuredClone) and attaching handles.
   const transfer = await time(() => structuredClone(index));
@@ -304,6 +310,11 @@ const COLUMNS = [
   ['references', 'References'],
   ['dependencies', 'Internal edges'],
   ['resolvedLinks', 'Reference → symbol links'],
+  ['highRefs', '· references, high confidence'],
+  ['mediumRefs', '· references, medium confidence'],
+  ['lowRefs', '· references, low (name match)'],
+  ['unresolvedRefs', '· references, unresolved'],
+  ['externalRefs', '· package / global names (not linked)'],
   ['readMs', 'Read files (ms, main)'],
   ['buildMs', 'Index build (ms, worker)'],
   ['analyzeMs', '· analyze/parse'],

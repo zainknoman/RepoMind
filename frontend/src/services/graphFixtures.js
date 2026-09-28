@@ -36,4 +36,56 @@ export const GRAPH_FIXTURES = [
     edges: [],
     links: [],
   },
+  {
+    // A barrel's re-exports are edges, and imports through it link to the defining file.
+    name: 'barrel',
+    files: {
+      'lib/math.js': 'export function add() {}',
+      'lib/fmt.js': 'export function fmt() {}',
+      'lib/index.js': lines("export * from './math';", "export { fmt as format } from './fmt';"),
+      'app.js': lines("import { add, format } from './lib';", 'add();', 'format();'),
+    },
+    edges: ['app.js -> lib/index.js', 'lib/index.js -> lib/math.js', 'lib/index.js -> lib/fmt.js'],
+    links: ['app.js:2 add -> lib/math.js::add', 'app.js:3 format -> lib/fmt.js::fmt'],
+  },
+  {
+    // A default import names only the default export, declared inline or exported by name.
+    name: 'default-export',
+    files: {
+      'a.js': lines('export default function main() {}', 'export function helper() {}'),
+      'b.js': lines("import main from './a';", 'main();'),
+      'c.js': lines('function run() {}', 'export default run;'),
+      'd.js': lines("import go from './c';", 'go();'),
+    },
+    edges: ['b.js -> a.js', 'd.js -> c.js'],
+    links: ['b.js:2 main -> a.js::main', 'd.js:2 go -> c.js::run'],
+  },
+  {
+    name: 'commonjs-dynamic',
+    files: {
+      'util.js': lines('function util() {}', 'module.exports = util;'),
+      'pick.js': 'export function pick() {}',
+      'lazy.js': 'export const lazy = 1;',
+      'main.js': lines(
+        "const { pick } = require('./pick');",
+        "const util = require('./util');",
+        'pick();',
+        'util();',
+        "import('./lazy');",
+      ),
+    },
+    edges: ['main.js -> pick.js', 'main.js -> util.js', 'main.js -> lazy.js'],
+    links: ['main.js:3 pick -> pick.js::pick', 'main.js:4 util -> util.js::util'],
+  },
+  {
+    // Barrels that re-export each other must not loop.
+    name: 'reexport-cycle',
+    files: {
+      'x.js': lines("export * from './y';", 'export function fromX() {}'),
+      'y.js': "export * from './x';",
+      'z.js': lines("import { fromX, nope } from './y';", 'fromX();'),
+    },
+    edges: ['x.js -> y.js', 'y.js -> x.js', 'z.js -> y.js'],
+    links: ['z.js:2 fromX -> x.js::fromX'],
+  },
 ];

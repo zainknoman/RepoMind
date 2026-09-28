@@ -147,6 +147,41 @@ function addImportBindings(node) {
     .filter(Boolean);
 }
 
+const literalText = (node) =>
+  node?.type === 'StringLiteral'
+    ? node.value
+    : node?.type === 'TemplateLiteral' && !node.expressions.length
+      ? node.quasis[0]?.value.cooked || ''
+      : null;
+
+/** The module named by `import('x')` or `require('x')`, or null for any other node. */
+function dynamicModule(node) {
+  if (node?.type === 'ImportExpression') return literalText(node.source);
+  if (node?.type !== 'CallExpression') return null;
+  const { callee } = node;
+  if (callee.type === 'Import' || (callee.type === 'Identifier' && callee.name === 'require'))
+    return literalText(node.arguments[0]);
+  return null;
+}
+
+/** Bindings of `const x = require('m')` (the module's default) or `const { a, b: c } = …`. */
+function requireBindings(parent) {
+  if (parent?.type !== 'VariableDeclarator') return [];
+  if (parent.id.type === 'Identifier')
+    return [{ local: parent.id.name, imported: 'default', kind: 'default' }];
+  if (parent.id.type !== 'ObjectPattern') return [];
+  return parent.id.properties
+    .filter((p) => p.type === 'ObjectProperty' && p.value.type === 'Identifier')
+    .map((p) => ({ local: p.value.name, imported: propertyName(p.key), kind: 'named' }));
+}
+
+const isModuleExports = (node) =>
+  node?.type === 'MemberExpression' &&
+  !node.computed &&
+  node.object.type === 'Identifier' &&
+  node.object.name === 'module' &&
+  node.property.name === 'exports';
+
 // Nodes that open a scope for resolving references. Block scopes are not modelled: a let/const is
 // treated as visible in its whole enclosing function.
 const SCOPE_NODES = new Set([
@@ -211,21 +246,35 @@ function parseJavaScript(content, file) {
     }
 
     if (node.type === 'ExportAllDeclaration') {
-      exports.push({
-        name: '*',
+      const source = node.source?.value || '';
+      exports.push({ name: '*', line, column: columnOf(node), kind: 're-export', source });
+      // A re-export depends on its source like an import does.
+      imports.push({
+        module: source,
         line,
         column: columnOf(node),
-        kind: 're-export',
-        source: node.source?.value || '',
+        kind: 'import',
+        bindings: [],
+        reexport: true,
       });
     } else if (node.type === 'ExportNamedDeclaration' || node.type === 'ExportDefaultDeclaration') {
       const declaration = node.declaration;
+      const source = node.source?.value;
       if (declaration?.id?.name) {
         exports.push({
           name: declaration.id.name,
           line,
           column: columnOf(node),
           kind: node.type === 'ExportDefaultDeclaration' ? 'default' : 'export',
+        });
+      } else if (declaration?.type === 'Identifier') {
+        // export default someName;
+        exports.push({
+          name: 'default',
+          local: declaration.name,
+          line,
+          column: columnOf(node),
+          kind: 'default',
         });
       } else {
         for (const spec of node.specifiers || []) {
@@ -235,10 +284,53 @@ function parseJavaScript(content, file) {
             line,
             column: columnOf(spec),
             kind: node.type === 'ExportDefaultDeclaration' ? 'default' : 'export',
+            ...(source ? { source } : {}),
           });
         }
+        if (source)
+          imports.push({
+            module: source,
+            line,
+            column: columnOf(node),
+            kind: 'import',
+            bindings: (node.specifiers || []).map((spec) => ({
+              local: propertyName(spec.exported) || propertyName(spec.local),
+              imported: propertyName(spec.local),
+              kind: 're-export',
+            })),
+            reexport: true,
+          });
       }
     }
+
+    if (node.type === 'CallExpression' || node.type === 'ImportExpression') {
+      const module = dynamicModule(node);
+      if (module !== null) {
+        const required = node.type === 'CallExpression' && node.callee.type === 'Identifier';
+        imports.push({
+          module,
+          line,
+          column: columnOf(node),
+          kind: 'import',
+          bindings: required ? requireBindings(parent) : [],
+          ...(required ? { require: true } : { dynamic: true }),
+        });
+      }
+    }
+
+    // module.exports = someName;
+    if (
+      node.type === 'AssignmentExpression' &&
+      isModuleExports(node.left) &&
+      node.right.type === 'Identifier'
+    )
+      exports.push({
+        name: 'default',
+        local: node.right.name,
+        line,
+        column: columnOf(node),
+        kind: 'default',
+      });
 
     if (node.type === 'FunctionDeclaration' && node.id?.name)
       addSymbol(node.id.name, 'function', node);
@@ -256,7 +348,8 @@ function parseJavaScript(content, file) {
           addSymbol(name, 'function', node, {
             functionKind: init.type === 'ArrowFunctionExpression' ? 'arrow' : 'expression',
           });
-        } else if (node.id.type === 'Identifier') {
+        } else if (node.id.type === 'Identifier' && dynamicModule(init) === null) {
+          // `const x = require('./x')` binds an import, not a variable of this file.
           addSymbol(name, 'variable', node);
         }
       }
@@ -756,26 +849,41 @@ export async function buildRepositoryIndex(project, options = {}) {
   const none = [];
 
   if (signal?.aborted) throw cancelled();
+  // The symbols a file provides under an exported name, following `export … from` and
+  // `export * from` into the files that define them. `seen` stops re-export cycles.
+  const resolveExported = (path, name, seen = new Set()) => {
+    const visit = `${path}::${name}`;
+    if (seen.has(visit)) return none;
+    seen.add(visit);
+    const exports = exportsByPath.get(path) || none;
+    const through = (e, exported) => {
+      const target = resolveImport(path, e.source, fileMap);
+      return target ? resolveExported(target, exported, seen) : none;
+    };
+    const own = (e) => topLevelByPathName.get(`${path}::${e.local || e.name}`) || none;
+    if (name === '*') {
+      const local = exports.filter((e) => e.kind !== 're-export' && !e.source).flatMap(own);
+      return local.length ? unique(local, symbolKey) : topLevelByPath.get(path) || none;
+    }
+    const named = exports.filter((e) =>
+      name === 'default' ? e.kind === 'default' : e.kind === 'export' && e.name === name,
+    );
+    if (named.length)
+      return unique(
+        named.flatMap((e) => (e.source ? through(e, e.local || e.name) : own(e))),
+        symbolKey,
+      );
+    if (name === 'default') return none;
+    const star = exports.filter((e) => e.kind === 're-export').flatMap((e) => through(e, name));
+    if (star.length) return unique(star, symbolKey);
+    // No export names it (e.g. a file parsed by patterns): a top-level symbol of that name.
+    return topLevelByPathName.get(visit) || none;
+  };
+
   const importBindings = [];
   for (const edge of index.dependencies) {
     for (const binding of edge.bindings || []) {
-      const targetExports = (exportsByPath.get(edge.to) || []).filter(
-        (e) =>
-          binding.imported === '*' ||
-          binding.imported === 'default' ||
-          e.name === binding.imported ||
-          e.local === binding.imported,
-      );
-      const candidates = targetExports.length
-        ? unique(
-            targetExports.flatMap(
-              (e) => topLevelByPathName.get(`${edge.to}::${e.local || e.name}`) || none,
-            ),
-            symbolKey,
-          )
-        : binding.imported === '*'
-          ? topLevelByPath.get(edge.to) || none
-          : topLevelByPathName.get(`${edge.to}::${binding.imported}`) || none;
+      const candidates = resolveExported(edge.to, binding.imported);
       importBindings.push({
         from: edge.from,
         to: edge.to,
