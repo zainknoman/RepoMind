@@ -188,8 +188,12 @@ export function HelpPage() {
       group: 'Tools',
       definition:
         'Temenos-oriented utilities for developers working with OFS and related banking integration data.',
-      features: ['OFS Generator', 'T24 Log Analyzer', 'Temenos-focused developer workflow'],
-      how: 'Open Tools › Temenos / OFS and select the utility. From a T24 log entry you can send its OFS data straight to the OFS Generator. The tools run in an isolated sandbox.',
+      features: [
+        'OFS Generator',
+        'T24 Log Analyzer',
+        'T24 source analysis (routines, applications, services, Java links) in Codebase › Analyzers',
+      ],
+      how: 'Open Tools › Temenos / OFS and select the utility. From a T24 log entry you can send its OFS data straight to the OFS Generator. The tools run in an isolated sandbox. To analyse T24 source code, open the folder of BASIC routines (.b or extensionless, such as BP/ACCOUNT.VALIDATE), build the index and use Codebase: Impact shows which routines call or include a routine, and Analyzers lists routines, applications, services, core calls and Java links.',
       example:
         'Use OFS Generator to build a transaction message from the required application, field and value inputs before testing it in a controlled environment.',
     },
@@ -279,6 +283,7 @@ export function HelpPage() {
         'Route discovery',
         'Symbol resolution status',
         'Route discovery and secret scans',
+        'Temenos T24 / Transact analyzers when the folder contains BASIC routines',
         'Run All, severity per finding, and one click from a finding to the file',
       ],
       how: 'Build the index and open Health or Analyzers. Run the available analyzers and inspect their findings. These are signals, not formal security or compiler diagnostics.',

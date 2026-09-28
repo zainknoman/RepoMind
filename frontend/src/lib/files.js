@@ -28,6 +28,8 @@ export const EXTS = new Set([
   '.bat',
   '.ps1',
   '.env',
+  // Temenos T24 / Transact BASIC (jBC) routines.
+  '.b',
 ]);
 
 export const IGN = new Set([
@@ -41,6 +43,18 @@ export const IGN = new Set([
   '.idea',
   '.vscode',
 ]);
+
+// Upper-case names without a lower-case letter (T24 naming) and not an obviously binary file.
+const BINARY_NAME = /\.(PNG|JPE?G|GIF|ICO|PDF|ZIP|JAR|CLASS|EXE|DLL|SO|O|OBJ|LIB|A)$/i;
+export const maybeBasicName = (name) =>
+  /^[A-Z0-9_$%][A-Z0-9_.$%-]*$/.test(name) && !BINARY_NAME.test(name);
+
+// Statements that open or make up a jBC / InfoBasic source: routine headers, inserts, TAFJ
+// packages, common blocks and equates. Upper case only, as T24 code is written, so prose such as a
+// LICENSE ("program is ...") does not match.
+const BASIC_MARKER =
+  /^ *(?:\$(?:PACKAGE|INSERT|INCLUDE|USING) +\S|(?:SUBROUTINE|PROGRAM) +[A-Z][\w.$%]* *(?:\(|\r?$)|FUNCTION +[A-Z][\w.$%]* *\(|COM(?:MON)? *\/|EQU(?:ATE)? +[A-Z][\w.$%]* +TO )/m;
+export const looksLikeBasic = (text) => BASIC_MARKER.test((text || '').replace(/\t/g, ' '));
 
 export const read = async (f) => (await f.handle.getFile()).text();
 
@@ -64,10 +78,17 @@ export async function walk(h, p = '', a = [], includeSensitive = false, maxFiles
         path = p ? p + '/' + n : n,
         isText = EXTS.has(e) || ['Dockerfile', 'Makefile', '.gitignore'].includes(n);
       if (isText && !includeSensitive && sensitiveName.test(path)) isText = false;
-      if (isText) {
+      const basicCandidate = !isText && maybeBasicName(n);
+      if (isText || basicCandidate) {
         try {
           const f = await x.getFile();
           if (f.size > 2 * 1024 * 1024) isText = false;
+          // T24 routines are usually stored without an extension (ACCOUNT.VALIDATE, I_COMMON):
+          // they are recognised by their content and classified as '.b' from here on.
+          else if (basicCandidate && looksLikeBasic(await f.slice(0, 4096).text())) {
+            isText = true;
+            e = '.b';
+          }
         } catch {
           isText = false;
         }

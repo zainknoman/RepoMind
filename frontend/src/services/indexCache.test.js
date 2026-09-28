@@ -26,7 +26,7 @@ describe('index cache', () => {
     expect(await saveCachedIndex(p, { files: [{ path: 'a.js' }], symbols: [] })).toBe(true);
     const restored = await loadCachedIndex(project('cache-a', [{ path: 'a.js' }]));
     expect(restored.files).toEqual([{ path: 'a.js' }]);
-    expect(restored.cacheVersion).toBe(3);
+    expect(restored.cacheVersion).toBe(4);
     expect(restored.cachedAt).toEqual(expect.any(String));
   });
   it('misses when a file changed since the index was saved', async () => {

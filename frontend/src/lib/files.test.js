@@ -77,6 +77,27 @@ describe('walk', () => {
     expect(files).toHaveLength(2);
     expect(files.truncated).toBe(true);
   });
+  it('classifies .b files and extensionless BASIC routines as Temenos BASIC', async () => {
+    const source = (text) => ({
+      kind: 'file',
+      getFile: async () => ({ size: text.length, slice: () => ({ text: async () => text }) }),
+    });
+    const files = await walk(
+      dir({
+        BP: dir({
+          'ACCOUNT.VALIDATE': source('    SUBROUTINE ACCOUNT.VALIDATE\n    RETURN'),
+          I_COMMON: source('    COMMON /GLOBAL/ X'),
+          'RATES.b': source('CRT 1'),
+        }),
+        LICENSE: source('MIT License\nPermission is hereby granted'),
+      }),
+    );
+    const byPath = Object.fromEntries(files.map((f) => [f.path, f]));
+    expect(byPath['BP/ACCOUNT.VALIDATE']).toMatchObject({ ext: '.b', text: true });
+    expect(byPath['BP/I_COMMON']).toMatchObject({ ext: '.b', text: true });
+    expect(byPath['BP/RATES.b']).toMatchObject({ ext: '.b', text: true });
+    expect(byPath.LICENSE.text).toBe(false);
+  });
   it('recognises sensitive file names', () => {
     expect(sensitiveName.test('config/.env.production')).toBe(true);
     expect(sensitiveName.test('keys/id_rsa')).toBe(true);

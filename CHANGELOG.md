@@ -2,6 +2,27 @@
 
 All notable changes to RepoMind are recorded here.
 
+## Unreleased — Temenos code intelligence (Phase 6)
+
+### Added
+- **Temenos T24 / Transact BASIC is indexed.** `.b` files and extensionless routines and inserts
+  (recognised by their content, e.g. `BP/ACCOUNT.VALIDATE`, `I_COMMON`) are parsed: routines,
+  labels, `CALL`, `DEFFUN`, `$INSERT` and `CALLJ` links, `GOSUB`/`GOTO` references and the T24
+  applications each routine reads or writes. Impact and Dependencies show which routines call or
+  include a routine; `CALLJ` links a routine to its Java class.
+- **Temenos analyzers** (Codebase › Analyzers, only for folders with BASIC): Routines, Applications,
+  Services (`.LOAD` / `.SELECT` / `I_*.COMMON`), Core and External Routines, Java Links and Coding
+  Practices.
+- Analyzers can declare `appliesTo(index)`; unrelated analyzer packs are not listed.
+
+### Changed
+- "External imports" no longer includes relative imports that could not be resolved; those are
+  counted only as unresolved relative imports.
+- The index cache version is 4; existing cached indexes are rebuilt once.
+
+### Fixed
+- On phones the header grows to fit its wrapped buttons instead of pushing them above the screen.
+
 ## Unreleased — Analyzer contract and grounded AI (Phases 4 and 5)
 
 ### Added

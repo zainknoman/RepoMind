@@ -82,7 +82,10 @@ export function OFSWorkspace() {
       <div className="head">
         <div>
           <h1>📨 Temenos / OFS</h1>
-          <small>Temenos OFS Generator and T24 Log Analyzer.</small>
+          <small>
+            Temenos OFS Generator and T24 Log Analyzer. T24 source code (BASIC routines) is analysed
+            in Codebase › Analyzers.
+          </small>
         </div>
       </div>
       <div className="tabs" role="tablist">

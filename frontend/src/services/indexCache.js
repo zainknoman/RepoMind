@@ -5,7 +5,8 @@ const STORE = 'indexes';
 const LATEST = 'latest';
 const VERSION = 2;
 // Version 3 stores symbol back-links as positions instead of copies of every reference.
-const CACHE_VERSION = 3;
+// Version 4: Temenos BASIC sources are indexed; external imports exclude unresolved relative ones.
+const CACHE_VERSION = 4;
 
 function openDb() {
   if (typeof indexedDB === 'undefined') return Promise.resolve(null);

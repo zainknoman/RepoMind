@@ -15,6 +15,7 @@ const todo = defineAnalyzer({
   category: 'Maintenance',
   description: 'Lists TODO and FIXME comments.',
   scope: 'source',              // 'index' = metadata only, 'source' = also reads file contents
+  appliesTo: (index) => true,   // optional; when false the analyzer is not offered for this index
   columns: [                    // optional; default: severity, title, file, line
     ['severity', 'Severity'],
     ['title', 'Comment'],
@@ -34,6 +35,10 @@ const todo = defineAnalyzer({
 
 const unregister = registerAnalyzer(todo);
 ```
+
+`appliesTo` keeps a domain pack out of unrelated repositories: `listAnalyzers(index)` and a
+`runAnalyzers(index)` without ids include only the analyzers that apply. `listAnalyzers()` with no
+index lists them all.
 
 `defineAnalyzer` validates the definition and throws one error listing every problem.
 `registerAnalyzer` accepts a definition or a raw spec, refuses duplicate ids and returns a function
@@ -109,6 +114,41 @@ findings, throwing on error.
 | `symbol-resolution` | index | Ambiguous (`low`) and unresolved (`medium`) references |
 | `architecture-hotspots` | index | Files with internal dependency edges, most coupled first |
 | `security` | source | Likely hard-coded secrets (values masked) |
+
+## Temenos T24 / Transact analyzers
+
+`services/temenos.js` registers these when imported (the Codebase panel imports it). All apply only
+when the index contains BASIC sources.
+
+| id | Scope | What it reports |
+|---|---|---|
+| `temenos-routines` | index | Every routine/insert: type, calls (in repository vs core), callers/includers, applications; `medium` when a routine name is defined in more than one file |
+| `temenos-applications` | index | T24 applications with the routines that write, read or only use their layout |
+| `temenos-services` | index | Multi-threaded services (`NAME`, `NAME.LOAD`, `NAME.SELECT`, `I_NAME.COMMON`); `low`/`medium` for missing parts |
+| `temenos-calls` | index | Routines called but not in the repository (the core API), by number of callers |
+| `temenos-java` | source | `CALLJ` calls (resolved to the class file or not) and Java classes that extend `com.temenos.*` types |
+| `temenos-practices` | source | Direct `READ`/`WRITE`, `EXECUTE`/`PERFORM`, `STOP` in a subroutine, `GOTO`, `CRT`, hard-coded company codes |
+
+What the index records for BASIC (`services/temenosBasic.js`):
+
+- **Sources:** `.b` files, and extensionless upper-case files (`BP/ACCOUNT.VALIDATE`, `I_COMMON`) whose
+  first 4 KB contain a BASIC header, `$INSERT`/`$PACKAGE`/`$USING`, `COMMON /…/` or `EQU … TO`.
+  They are classified as `.b` (language "Temenos BASIC").
+- **Symbols:** the routine (`subroutine`, `program`, `function`, or `insert` for header-less `I_*`
+  files) and its labels (local to the file).
+- **Edges:** `CALL X` and `DEFFUN X` → the file of routine `X`; `$INSERT X` / `$INCLUDE X` → the
+  insert; `CALLJ "pkg.Class"` → `pkg/Class.java`. Routines are matched by file name (without `.b`).
+  Unmatched targets are external dependencies (core routines); they are not counted as unresolved
+  references. So **Impact** and **Dependencies** show callers and includers of a routine.
+- **References:** call sites (`CALL`, DEFFUN functions) and `GOSUB`/`GOTO` label targets.
+- **Applications** (`files[].temenos.applications`): `I_F.APP` inserts (layout), `F.READ`/`F.WRITE`/
+  `F.DELETE`/`CACHE.READ` and `READ … FROM`/`WRITE … ON` through file variables set from
+  `'F.APP'` and `OPF`, `EB.DataAccess.FRead`/`FWrite`, and the TAFJ table API
+  (`AC.AccountOpening.Account.Read(…)` → `ACCOUNT`).
+
+Not covered yet: VERSION / EB.API / PGM.FILE records (which attach routines to applications and
+events), `CALL @var` targets (counted as `dynamicCalls` only), Java-to-Java imports, and TAFJ
+component (`$USING`) dependencies beyond recording them.
 
 ## Where results go
 

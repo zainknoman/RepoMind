@@ -5,9 +5,8 @@ Update at the end of every phase.
 
 ## Current phase
 
-**Phases 4 (analyzer contract) and 5 (AI grounding): complete on `feature/analyzers-ai-grounding`,
-not yet merged.** Phases 1–3 are on `main`. Next: Phase 6 — Temenos code intelligence (as analyzers on
-the Phase 4 contract), or the indexer bottlenecks below if large repositories are a priority.
+**Phase 6 (Temenos code intelligence): first slice on `feature/temenos-intelligence`, not yet merged.**
+Phases 1–5 are on `main`. Remaining Phase 6 work is listed under "Next recommended task".
 
 ## Roadmap
 
@@ -20,7 +19,7 @@ the Phase 4 contract), or the indexer bottlenecks below if large repositories ar
 | 3b | Incremental indexing + unified search (only if the benchmark justifies it) | Done |
 | 4 | Analyzer/plugin contract | Done — `docs/ANALYZERS.md` |
 | 5 | AI grounding and repository context | Done |
-| 6 | Temenos code intelligence | Next |
+| 6 | Temenos code intelligence | In progress — indexing, linking, analyzers done |
 
 ## Completed work (Phase 1)
 
@@ -141,13 +140,48 @@ the Phase 4 contract), or the indexer bottlenecks below if large repositories ar
 - Playwright E2E against the production build: 61/61 passing. Fixed a race in "Search builds the code
   index on request" (it waited for the hint to disappear, which also happens when the build starts).
 
+## Completed work (Phase 6, first slice)
+
+- `lib/files.js`: `.b` is a text extension. Extensionless upper-case names (`maybeBasicName`) have
+  their first 4 KB sniffed (`looksLikeBasic`: routine header, `$INSERT`/`$PACKAGE`/`$USING`,
+  `COMMON /…/`, `EQU … TO`); matches are classified `ext: '.b'`, so the record flows through the
+  worker, cache key and incremental reuse unchanged.
+- `services/temenosBasic.js` (`parseBasic`): routine symbol (subroutine/program/function/insert),
+  labels scoped to the file, `CALL`/`DEFFUN` (kind `call`), `$INSERT`/`$INCLUDE` (`insert`),
+  `CALLJ` (`callj`) imports with bindings, call-site and `GOSUB`/`GOTO` references with offsets;
+  comments and string contents ignored; `files[].temenos` = routine, type, package, `$USING`,
+  applications (layout/read/write/uses via `I_F.*`, file variables + `OPF`, `F.READ`/`F.WRITE`,
+  `READ…FROM`/`WRITE…ON`, `EB.DataAccess`, TAFJ table API), Java calls, dynamic call count.
+- `repository.js`: `analyzeSource` dispatches `.b`; `namedImportResolver` resolves `call`/`insert` by
+  routine name (file name without `.b`) and `callj` to `pkg/Class.java` (Maven layout or path
+  suffix). Edges carry `kind`. Unresolved BASIC calls are external dependencies and are not added as
+  references. Framework signal "Temenos T24 / Transact".
+- `services/temenos.js`: `temenosModel(index)` and six analyzers (routines, applications, services,
+  core/external calls, Java links, coding practices), registered with `appliesTo: hasTemenos`.
+- Analyzer contract: optional `appliesTo(index)`; `listAnalyzers(index)` and `runAnalyzers(index)`
+  (no ids) include only applicable analyzers. Codebase lists analyzers per index.
+- Known issues fixed here: "External imports" excludes unresolved relative imports; phone header
+  grows instead of overflowing. Cache version 4.
+
+## Tests / build status (Phase 6, first slice)
+
+- `npm run check` (Prettier, ESLint, 89 unit tests, production build): passing.
+- Playwright E2E against the production build: 61/61 passing (no Temenos E2E test yet).
+
 ## Architectural decisions
 
 - **No router introduced.** Tab ids remain App state keys; renames change labels only, so `?tool=`
   deep links and internal state are stable.
-- **Temenos / OFS stays in Tools for now.** It is only kept in the product if Phase 6 connects it to
-  code intelligence (routines → applications → Java extensions → services → impact). Revisit its
-  navigation placement at Phase 6.
+- **Temenos / OFS stays in Tools (decided in Phase 6).** Temenos *code* intelligence is not a separate
+  workspace: BASIC sources are indexed like any language, so Impact, Dependencies, Symbols, Search,
+  Health, Diagram and AI context work on them, and the domain views are analyzers that appear in
+  Codebase › Analyzers only for T24 folders. The OFS Generator and T24 Log Analyzer work on runtime
+  messages and logs, not source, so they remain utilities under Tools; each surface points to the
+  other (Help, OFS subtitle).
+- **BASIC routines are linked by name, not path.** T24 has one global routine namespace; the first
+  file with a given routine name wins and duplicates are flagged by `temenos-routines`.
+- **Extensionless BASIC is recognised by content, only for upper-case names**, to avoid reading every
+  binary or extensionless file in ordinary repositories. Lower-case extensionless routines are missed.
 - **One Search workspace** (Explore → Search) for symbols, files and text; Codebase has no search view.
   Search stays usable without an index (files + text) and adds symbols when one exists.
 - **References view deferred** again; references are shown in the Symbol inspector.
@@ -176,6 +210,23 @@ the Phase 4 contract), or the indexer bottlenecks below if large repositories ar
 
 ## Known issues (carried forward)
 
+Status of the issues listed at the end of Phase 5 (checked 2026-09-28):
+
+- Saved index never cleaned up — **fixed in Phase 3b** (`latest` store deletes the superseded
+  snapshot; Clear deletes the current one). Snapshots of folders never reopened still remain.
+- Dashboard reads files twice — **open** (below).
+- References counted as resolved too easily — **partly fixed** by scope-aware resolution in 3b; a
+  reference still falls back to any top-level symbol of the same name in any file.
+- "External imports" inflated by unresolved relative imports — **fixed in Phase 6**.
+- Phone header overflow — **fixed in Phase 6**.
+- "✓ Fresh index9/28/2026" — **fixed in Phase 3b** (label · date).
+- Branch protection on `main` — **not enabled**: the GitHub API reports `protected: false`, no
+  required status checks and no rulesets. Needs enabling in the repository settings.
+- Local branches: `feature/product-consolidation`, `feature/analyzers-ai-grounding` and `main-v2`
+  (`dbab59d`) are all ancestors of `main` and can be deleted.
+
+Carried forward:
+
 - Large repositories (~1 M dense lines) still block the main thread for ~10–19 s when a build finishes,
   when saving the cache and when restoring it (index size). Next steps, in order: save the cache from
   the worker; store references once instead of raw + linked; block scopes/parameters. Real code at
@@ -183,19 +234,25 @@ the Phase 4 contract), or the indexer bottlenecks below if large repositories ar
 - Dashboard profile statistics still read every file on the main thread on folder open (separate from
   the index); candidate to derive from the index or move to the worker.
 - Folder open now also runs the cache-key check (one `getFile()` per text file) to restore the index.
-- On phones the header actions overflow the top of the header (pre-existing layout issue).
-- `External imports` counts unresolved relative imports too (pre-existing `externalDependencies` semantics).
 - A reference to a parameter can still match a top-level declaration of the same name in another file
   (parameters are not symbols).
 - Symbol Resolution reports globals such as `require` and `module` as unresolved.
 - The indexer ignores identifiers on lines that contain an `export` or `import` (pre-existing),
   so `export function f() { return g(); }` records no reference to `g`.
-- Temenos sources (`.b`, extensionless BASIC routines) are not treated as text, so they are not indexed
-  (Phase 6).
-- Branch protection on `main` (require CI) is a manual GitHub setting — unverified.
+- Branch protection on `main` (require CI) is not enabled (checked via the public API).
+- Temenos: names like `EB.GET.KEY` match the sensitive-file rule (`.key`) and are skipped unless
+  "Include sensitive files" is on.
 
 ## Next recommended task
 
-Phase 6: Temenos code intelligence — index Temenos sources (`.b`, extensionless BASIC routines) and
-add their analyzers on the Phase 4 contract. If large repositories matter sooner, first move the
-cache save into the index worker.
+Phase 6, remaining:
+1. Validate on a real T24 / TAFJ repository (parser coverage, false positives in Coding Practices,
+   performance with thousands of extensionless files).
+2. Configuration records: VERSION, EB.API, PGM.FILE, BATCH / TSA.SERVICE data (DS packages or
+   exported records) to link routines to applications, events (validation, input, authorisation)
+   and scheduled jobs.
+3. Transitive impact ("what breaks if ACCOUNT.VALIDATE changes") — useful for every language, but
+   T24 call chains make it most valuable.
+4. AI context: rank T24 files by routine and application names in the question.
+
+If large repositories matter sooner, first move the cache save into the index worker.

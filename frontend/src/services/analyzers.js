@@ -20,6 +20,8 @@ const DEFAULT_COLUMNS = [
  *   name, category, description
  *   scope        'index' — reads only index metadata; 'source' — also reads file contents
  *   columns      [key, label][] shown in the findings table (default: severity, finding, file, line)
+ *   appliesTo    optional (index) → boolean: whether the analyzer is offered for that index, so a
+ *                domain pack (e.g. Temenos) stays out of unrelated repositories
  *   run(context) → finding[] (or a promise of one)
  *
  * The context passed to `run`: { index, readText(path), lineLocator(text), signal }.
@@ -32,6 +34,8 @@ export function defineAnalyzer(spec) {
     if (typeof spec?.[key] !== 'string' || !spec[key].trim()) problems.push(key + ' is required');
   if (!SCOPES.includes(spec?.scope)) problems.push('scope must be "index" or "source"');
   if (typeof spec?.run !== 'function') problems.push('run must be a function');
+  if (spec?.appliesTo !== undefined && typeof spec.appliesTo !== 'function')
+    problems.push('appliesTo must be a function');
   const columns = spec?.columns || DEFAULT_COLUMNS;
   if (!Array.isArray(columns) || columns.some((c) => !Array.isArray(c) || c.length !== 2))
     problems.push('columns must be [key, label] pairs');
@@ -412,22 +416,30 @@ export function registerAnalyzer(spec) {
   registerAnalyzer,
 );
 
-/** Registered analyzers' metadata, in registration order. */
-export const listAnalyzers = () =>
-  [...registry.values()].map(({ id, name, category, description, scope, columns }) => ({
-    id,
-    name,
-    category,
-    description,
-    scope,
-    columns,
-  }));
+const applies = (analyzer, index) => !index || !analyzer.appliesTo || analyzer.appliesTo(index);
+
+/** Registered analyzers' metadata, in registration order; with an index, only those that apply. */
+export const listAnalyzers = (index) =>
+  [...registry.values()]
+    .filter((a) => applies(a, index))
+    .map(({ id, name, category, description, scope, columns }) => ({
+      id,
+      name,
+      category,
+      description,
+      scope,
+      columns,
+    }));
 
 /**
  * Runs analyzers against an index. One failing analyzer does not stop the others: its entry has an
  * `error` instead. Returns { [id]: { findings, ms, error?, ranAt } }.
  */
-export async function runAnalyzers(index, ids = [...registry.keys()], options = {}) {
+export async function runAnalyzers(
+  index,
+  ids = listAnalyzers(index).map((a) => a.id),
+  options = {},
+) {
   const readText = options.readText || createSourceReader(index);
   const results = {};
   for (const id of ids) {

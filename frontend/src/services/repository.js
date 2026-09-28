@@ -30,9 +30,11 @@ export const languageFor = (ext) =>
     '.xml': 'XML',
     '.yaml': 'YAML',
     '.yml': 'YAML',
+    '.b': 'Temenos BASIC',
   })[ext] || 'Text';
 
 import { parse } from '@babel/parser';
+import { parseBasic, routineName } from './temenosBasic';
 
 const BABEL_PLUGINS = [
   'jsx',
@@ -420,6 +422,7 @@ function fallbackAnalyzeSource(file, content) {
 }
 
 export function analyzeSource(file, content) {
+  if (file.ext === '.b') return { ...fileSummary(file, content), ...parseBasic(file, content) };
   if (!BABEL_EXTENSIONS.has(file.ext)) return fallbackAnalyzeSource(file, content);
   try {
     return parseJavaScript(content, file);
@@ -484,6 +487,8 @@ function frameworkSignals(files) {
   if (files.some((f) => f.ext === '.java')) result.push(add('Java', 'Java files'));
   if (files.some((f) => f.ext === '.kt')) result.push(add('Kotlin', 'Kotlin files'));
   if (files.some((f) => f.ext === '.go')) result.push(add('Go', 'Go files'));
+  const basic = files.filter((f) => f.ext === '.b').length;
+  if (basic) result.push(add('Temenos T24 / Transact', `${basic} BASIC sources`));
   return { frameworks: result, packages: [...packages] };
 }
 
@@ -521,6 +526,35 @@ function groupBy(items, keyFn) {
 }
 
 /**
+ * BASIC routines and inserts share one global namespace: CALL X and $INSERT X name a routine, not a
+ * path. CALLJ names a Java class. Returns `(kind, module) => path | null` for those imports.
+ */
+function namedImportResolver(files) {
+  const routines = new Map();
+  const javaClasses = new Map();
+  for (const file of files) {
+    if (file.ext === '.b') {
+      const name = routineName(file.name || file.path.split('/').pop());
+      if (!routines.has(name)) routines.set(name, file.path);
+    } else if (file.ext === '.java') {
+      const maven = /(?:^|\/)src\/(?:main|test)\/java\/(.+)\.java$/.exec(file.path);
+      if (maven) javaClasses.set(maven[1].replace(/\//g, '.'), file.path);
+      else javaClasses.set(file.path.replace(/\.java$/, '').replace(/\//g, '.'), file.path);
+    }
+  }
+  return (kind, module) => {
+    if (kind === 'call' || kind === 'insert') return routines.get(module) || null;
+    if (kind === 'callj') {
+      if (javaClasses.has(module)) return javaClasses.get(module);
+      // A path that is not a Maven layout: match the package path at the end.
+      const suffix = '/' + module.replace(/\./g, '/') + '.java';
+      for (const [, path] of javaClasses) if (('/' + path).endsWith(suffix)) return path;
+    }
+    return null;
+  };
+}
+
+/**
  * Builds the repository index. A file that carries a previous `analysis` (an entry of an earlier
  * index's `files`, reused because the file is unchanged) is not read or parsed again; every
  * cross-file link is always recomputed.
@@ -530,6 +564,7 @@ export async function buildRepositoryIndex(project, options = {}) {
   if (!project) return null;
   const files = project.files.filter(isTextFile);
   const fileMap = new Map(files.map((file) => [file.path, file]));
+  const resolveNamed = namedImportResolver(files);
   const index = {
     repository: project.name,
     generatedAt: new Date().toISOString(),
@@ -594,11 +629,15 @@ export async function buildRepositoryIndex(project, options = {}) {
     for (const e of analysis.exports) index.exports.push({ ...e, path: file.path });
 
     for (const item of analysis.imports) {
-      const target = resolveImport(file.path, item.module, fileMap);
+      const target =
+        item.kind === 'import'
+          ? resolveImport(file.path, item.module, fileMap)
+          : resolveNamed(item.kind, item.module);
       const edge = {
         from: file.path,
         to: target,
         module: item.module,
+        kind: item.kind,
         line: item.line,
         bindings: item.bindings || [],
       };
@@ -606,10 +645,12 @@ export async function buildRepositoryIndex(project, options = {}) {
       if (target) {
         index.dependencies.push(edge);
         index.stats.internalEdges++;
+      } else if (item.module.startsWith('.')) {
+        // A relative import names a file in this repository: missing, not external.
+        index.unresolvedImports.push(edge);
       } else {
         index.externalDependencies.push(edge);
         index.stats.externalImports++;
-        if (item.module.startsWith('.')) index.unresolvedImports.push(edge);
       }
     }
   }
@@ -685,6 +726,9 @@ export async function buildRepositoryIndex(project, options = {}) {
           ref.offset,
         );
       if (!resolved.length) resolved = topLevelByName.get(ref.name) || none;
+      // A BASIC CALL to a routine outside the repository (a core API such as F.READ) is already an
+      // external dependency; as a reference it would only swell the unresolved count.
+      if (!resolved.length && ref.kind === 'call') continue;
       const reference = {
         from: file.path,
         name: ref.name,

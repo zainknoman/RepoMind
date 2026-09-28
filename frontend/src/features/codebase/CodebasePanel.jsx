@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { findDependencies, findDependents, getSymbolDetails } from '../../services/repository';
 import { readGitRepository, gitStatusSummary, gitActivity } from '../../services/git';
 import { listAnalyzers, runAnalyzers, analyzerSummary } from '../../services/analyzers';
+// Registers the Temenos analyzers; they are listed only for indexes with BASIC sources.
+import '../../services/temenos';
 import { buildDocumentationReport, buildModuleReport } from '../../services/documentation';
 import { buildArchitectureMermaid, renderMermaid } from '../../services/diagram';
 import { fileCoupling } from '../../services/health';
@@ -114,7 +116,7 @@ export default function CodebasePanel({
     }),
     [index],
   );
-  const analyzerCatalog = useMemo(() => listAnalyzers(), []),
+  const analyzerCatalog = useMemo(() => listAnalyzers(index), [index]),
     resolutionSummary = useMemo(() => analyzerSummary(index), [index]),
     analyzersRun = Object.keys(analyzerResults).length,
     securityScanned = !!analyzerResults.security && !analyzerResults.security.error,

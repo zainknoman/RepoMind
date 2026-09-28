@@ -1862,6 +1862,13 @@ header {
   .help-list {
     position: static;
   }
+  /* The fixed desktop height would push wrapped actions above the top of the screen. */
+  header {
+    height: auto;
+    min-height: 76px;
+    flex-wrap: wrap;
+    padding: 12px 16px;
+  }
   .header-actions {
     flex-wrap: wrap;
   }
