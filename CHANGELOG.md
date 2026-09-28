@@ -2,6 +2,26 @@
 
 All notable changes to RepoMind are recorded here.
 
+## Unreleased — Transitive impact (Phase B2)
+
+### Added
+- **Transitive impact.** Codebase › Impact shows every file that imports the selected file, level
+  by level with the importing path, and, for a symbol, every function, method, class, routine or
+  module-level code that uses it, directly or indirectly, with a confidence per item (a path is as
+  strong as its weakest link). Blind spots are listed: languages that are not analysed, unresolved
+  references with the same name, calls through objects, dynamic `CALL @var` sites and guessed links.
+  Temenos `CALL` chains are followed across routines. The Symbol inspector has **Show impact**.
+
+### Fixed
+- Identifiers on a line containing `export` or `import` were ignored, so one-line exported functions
+  had no references (and no impact).
+- Parameters, destructured, `catch` and type-parameter names are local bindings: they shadow outer
+  names and no longer count as unresolved or link to same-name symbols elsewhere. On RepoMind's own
+  source, unresolved references fell from 4,466 to 42 and guessed links from 218 to 0.
+
+### Changed
+- The index cache version is 6; existing cached indexes are rebuilt once.
+
 ## Unreleased — Graph trust (Phase B1)
 
 ### Added

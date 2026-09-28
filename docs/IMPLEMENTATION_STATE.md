@@ -5,8 +5,8 @@ Update at the end of every phase.
 
 ## Current phase
 
-**Phase B2 (transitive impact) on `feature/graph-trust`.** Phases 1–6 (first Temenos slice) are on
-`main`; Phase B1 (graph trust) is on `feature/graph-trust`. Plans live in `docs/superpowers/plans/`.
+**Phases B1 and B2 done on `feature/graph-trust` (not merged).** Phases 1–6 (first Temenos slice)
+are on `main`. Next: Phase B3 (Git change impact). Plans live in `docs/superpowers/plans/`.
 
 ## Roadmap
 
@@ -21,7 +21,7 @@ Update at the end of every phase.
 | 5 | AI grounding and repository context | Done |
 | 6 | Temenos code intelligence | First slice on `main` (indexing, linking, analyzers); more below |
 | B1 | Graph trust: reference confidence, coverage, re-exports, accuracy fixtures | Done |
-| B2 | Parameters as symbols, transitive impact with confidence | In progress |
+| B2 | Local bindings, transitive impact with confidence and blind spots | Done |
 | B3 | Git change impact (diff → changed symbols → impact) | Planned |
 
 ## Completed work (Phase 1)
@@ -193,6 +193,18 @@ Update at the end of every phase.
 
 - `npm run check`: passing (111 unit tests). E2E: 61/61 passing.
 
+## Completed work (Phase B2 — transitive impact)
+
+- Parser: `localBindings` (parameters, destructuring, `catch`, TS type parameters) per file; the
+  innermost binding shadows imports and outer declarations (`stats.localReferences`). Symbols have
+  `endLine`. Export names are skipped by syntax, not by line (fixes one-line exported functions).
+  Cache version 6.
+- `services/impact.js`: `containerAt`, `symbolImpact` (widest-path, three confidence buckets,
+  module-level entries, `maxDepth`, `limit`), `fileImpact` (importers by level), blind spots.
+- UI: `features/codebase/ImpactView.jsx`; Symbol inspector **Show impact**.
+- Tests: 124 unit (fixtures incl. `one-line-export`, `impact.test.js`), E2E 61/61 (Impact asserts
+  symbol impact and blind spots).
+
 ## Architectural decisions
 
 - **No router introduced.** Tab ids remain App state keys; renames change labels only, so `?tool=`
@@ -270,10 +282,9 @@ Carried forward:
 
 ## Next recommended task
 
-Phase B2: parameters, catch and destructured bindings as scoped symbols (so unresolved means
-unknown), then transitive impact over dependency edges and symbol references with confidence
-propagation (a path is as strong as its weakest edge) and coverage boundaries. Then Phase B3 (Git
-change impact). tsconfig `paths`, Python and Java import resolution follow, driven by coverage.
+Phase B3: Git change impact — changed lines (working tree or a commit) → changed symbols via
+`endLine` → `symbolImpact` for each → one combined report. Member calls (`obj.method()`) are the
+largest remaining blind spot for method impact. tsconfig `paths`, Python and Java import resolution follow, driven by coverage.
 
 Phase 6 (Temenos), remaining:
 1. Validate on a real T24 / TAFJ repository (parser coverage, false positives in Coding Practices,
