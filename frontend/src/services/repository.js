@@ -35,6 +35,7 @@ export const languageFor = (ext) =>
 
 import { parse } from '@babel/parser';
 import { parseBasic, routineName } from './temenosBasic';
+import { analysisCoverage } from './coverage';
 
 const BABEL_PLUGINS = [
   'jsx',
@@ -953,6 +954,7 @@ export async function buildRepositoryIndex(project, options = {}) {
     for (const symbol of reference.resolvedSymbols) symbol.references.push(reference);
   for (const binding of importBindings)
     for (const symbol of binding.resolvedSymbols) symbol.importedBy.push(binding);
+  index.coverage = analysisCoverage(index);
 
   return index;
 }
