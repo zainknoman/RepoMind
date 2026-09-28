@@ -1,15 +1,18 @@
-export function buildArchitectureHealth(index, cycles = []) {
-  if (!index) return null;
-  const fileMap = new Map((index.files || []).map((f) => [f.path, f]));
+/**
+ * Internal dependency fan-out/fan-in per file, most coupled first (ties: larger files first). The
+ * one hotspot ranking used by Health, the Dependencies view, reports and the hotspot analyzer.
+ */
+export function fileCoupling(index) {
   const depCounts = new Map(),
     dependentCounts = new Map();
-  for (const e of index.dependencies || []) {
+  for (const e of index?.dependencies || []) {
     depCounts.set(e.from, (depCounts.get(e.from) || 0) + 1);
     dependentCounts.set(e.to, (dependentCounts.get(e.to) || 0) + 1);
   }
-  const hotspots = (index.files || [])
+  return (index?.files || [])
     .map((f) => ({
       path: f.path,
+      language: f.language,
       dependencies: depCounts.get(f.path) || 0,
       dependents: dependentCounts.get(f.path) || 0,
       // Each file record already holds its own symbols; filtering index.symbols per file is quadratic.
@@ -18,6 +21,12 @@ export function buildArchitectureHealth(index, cycles = []) {
       score: (depCounts.get(f.path) || 0) + (dependentCounts.get(f.path) || 0),
     }))
     .sort((a, b) => b.score - a.score || b.tokens - a.tokens);
+}
+
+export function buildArchitectureHealth(index, cycles = []) {
+  if (!index) return null;
+  const fileMap = new Map((index.files || []).map((f) => [f.path, f]));
+  const hotspots = fileCoupling(index);
   const parserErrors = (index.files || []).reduce((n, f) => n + (f.parseErrors?.length || 0), 0);
   const signals = [
     {

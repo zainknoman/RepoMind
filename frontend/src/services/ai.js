@@ -1,3 +1,5 @@
+import { GROUNDING_RULES, formatPrompt } from './aiContext';
+
 const STORAGE_KEY = 'repomind.ai.settings';
 
 // No default models: provider catalogues change often, so the user always names the model explicitly.
@@ -119,19 +121,16 @@ export async function askAI(rawSettings, messages) {
   if (provider.kind === 'gemini') return callGemini(settings, provider, messages);
   return callOpenAI(settings, provider, messages);
 }
+/** System message with the grounding rules, then the task and repository context. */
 export function buildAIMessages(task, context) {
   return [
-    {
-      role: 'system',
-      content:
-        'You are RepoMind, a senior software engineer. Analyze only the supplied repository context. Separate observed facts from assumptions. Cite file paths and symbols when possible. Do not invent files or APIs.',
-    },
-    {
-      role: 'user',
-      content:
-        (task || 'Analyze this codebase and identify important findings.') +
-        '\n\n# Repository Context\n' +
-        (context || 'No repository context was supplied.'),
-    },
+    { role: 'system', content: GROUNDING_RULES },
+    { role: 'user', content: formatPrompt(task, context) },
   ];
 }
+
+/** Sends an already-built prompt (as shown to and possibly edited by the user). */
+export const promptMessages = (prompt) => [
+  { role: 'system', content: GROUNDING_RULES },
+  { role: 'user', content: prompt },
+];

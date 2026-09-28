@@ -5,10 +5,9 @@ Update at the end of every phase.
 
 ## Current phase
 
-**Phase 3 (3a benchmark + 3b indexer, incremental indexing, unified search): complete on
-`feature/product-consolidation`, not yet merged.** Phases 1–2 and the post-Phase 2 fixes are on `main`.
-Next: Phase 4 — analyzer/plugin contract (or the remaining indexer bottlenecks below, if large
-repositories are a priority).
+**Phases 4 (analyzer contract) and 5 (AI grounding): complete on `feature/analyzers-ai-grounding`,
+not yet merged.** Phases 1–3 are on `main`. Next: Phase 6 — Temenos code intelligence (as analyzers on
+the Phase 4 contract), or the indexer bottlenecks below if large repositories are a priority.
 
 ## Roadmap
 
@@ -19,9 +18,9 @@ repositories are a priority).
 | 2 | Dashboard as investigation command centre; first-run workflow | Done |
 | 3a | Benchmark the indexer (small/medium/large repos) | Done — `docs/INDEXER_BENCHMARK.md` |
 | 3b | Incremental indexing + unified search (only if the benchmark justifies it) | Done |
-| 4 | Analyzer/plugin contract | Next |
-| 5 | AI grounding and repository context | Planned |
-| 6 | Temenos code intelligence | Planned |
+| 4 | Analyzer/plugin contract | Done — `docs/ANALYZERS.md` |
+| 5 | AI grounding and repository context | Done |
+| 6 | Temenos code intelligence | Next |
 
 ## Completed work (Phase 1)
 
@@ -101,6 +100,47 @@ repositories are a priority).
 - `npm run check` (Prettier, ESLint, 63 unit tests, production build): passing.
 - Playwright E2E against the production build: 57/57 passing.
 
+## Completed work (Phase 4)
+
+- `services/analyzers.js`: `defineAnalyzer` (validated: id, name, category, description, scope
+  `index`|`source`, columns, run), `normalizeFinding` (severity/title/file/line), `registerAnalyzer`
+  (returns unregister), `listAnalyzers`, `runAnalyzers` (shared cached `readText`, per-analyzer error
+  isolation, `onResult`, cancellation), `definePatternAnalyzer` (regex rules → findings with line and
+  line text, dedupe key, per-file/per-rule filters), `lineLocator`.
+- Built-ins on the contract: `routes`, `framework-structure`, `symbol-resolution` (non-resolved only),
+  `architecture-hotspots`, `security` (secret scan; `looksSecret`, `redactSecret` exported for reuse).
+- Duplication removed: `intelligence.js` deleted (route patterns ×2 and the secret scan → analyzers;
+  package detection → `services/frameworks.js`; Mermaid builder → `diagram.js`; unused
+  `buildDependencyMermaid`, `intelligenceSummary`). Hotspots: one `fileCoupling` in `health.js` (was 4×;
+  `getArchitecture` and the report's own ranking removed). Framework checks: `hasFramework` in
+  `frameworks.js`. Unused `TEXT_EXTENSIONS`/`IGNORE_DIRS` removed from `repository.js`.
+- UI: `features/codebase/AnalyzersView.jsx` (Run All, tables from declared columns, severity counts,
+  ms, errors, file → Editor via the previously unused `onOpenFile`). Security card/report read the
+  `security` result.
+
+## Completed work (Phase 5)
+
+- `services/aiContext.js`: `rankFilesForQuestion` (named paths/files, defining symbols, identifier
+  parts, path parts; coupling fallback), `buildGroundedContext` (overview → repository map ≤15% of
+  budget → analyzer findings ≤5% → numbered source; truncates or omits files over budget; masks lines
+  matching the secret rules; returns requested/included/omitted files with reasons), `GROUNDING_RULES`,
+  `formatPrompt`, `exportablePrompt`, `verifyCitations` (verified / outside-context / bad-line /
+  unknown-file).
+- `ai.js`: the grounding rules are the system message; `promptMessages(prompt)` sends the prompt as
+  shown (and possibly edited).
+- `services/savedContexts.js`: saved contexts are recipes (repository, task, paths, options); legacy
+  entries have their source stripped on read. Replaces `buildContext` in `repository.js`.
+- UI: `features/codebase/useAIContext.js` (state shared by Context Builder and AI; resets per index),
+  `AIViews.jsx` (context source: question vs selection; budget/deps/importers/map/findings options;
+  context summary with reasons; grounding check linking to files; saved contexts rebuild on load).
+  `CodebasePanel.jsx` shrank from 1,332 to ~700 lines.
+
+## Tests / build status (end of Phase 5)
+
+- `npm run check` (Prettier, ESLint, 79 unit tests, production build): passing.
+- Playwright E2E against the production build: 61/61 passing. Fixed a race in "Search builds the code
+  index on request" (it waited for the hint to disappear, which also happens when the build starts).
+
 ## Architectural decisions
 
 - **No router introduced.** Tab ids remain App state keys; renames change labels only, so `?tool=`
@@ -110,7 +150,17 @@ repositories are a priority).
   navigation placement at Phase 6.
 - **One Search workspace** (Explore → Search) for symbols, files and text; Codebase has no search view.
   Search stays usable without an index (files + text) and adds symbols when one exists.
-- **References view deferred** again (Phase 4/5); references are shown in the Symbol inspector.
+- **References view deferred** again; references are shown in the Symbol inspector.
+- **Analyzers are registered modules, not runtime plugins.** No third-party code is loaded; domain
+  packs (Temenos) will be modules calling `registerAnalyzer`.
+- **Analyzers run on the main thread** with async source reads; results live in `CodebasePanel` state
+  per index (not cached).
+- **File ranking for AI is lexical** (identifiers, paths), not embeddings: local, deterministic and
+  explainable ("defines greet"). Semantic retrieval is a possible later step.
+- **Secret masking in AI context reuses the secret-scan rules** per line; it is heuristic, like the
+  scan.
+- **The grounding check is advisory**: it verifies that cited files/lines exist and were sent, not
+  that the claim about them is correct.
 - **Benchmark in Node, not the browser**: deterministic and CI-friendly; browser-only costs are
   approximated with `structuredClone` / V8 serialization. Real-browser profiling is a follow-up if the
   numbers and user reports diverge.
@@ -135,16 +185,17 @@ repositories are a priority).
 - Folder open now also runs the cache-key check (one `getFile()` per text file) to restore the index.
 - On phones the header actions overflow the top of the header (pre-existing layout issue).
 - `External imports` counts unresolved relative imports too (pre-existing `externalDependencies` semantics).
-- Saved context snapshots store full source in `localStorage` (privacy + quota; Phase 5 or earlier).
 - A reference to a parameter can still match a top-level declaration of the same name in another file
   (parameters are not symbols).
-- Duplicated logic: route patterns (`intelligence.js` vs `analyzers.js`), hotspot calculations (4×),
-  framework detection (3×), unused `TEXT_EXTENSIONS`/`IGNORE_DIRS` in `repository.js` (Phase 4).
+- Symbol Resolution reports globals such as `require` and `module` as unresolved.
+- The indexer ignores identifiers on lines that contain an `export` or `import` (pre-existing),
+  so `export function f() { return g(); }` records no reference to `g`.
 - Temenos sources (`.b`, extensionless BASIC routines) are not treated as text, so they are not indexed
   (Phase 6).
 - Branch protection on `main` (require CI) is a manual GitHub setting — unverified.
 
 ## Next recommended task
 
-Phase 4: the analyzer/plugin contract. If large repositories matter sooner, first move the cache save
-into the index worker (removes a ~2.7 s / ~13 s main-thread freeze at medium / large).
+Phase 6: Temenos code intelligence — index Temenos sources (`.b`, extensionless BASIC routines) and
+add their analyzers on the Phase 4 contract. If large repositories matter sooner, first move the
+cache save into the index worker.

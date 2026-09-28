@@ -299,6 +299,7 @@ test.describe('RepoMind Codebase Intelligence end-to-end', () => {
       'Framework Structure',
       'Symbol Resolution',
       'Architecture Hotspots',
+      'Secret Scan',
     ]) {
       const panel = page
         .locator('.analyzer-registry .analytics-panel')
@@ -320,9 +321,8 @@ test.describe('RepoMind Codebase Intelligence end-to-end', () => {
   test('Analyzers API discovery finds routes from multiple frameworks', async ({ page }) => {
     await page.getByRole('button', { name: 'Analyzers', exact: true }).click();
     await page
-      .locator('.analytics-panel')
-      .filter({ hasText: 'API / Route Discovery' })
-      .getByRole('button', { name: '▶ Run Scan' })
+      .locator('[data-analyzer="routes"]')
+      .getByRole('button', { name: '▶ Run', exact: true })
       .click();
     await expect(page.getByText('/users', { exact: true }).first()).toBeVisible();
     await expect(page.getByText('/orders', { exact: true })).toBeVisible();
@@ -337,11 +337,22 @@ test.describe('RepoMind Codebase Intelligence end-to-end', () => {
   test('Analyzers security scan finds fixture secret', async ({ page }) => {
     await page.getByRole('button', { name: 'Analyzers', exact: true }).click();
     await page
-      .locator('.analytics-panel')
-      .filter({ hasText: 'Security / Secret Scan' })
-      .getByRole('button', { name: '▶ Run Scan' })
+      .locator('[data-analyzer="security"]')
+      .getByRole('button', { name: '▶ Run', exact: true })
       .click();
     await expect(page.getByText('api-key', { exact: true })).toBeVisible();
+  });
+
+  test('Analyzers Run All runs every analyzer and a finding opens its file', async ({ page }) => {
+    await page.getByRole('button', { name: 'Analyzers', exact: true }).click();
+    await page.getByRole('button', { name: '▶ Run All' }).click();
+    await expect(page.getByText(/No result yet/)).toHaveCount(0);
+    await expect(page.locator('.analyzer-registry .intelligence-cards')).toContainText('5/5');
+    const routes = page.locator('[data-analyzer="routes"]');
+    await expect(routes.locator('.analyzer-head')).toContainText('Method');
+    await routes.getByRole('button', { name: 'src/orders.py' }).click();
+    await expect(page.locator('nav button.active')).toHaveText('Editor');
+    await expect(page.locator('.editor textarea')).toHaveValue(/FastAPI/);
   });
 
   test('Diagram child tab generates dependency graph', async ({ page }) => {
@@ -410,6 +421,74 @@ test.describe('RepoMind Codebase Intelligence end-to-end', () => {
     await page.getByRole('button', { name: '▶ Build Prompt' }).click();
     await expect(page.locator('textarea.ai-output')).not.toHaveValue('');
     await expect(page.locator('textarea.ai-output')).toContainText('RepoMind Task');
+  });
+
+  test('AI prompt is grounded in files relevant to the question', async ({ page }) => {
+    await page.getByRole('button', { name: 'AI', exact: true }).click();
+    await page.locator('textarea.ai-task').fill('How does greet work, and what reads config.js?');
+    await page.getByRole('button', { name: '▶ Build Prompt' }).click();
+    const prompt = page.locator('textarea.ai-output');
+    await expect(prompt).toHaveValue(/## Repository map/);
+    await expect(prompt).toHaveValue(/### src\/service\.js\nReason: defines greet/);
+    await expect(prompt).toHaveValue(/1\| export function greet\(name\)/);
+    // The fixture's API key is masked before it can reach a provider.
+    await expect(prompt).not.toHaveValue(/fixture-secret-1234567890/);
+    await expect(page.locator('.context-summary')).toContainText('likely secrets masked');
+    await expect(
+      page.locator('.context-summary .context-file').filter({ hasText: 'src/service.js' }),
+    ).toContainText('defines greet');
+  });
+
+  test('AI answers are checked for file:line citations', async ({ page }) => {
+    let sent;
+    await page.route('https://api.openai.com/**', async (route) => {
+      sent = route.request().postDataJSON();
+      await route.fulfill({
+        json: {
+          choices: [
+            {
+              message: {
+                content: 'greet is defined at src/service.js:1; see also src/nowhere.js:3.',
+              },
+            },
+          ],
+        },
+      });
+    });
+    await page.getByRole('button', { name: 'AI', exact: true }).click();
+    await page.locator('textarea.ai-task').fill('Where is greet defined?');
+    await page.getByRole('button', { name: '⚙ AI Settings' }).click();
+    await page.getByPlaceholder('e.g. gpt-4.1-mini').fill('test-model');
+    await page.getByPlaceholder('Stored only in this browser').fill('test-key');
+    await page.getByRole('button', { name: '🤖 Ask AI' }).click();
+    const check = page.locator('.grounding-check');
+    await expect(check).toContainText('1 of 2 file references verified');
+    await expect(check.locator('.citation.verified')).toContainText('src/service.js:1');
+    await expect(check.locator('.citation.unknown-file')).toContainText('no such file');
+    expect(sent.messages[0]).toMatchObject({ role: 'system' });
+    expect(sent.messages[0].content).toContain('path:line');
+    expect(sent.messages[1].content).toContain('### src/service.js');
+  });
+
+  test('saved contexts keep the file list, not the source, and rebuild on load', async ({
+    page,
+  }) => {
+    await page.getByRole('button', { name: 'AI', exact: true }).click();
+    await page.locator('textarea.ai-task').fill('How does greet work?');
+    await page.getByRole('button', { name: '▶ Build Prompt' }).click();
+    await page.getByPlaceholder('Snapshot name').fill('Greeting');
+    await page.getByRole('button', { name: '💾 Save Snapshot' }).click();
+    const stored = await page.evaluate(() => localStorage.getItem('repomind.savedContexts'));
+    expect(stored).toContain('src/service.js');
+    expect(stored).not.toContain('export function greet');
+    await page.locator('textarea.ai-output').fill('');
+    await page
+      .locator('.saved-context')
+      .filter({ hasText: 'Greeting' })
+      .getByRole('button', { name: 'Load' })
+      .click();
+    await expect(page.getByText(/Rebuilt “Greeting” from the current files/)).toBeVisible();
+    await expect(page.locator('textarea.ai-output')).toHaveValue(/export function greet/);
   });
 });
 
@@ -496,7 +575,8 @@ test.describe('RepoMind workspaces', () => {
     await openFolder(page);
     await goTo(page, 'Search');
     await page.getByRole('button', { name: 'Build index' }).click();
-    await expect(page.getByText('Build the code index to also find symbols.')).toHaveCount(0, {
+    // Wait for the build to finish, not just start: both hints disappear once the index exists.
+    await expect(page.getByText(/Build the code index|Building the code index/)).toHaveCount(0, {
       timeout: 30_000,
     });
     await page.getByPlaceholder('Find symbols, files and text').fill('greet');
@@ -764,9 +844,8 @@ test.describe('RepoMind Dashboard investigation', () => {
     await expect(card).toContainText('Security: not scanned');
     await page.getByRole('button', { name: 'Analyzers', exact: true }).click();
     await page
-      .locator('.analytics-panel')
-      .filter({ hasText: 'Security / Secret Scan' })
-      .getByRole('button', { name: '▶ Run Scan' })
+      .locator('[data-analyzer="security"]')
+      .getByRole('button', { name: '▶ Run', exact: true })
       .click();
     await expect(card).toContainText('Security findings');
     await expect(card.locator('b')).toHaveText('1');

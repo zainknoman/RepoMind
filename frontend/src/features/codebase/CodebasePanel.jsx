@@ -1,28 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
-import {
-  buildContext,
-  findDependencies,
-  findDependents,
-  getSymbolDetails,
-  getArchitecture,
-} from '../../services/repository';
-import { discoverApis, scanSecurity, buildArchitectureMermaid } from '../../services/intelligence';
+import { findDependencies, findDependents, getSymbolDetails } from '../../services/repository';
 import { readGitRepository, gitStatusSummary, gitActivity } from '../../services/git';
-import {
-  loadAISettings,
-  saveAISettings,
-  AI_PROVIDERS,
-  askAI,
-  buildAIMessages,
-} from '../../services/ai';
-import {
-  getAnalyzers,
-  runAnalyzer as runRegisteredAnalyzerService,
-  analyzerSummary,
-} from '../../services/analyzers';
+import { listAnalyzers, runAnalyzers, analyzerSummary } from '../../services/analyzers';
 import { buildDocumentationReport, buildModuleReport } from '../../services/documentation';
-import { renderMermaid } from '../../services/diagram';
+import { buildArchitectureMermaid, renderMermaid } from '../../services/diagram';
+import { fileCoupling } from '../../services/health';
 import { IndexProgress, indexSourceLabel } from './IndexProgress';
+import { AnalyzersView } from './AnalyzersView';
+import { AIWorkspace, ContextBuilderView } from './AIViews';
+import { useAIContext } from './useAIContext';
 
 const cp = (v) => v && navigator.clipboard?.writeText(v);
 const dl = (n, t) => {
@@ -46,53 +32,25 @@ export default function CodebasePanel({
   onOpenFile,
 }) {
   const { index, indexing, progress, source: indexSource, cycles, health } = codebase;
-  const [busy, setBusy] = useState(false),
-    [query, setQuery] = useState(''),
-    [selected, setSelected] = useState(new Set()),
+  const [query, setQuery] = useState(''),
     [selectedSymbol, setSelectedSymbol] = useState(null),
-    [context, setContext] = useState(''),
-    [contextTokens, setContextTokens] = useState(0),
-    [contextFiles, setContextFiles] = useState(0),
-    [metadata, setMetadata] = useState(true),
-    [includeDeps, setIncludeDeps] = useState(true),
-    [includeDependents, setIncludeDependents] = useState(false),
     [error, setError] = useState('');
-  const [api, setApi] = useState([]),
-    [security, setSecurity] = useState([]),
-    [securityScanned, setSecurityScanned] = useState(false),
-    [packages, setPackages] = useState([]),
-    [diagram, setDiagram] = useState(''),
-    [detailBusy, setDetailBusy] = useState(false),
-    [aiSettings, setAiSettings] = useState(() => loadAISettings()),
-    [aiBusy, setAiBusy] = useState(false),
-    [aiResponse, setAiResponse] = useState(''),
-    [showAiSettings, setShowAiSettings] = useState(false),
+  const [diagram, setDiagram] = useState(''),
     [analyzerResults, setAnalyzerResults] = useState({}),
-    [analyzerBusy, setAnalyzerBusy] = useState(false),
+    // null, true (running all) or the id of the analyzer running.
+    [analyzerBusy, setAnalyzerBusy] = useState(null),
     [git, setGit] = useState(null),
     [gitBusy, setGitBusy] = useState(false),
-    [savedContexts, setSavedContexts] = useState(() => {
-      try {
-        return JSON.parse(localStorage.getItem('repomind.savedContexts') || '[]');
-      } catch {
-        return [];
-      }
-    }),
-    [contextName, setContextName] = useState(''),
-    [prompt, setPrompt] = useState(''),
-    [promptTask, setPromptTask] = useState(
-      'Explain this code and identify risks, dependencies and suggested changes.',
-    ),
     [report, setReport] = useState(''),
     [diagramSvg, setDiagramSvg] = useState(''),
     [diagramError, setDiagramError] = useState(''),
     [diagramBusy, setDiagramBusy] = useState(false);
+  const ai = useAIContext({ index, project, analyzerResults });
   // Every new index (fresh or restored from cache) resets the selection that depends on it.
   useEffect(() => {
     if (!index) return;
-    setSelected(new Set(index.files.slice(0, 25).map((f) => f.path)));
-    setContext('');
     setSelectedSymbol(null);
+    setAnalyzerResults({});
   }, [index]);
   async function refreshGit() {
     if (!project?.rootHandle) return;
@@ -112,64 +70,8 @@ export default function CodebasePanel({
     if (project?.rootHandle) refreshGit();
     // Runs once per project: the panel is remounted (keyed) when another folder is opened.
   }, [project]); // eslint-disable-line react-hooks/exhaustive-deps
-  function saveContext() {
-    if (!context.trim()) return;
-    const item = {
-      id: crypto.randomUUID(),
-      name: contextName.trim() || 'Context ' + new Date().toLocaleString(),
-      content: context,
-      tokens: contextTokens,
-      files: contextFiles,
-      createdAt: new Date().toISOString(),
-    };
-    const next = [item, ...savedContexts].slice(0, 20);
-    setSavedContexts(next);
-    localStorage.setItem('repomind.savedContexts', JSON.stringify(next));
-    setContextName('');
-  }
-  function loadContext(item) {
-    setContext(item.content);
-    setContextTokens(item.tokens || 0);
-    setContextFiles(item.files || 0);
-  }
-  function deleteContext(id) {
-    const next = savedContexts.filter((x) => x.id !== id);
-    setSavedContexts(next);
-    localStorage.setItem('repomind.savedContexts', JSON.stringify(next));
-  }
-  async function buildPrompt() {
-    if (!index) return;
-    setBusy(true);
-    try {
-      let body = context;
-      if (!body) {
-        const r = await buildContext(index, [...selected], {
-          includeMetadata: true,
-          includeDependencies: true,
-          includeDependents,
-        });
-        body = r.content;
-        setContext(body);
-        setContextTokens(r.tokens);
-        setContextFiles(r.files.length);
-      }
-      const header =
-        '# RepoMind Task\n\n' +
-        (promptTask.trim() || 'Review this codebase context.') +
-        '\n\n# Repository\n' +
-        project.name +
-        '\n\n# Context\n';
-      setPrompt(header + body);
-    } catch (e) {
-      setError(e?.message || 'Unable to build AI prompt');
-    } finally {
-      setBusy(false);
-    }
-  }
   useEffect(() => {
-    if (!index) return;
-    setPackages(index.project?.packages || []);
-    setDiagram(buildArchitectureMermaid(index));
+    if (index) setDiagram(buildArchitectureMermaid(index));
   }, [index]);
   useEffect(() => {
     let active = true;
@@ -193,16 +95,6 @@ export default function CodebasePanel({
       active = false;
     };
   }, [view, diagram]);
-  const files = useMemo(
-    () =>
-      (index?.files || []).filter(
-        (f) =>
-          !query ||
-          f.path.toLowerCase().includes(query.toLowerCase()) ||
-          f.language.toLowerCase().includes(query.toLowerCase()),
-      ),
-    [index, query],
-  );
   const symbols = useMemo(
     () =>
       (index?.symbols || []).filter(
@@ -213,7 +105,7 @@ export default function CodebasePanel({
       ),
     [index, query],
   );
-  const architecture = useMemo(() => getArchitecture(index), [index]),
+  const architecture = useMemo(() => fileCoupling(index), [index]),
     details = useMemo(() => getSymbolDetails(index, selectedSymbol), [index, selectedSymbol]);
   const profile = useMemo(
     () => ({
@@ -222,17 +114,23 @@ export default function CodebasePanel({
     }),
     [index],
   );
-  const analyzerCatalog = useMemo(() => getAnalyzers(), []),
-    resolutionSummary = useMemo(() => analyzerSummary(index), [index]);
+  const analyzerCatalog = useMemo(() => listAnalyzers(), []),
+    resolutionSummary = useMemo(() => analyzerSummary(index), [index]),
+    analyzersRun = Object.keys(analyzerResults).length,
+    securityScanned = !!analyzerResults.security && !analyzerResults.security.error,
+    securityCount = analyzerResults.security?.findings.length || 0;
+  const openFile = (path) => {
+    const file = index?._fileHandles?.get(path);
+    if (file) onOpenFile?.(file);
+  };
   function generateReport() {
     if (!index) return;
     setReport(
       buildDocumentationReport(index, {
         name: project.name,
         cycles,
-        health,
-        routes: api,
-        security,
+        routes: analyzerResults.routes?.findings || [],
+        security: securityScanned ? analyzerResults.security.findings : null,
       }),
     );
     setView('reports');
@@ -243,62 +141,19 @@ export default function CodebasePanel({
     setView('reports');
   }
 
-  async function runAnalyzer(type) {
+  async function runAnalyzerIds(ids) {
     if (!index) return;
-    setDetailBusy(true);
-    try {
-      if (type === 'api') setApi(await discoverApis(index));
-      if (type === 'security') {
-        setSecurity(await scanSecurity(index));
-        setSecurityScanned(true);
-      }
-      if (type === 'diagram') setDiagram(buildArchitectureMermaid(index, { limit: 150 }));
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setDetailBusy(false);
-    }
-  }
-  async function runRegisteredAnalyzer(id) {
-    if (!index) return;
-    setAnalyzerBusy(true);
+    setAnalyzerBusy(ids.length === 1 ? ids[0] : true);
     setError('');
     try {
-      const result = await runRegisteredAnalyzerService(index, id);
-      setAnalyzerResults((s) => ({ ...s, [id]: result }));
+      await runAnalyzers(index, ids, {
+        onResult: (id, result) => setAnalyzerResults((s) => ({ ...s, [id]: result })),
+      });
     } catch (e) {
       setError(e?.message || 'Analyzer failed');
     } finally {
-      setAnalyzerBusy(false);
+      setAnalyzerBusy(null);
     }
-  }
-  function toggle(path) {
-    setSelected((s) => {
-      const n = new Set(s);
-      n.has(path) ? n.delete(path) : n.add(path);
-      return n;
-    });
-  }
-  async function generateContext() {
-    if (!index) return;
-    setBusy(true);
-    try {
-      const r = await buildContext(index, [...selected], {
-        includeMetadata: metadata,
-        includeDependencies: includeDeps,
-        includeDependents,
-      });
-      setContext(r.content);
-      setContextTokens(r.tokens);
-      setContextFiles(r.files.length);
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setBusy(false);
-    }
-  }
-  function selectAll() {
-    setSelected(new Set((index?.files || []).map((f) => f.path)));
   }
   if (!project)
     return (
@@ -369,7 +224,7 @@ export default function CodebasePanel({
               <span>Internal edges</span>
             </article>
             <article title={securityScanned ? undefined : 'Run the security scan in Analyzers'}>
-              <b>{securityScanned ? security.length : '—'}</b>
+              <b>{securityScanned ? securityCount : '—'}</b>
               <span>{securityScanned ? 'Security findings' : 'Security: not scanned'}</span>
             </article>
           </div>
@@ -413,7 +268,7 @@ export default function CodebasePanel({
                     <small>{x.evidence}</small>
                   </div>
                 ))}
-                {packages.slice(0, 20).map((x) => (
+                {(index.project?.packages || []).slice(0, 20).map((x) => (
                   <div className="index-row" key={x.package}>
                     <b>{x.package}</b>
                     <span>{x.version}</span>
@@ -443,7 +298,7 @@ export default function CodebasePanel({
                 <Metric label="External imports" value={index.externalDependencies.length} />
                 <Metric
                   label="Security findings"
-                  value={securityScanned ? security.length : '—'}
+                  value={securityScanned ? securityCount : '—'}
                   note={securityScanned ? undefined : 'Run the scan in Analyzers'}
                 />
               </div>
@@ -546,31 +401,14 @@ export default function CodebasePanel({
             </div>
           )}
           {view === 'analyzers' && (
-            <>
-              <AnalyzerRegistryView
-                catalog={analyzerCatalog}
-                results={analyzerResults}
-                summary={resolutionSummary}
-                busy={analyzerBusy}
-                onRun={runRegisteredAnalyzer}
-              />
-              <AnalyzerView
-                title="🌐 API / Route Discovery"
-                items={api}
-                empty="Run discovery to find route/controller declarations."
-                busy={detailBusy}
-                onRun={() => runAnalyzer('api')}
-                columns={['method', 'path', 'framework', 'file', 'line']}
-              />
-              <AnalyzerView
-                title="🔐 Security / Secret Scan"
-                items={security}
-                empty="Run a local heuristic scan for likely secrets and credentials."
-                busy={detailBusy}
-                onRun={() => runAnalyzer('security')}
-                columns={['severity', 'id', 'path', 'line', 'text']}
-              />
-            </>
+            <AnalyzersView
+              catalog={analyzerCatalog}
+              results={analyzerResults}
+              summary={resolutionSummary}
+              busy={analyzerBusy}
+              onRun={runAnalyzerIds}
+              onOpenFile={openFile}
+            />
           )}
           {view === 'impact' && (
             <div className="analyze-grid">
@@ -631,8 +469,8 @@ export default function CodebasePanel({
               <div className="transform-toolbar">
                 <b>🏗️ Architecture Diagram</b>
                 <span className="muted">Mermaid.js renderer</span>
-                <button onClick={() => runAnalyzer('diagram')}>
-                  {detailBusy ? '⏳' : '▶ Generate'}
+                <button onClick={() => setDiagram(buildArchitectureMermaid(index, { limit: 150 }))}>
+                  ▶ Generate
                 </button>
                 <button
                   onClick={() => {
@@ -684,121 +522,19 @@ export default function CodebasePanel({
           )}
           {view === 'ai' && (
             <AIWorkspace
-              project={project}
-              index={index}
-              selected={selected}
-              context={context}
-              setContext={setContext}
-              contextTokens={contextTokens}
-              contextFiles={contextFiles}
-              prompt={prompt}
-              setPrompt={setPrompt}
-              promptTask={promptTask}
-              setPromptTask={setPromptTask}
-              buildPrompt={buildPrompt}
-              savedContexts={savedContexts}
-              contextName={contextName}
-              setContextName={setContextName}
-              saveContext={saveContext}
-              loadContext={loadContext}
-              deleteContext={deleteContext}
-              aiSettings={aiSettings}
-              setAiSettings={setAiSettings}
-              aiBusy={aiBusy}
-              setAiBusy={setAiBusy}
-              aiResponse={aiResponse}
-              setAiResponse={setAiResponse}
-              showAiSettings={showAiSettings}
-              setShowAiSettings={setShowAiSettings}
+              ai={ai}
+              projectName={project.name}
+              analyzersRun={analyzersRun}
+              onOpenFile={openFile}
             />
           )}
           {view === 'context' && (
-            <div className="context-builder">
-              <div className="panel">
-                <div className="transform-toolbar">
-                  <b>AI Context Builder</b>
-                  <span className="muted">{selected.size} selected</span>
-                  <button onClick={selectAll}>☑ Select All</button>
-                  <button onClick={() => setSelected(new Set())}>☐ Clear</button>
-                </div>
-                <div className="search">
-                  <input
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Filter files"
-                  />
-                  <button onClick={() => setQuery('')}>✕ Clear</button>
-                </div>
-                <div className="file-checks">
-                  {files.map((f) => (
-                    <label key={f.path}>
-                      <input
-                        type="checkbox"
-                        checked={selected.has(f.path)}
-                        onChange={() => toggle(f.path)}
-                      />
-                      {f.path}
-                    </label>
-                  ))}
-                </div>
-                <label className="context-option">
-                  <input
-                    type="checkbox"
-                    checked={metadata}
-                    onChange={(e) => setMetadata(e.target.checked)}
-                  />{' '}
-                  Include file metadata
-                </label>
-                <label className="context-option">
-                  <input
-                    type="checkbox"
-                    checked={includeDeps}
-                    onChange={(e) => setIncludeDeps(e.target.checked)}
-                  />{' '}
-                  Include direct dependencies
-                </label>
-                <label className="context-option">
-                  <input
-                    type="checkbox"
-                    checked={includeDependents}
-                    onChange={(e) => setIncludeDependents(e.target.checked)}
-                  />{' '}
-                  Include direct importers
-                </label>
-                <div className="tool-run-strip">
-                  <button onClick={generateContext} disabled={!selected.size || busy}>
-                    {busy ? '⏳ Generating...' : '▶ Generate Context'}
-                  </button>
-                  <button onClick={() => cp(context)} disabled={!context}>
-                    📋 Copy
-                  </button>
-                  <button
-                    onClick={() => dl((project.name || 'repository') + '-context.md', context)}
-                    disabled={!context}
-                  >
-                    ⬇ Download
-                  </button>
-                  <input
-                    className="context-name"
-                    value={contextName}
-                    onChange={(e) => setContextName(e.target.value)}
-                    placeholder="Snapshot name"
-                  />
-                  <button onClick={saveContext} disabled={!context}>
-                    💾 Save Snapshot
-                  </button>
-                </div>
-              </div>
-              <div className="panel">
-                <div className="transform-toolbar">
-                  <b>Generated Context</b>
-                  <span>
-                    ~{contextTokens.toLocaleString()} tokens · {contextFiles} files
-                  </span>
-                </div>
-                <textarea className="context-output" value={context} readOnly />
-              </div>
-            </div>
+            <ContextBuilderView
+              ai={ai}
+              index={index}
+              projectName={project.name}
+              analyzersRun={analyzersRun}
+            />
           )}
         </>
       )}
@@ -897,242 +633,12 @@ function GitView({ git, busy, onRefresh, onSelect }) {
     </div>
   );
 }
-function AIWorkspace({
-  project,
-  index,
-  selected,
-  context,
-  setContext,
-  contextTokens,
-  contextFiles,
-  prompt,
-  setPrompt,
-  promptTask,
-  setPromptTask,
-  buildPrompt,
-  savedContexts,
-  contextName,
-  setContextName,
-  saveContext,
-  loadContext,
-  deleteContext,
-  aiSettings,
-  setAiSettings,
-  aiBusy,
-  setAiBusy,
-  aiResponse,
-  setAiResponse,
-  showAiSettings,
-  setShowAiSettings,
-}) {
-  async function ask() {
-    if (!context && !prompt) return;
-    setAiBusy(true);
-    try {
-      const body = context || prompt;
-      const result = await askAI(aiSettings, buildAIMessages(promptTask, body));
-      setAiResponse(result);
-    } catch (e) {
-      setAiResponse('Error: ' + e.message);
-    } finally {
-      setAiBusy(false);
-    }
-  }
-  function saveSettings() {
-    setAiSettings(saveAISettings(aiSettings));
-    setShowAiSettings(false);
-  }
-  return (
-    <div className="ai-workspace">
-      <div className="analyze-grid">
-        <div className="analytics-panel">
-          <div className="transform-toolbar">
-            <b>🤖 Ask RepoMind</b>
-            <span className="muted">Provider-neutral</span>
-          </div>
-          <p className="muted">
-            Build a ready-to-paste prompt from the current codebase context. No AI provider or
-            source upload is required.
-          </p>
-          <textarea
-            className="ai-task"
-            value={promptTask}
-            onChange={(e) => setPromptTask(e.target.value)}
-            placeholder="What do you want to understand or change?"
-          />
-          <div className="tool-run-strip">
-            <button onClick={buildPrompt}>▶ Build Prompt</button>
-            <button onClick={ask} disabled={aiBusy || (!context && !prompt)}>
-              {aiBusy ? '⏳ Asking...' : '🤖 Ask AI'}
-            </button>
-            <button onClick={() => setShowAiSettings(!showAiSettings)}>⚙ AI Settings</button>
-            <button onClick={() => navigator.clipboard?.writeText(prompt)} disabled={!prompt}>
-              📋 Copy Prompt
-            </button>
-            <button
-              onClick={() => {
-                const a = document.createElement('a');
-                a.href = URL.createObjectURL(new Blob([prompt], { type: 'text/markdown' }));
-                a.download = (project.name || 'repository') + '-ai-prompt.md';
-                a.click();
-                setTimeout(() => URL.revokeObjectURL(a.href), 500);
-              }}
-              disabled={!prompt}
-            >
-              ⬇ Export
-            </button>
-          </div>
-          {showAiSettings && (
-            <div className="ai-settings">
-              <label>
-                Provider
-                <select
-                  value={aiSettings.provider || 'openai'}
-                  onChange={(e) =>
-                    setAiSettings({ ...aiSettings, provider: e.target.value, model: '' })
-                  }
-                >
-                  {Object.entries(AI_PROVIDERS).map(([k, v]) => (
-                    <option key={k} value={k}>
-                      {v.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Model
-                <input
-                  value={aiSettings.model || ''}
-                  onChange={(e) => setAiSettings({ ...aiSettings, model: e.target.value })}
-                  placeholder={AI_PROVIDERS[aiSettings.provider || 'openai']?.modelHint}
-                />
-              </label>
-              <label>
-                Endpoint
-                <input
-                  value={aiSettings.endpoint || ''}
-                  onChange={(e) => setAiSettings({ ...aiSettings, endpoint: e.target.value })}
-                  placeholder={AI_PROVIDERS[aiSettings.provider || 'openai']?.endpoint}
-                />
-              </label>
-              <label>
-                API Key
-                <input
-                  type="password"
-                  value={aiSettings.apiKey || ''}
-                  onChange={(e) => setAiSettings({ ...aiSettings, apiKey: e.target.value })}
-                  placeholder="Stored only in this browser"
-                />
-              </label>
-              <div className="tool-run-strip">
-                <button onClick={saveSettings}>💾 Save Settings</button>
-                <span className="muted">
-                  Direct browser calls require provider CORS support. Never use a shared/public
-                  browser profile for secrets.
-                </span>
-              </div>
-            </div>
-          )}
-        </div>
-        <div className="analytics-panel">
-          <h2>Context Snapshot</h2>
-          <div className="index-row">
-            <b>Selected files</b>
-            <span>{selected.size}</span>
-            <small>{contextFiles} in generated context</small>
-          </div>
-          <div className="index-row">
-            <b>Estimated tokens</b>
-            <span>{contextTokens.toLocaleString()}</span>
-            <small>~4 chars/token</small>
-          </div>
-          <p className="muted">Current selection is shared with Context Builder.</p>
-        </div>
-      </div>
-      <div className="analytics-panel">
-        <div className="transform-toolbar">
-          <b>Generated Prompt</b>
-          <span className="muted">{prompt ? prompt.length.toLocaleString() + ' chars' : ''}</span>
-        </div>
-        <textarea
-          className="ai-output"
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          placeholder="Build a prompt to create an AI-ready task context."
-        />
-        <h3>AI Response</h3>
-        <textarea
-          className="ai-response"
-          value={aiResponse}
-          readOnly
-          placeholder="Ask AI to analyze the current context."
-        />
-        <div className="transform-toolbar">
-          <input
-            className="context-name"
-            value={contextName}
-            onChange={(e) => setContextName(e.target.value)}
-            placeholder="Snapshot name"
-          />
-          <button onClick={saveContext} disabled={!context}>
-            💾 Save Current Context
-          </button>
-        </div>
-      </div>
-      <div className="analytics-panel">
-        <div className="transform-toolbar">
-          <b>Saved Contexts</b>
-          <span>{savedContexts.length}/20</span>
-        </div>
-        {savedContexts.map((item) => (
-          <div className="saved-context" key={item.id}>
-            <div>
-              <b>{item.name}</b>
-              <small>
-                {item.files} files · ~{item.tokens?.toLocaleString() || 0} tokens ·{' '}
-                {new Date(item.createdAt).toLocaleString()}
-              </small>
-            </div>
-            <div>
-              <button onClick={() => loadContext(item)}>Load</button>
-              <button onClick={() => deleteContext(item.id)}>Delete</button>
-            </div>
-          </div>
-        ))}
-        {!savedContexts.length && <p className="muted">No saved contexts yet.</p>}
-      </div>
-    </div>
-  );
-}
 function Metric({ label, value, note }) {
   return (
     <div className="index-row">
       <b>{label}</b>
       <span>{value}</span>
       <small>{note || (value ? 'Review' : 'None detected')}</small>
-    </div>
-  );
-}
-function AnalyzerView({ title, items, empty, busy, onRun, columns }) {
-  return (
-    <div className="analytics-panel">
-      <div className="transform-toolbar">
-        <b>{title}</b>
-        <span>{items.length} findings</span>
-        <button onClick={onRun} disabled={busy}>
-          {busy ? '⏳ Scanning...' : '▶ Run Scan'}
-        </button>
-      </div>
-      {items.map((x, i) => (
-        <div className="index-row analyzer-row" key={i}>
-          {columns.map((c) => (
-            <span key={c} title={String(x[c] ?? '')}>
-              {String(x[c] ?? '')}
-            </span>
-          ))}
-        </div>
-      ))}
-      {!items.length && <p className="muted">{empty}</p>}
     </div>
   );
 }
@@ -1232,101 +738,6 @@ function HealthView({ health }) {
           ))}
         </div>
       </div>
-    </div>
-  );
-}
-
-function AnalyzerRegistryView({ catalog, results, summary, busy, onRun }) {
-  return (
-    <div className="analyzer-registry">
-      <div className="cards intelligence-cards">
-        <article>
-          <b>{summary.resolved}</b>
-          <span>Resolved refs</span>
-        </article>
-        <article>
-          <b>{summary.ambiguous}</b>
-          <span>Ambiguous refs</span>
-        </article>
-        <article>
-          <b>{summary.unresolved}</b>
-          <span>Unresolved refs</span>
-        </article>
-        <article>
-          <b>{catalog.length}</b>
-          <span>Registered analyzers</span>
-        </article>
-      </div>
-      <div className="analyze-grid">
-        {catalog.map((a) => (
-          <div className="analytics-panel" key={a.id}>
-            <div className="transform-toolbar">
-              <b>{a.name}</b>
-              <button onClick={() => onRun(a.id)} disabled={busy}>
-                {busy ? '⏳' : '▶ Run'}
-              </button>
-            </div>
-            <small className="muted">{a.category}</small>
-            <p>{a.description}</p>
-            {results[a.id] && <AnalyzerResult id={a.id} items={results[a.id]} />}{' '}
-            {!results[a.id] && (
-              <p className="muted">No result yet. Run this analyzer against the current index.</p>
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-function AnalyzerResult({ id, items }) {
-  if (id === 'symbol-resolution') {
-    const counts = { resolved: 0, ambiguous: 0, unresolved: 0 };
-    items.forEach((x) => counts[x.status]++);
-    return (
-      <div>
-        <div className="index-row">
-          <b>Resolved</b>
-          <span>{counts.resolved}</span>
-        </div>
-        <div className="index-row">
-          <b>Ambiguous</b>
-          <span>{counts.ambiguous}</span>
-        </div>
-        <div className="index-row">
-          <b>Unresolved</b>
-          <span>{counts.unresolved}</span>
-        </div>
-        {items
-          .filter((x) => x.status !== 'resolved')
-          .slice(0, 30)
-          .map((x, i) => (
-            <div className="index-row" key={i}>
-              <b>{x.name}</b>
-              <span>{x.status}</span>
-              <small>
-                {x.file}:{x.line} {x.targets}
-              </small>
-            </div>
-          ))}
-      </div>
-    );
-  }
-  return (
-    <div>
-      {items.slice(0, 50).map((x, i) => (
-        <div className="index-row" key={i}>
-          <b>{x.name || x.path || x.file}</b>
-          <span>{x.method || x.framework || x.score || x.status || ''}</span>
-          <small>
-            {x.path || x.file}
-            {x.line ? ':' + x.line : ''}
-            {x.evidence ? ' · ' + x.evidence : ''}
-          </small>
-        </div>
-      ))}
-      {items.length > 50 && (
-        <small className="muted">Showing first 50 of {items.length} findings.</small>
-      )}
     </div>
   );
 }

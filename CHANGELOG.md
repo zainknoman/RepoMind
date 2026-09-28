@@ -2,6 +2,40 @@
 
 All notable changes to RepoMind are recorded here.
 
+## Unreleased — Analyzer contract and grounded AI (Phases 4 and 5)
+
+### Added
+- **Analyzer contract.** Every analyzer is defined, validated and registered the same way
+  (`defineAnalyzer`, `definePatternAnalyzer`, `registerAnalyzer`) and returns findings with a
+  severity, title, file and line. One run reads each file once and isolates a failing analyzer.
+  See `docs/ANALYZERS.md`.
+- **Analyzers view:** **Run All**, one findings table per analyzer with its own columns, counts by
+  severity, run time and errors; clicking a finding's file opens it in the Editor.
+- **Grounded AI answers.** **Build Prompt** picks the files relevant to your question (or uses the
+  Context Builder selection), adds a repository overview, a repository map, analyzer findings and
+  line-numbered source within a token budget (8k–128k), and shows which files were included and why.
+- **Grounding check:** every `path:line` the model cites is checked against the index; references to
+  missing files, lines past the end of a file, or code that was not sent are flagged.
+- Copied and exported prompts include the grounding instructions.
+
+### Changed
+- API discovery and the secret scan are now the **Route Discovery** and **Secret Scan** analyzers;
+  the separate API and security panels are gone.
+- Symbol Resolution lists only ambiguous and unresolved references (resolved counts stay in the
+  summary cards).
+- Context Builder produces the same grounded context; the "Include file metadata" option is replaced
+  by token budget, repository map and analyzer-findings options.
+- The project report says "Security findings: not scanned" instead of 0 when the scan has not run.
+- Dependency hotspots use one ranking everywhere (Health, Dependencies, report, analyzer).
+
+### Fixed
+- Lines that look like credentials are masked in AI context and prompts; before, source was sent as-is.
+- **Saved contexts no longer store source code in `localStorage`.** They store the question, file
+  list and options and rebuild on load. Existing saved contexts lose their stored source the first
+  time the list is read; they stay listed as "saved by an older version" so they can be deleted.
+- A FastAPI decorator such as `@app.get('/orders')` was also reported as an Express route.
+- A file named in a question followed by punctuation (e.g. "cart.js?") was not recognised.
+
 ## Unreleased — Indexer performance, incremental indexing and unified search (Phase 3)
 
 ### Added

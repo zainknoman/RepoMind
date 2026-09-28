@@ -151,7 +151,13 @@ Health signals include:
 - dependency hotspots,
 - external dependency signals.
 
-The analyzer registry provides framework-aware analysis for patterns used by:
+**Analyzers** lists every registered analyzer — Route Discovery, Framework Structure, Symbol
+Resolution, Architecture Hotspots and Secret Scan. Run one, or **Run All**; each shows its findings
+in a table with severity, and clicking a file opens it in the Editor. Findings also feed the project
+report and AI context. Analyzers follow one contract, so new ones (including language or domain
+packs) plug in without UI changes — see [`docs/ANALYZERS.md`](docs/ANALYZERS.md).
+
+Framework-aware analysis covers patterns used by:
 
 - React
 - Vue
@@ -165,7 +171,7 @@ These analyzers are intentionally heuristic and should not be treated as a repla
 
 ### API discovery
 
-Run from **Analyzers → API / Route Discovery**. RepoMind detects common route declarations for:
+Run from **Analyzers → Route Discovery**. RepoMind detects common route declarations for:
 
 - Express
 - NestJS
@@ -178,7 +184,7 @@ Results are intended for code navigation and architecture understanding.
 
 ### Security scanning
 
-Run from **Analyzers → Security / Secret Scan**. The local security scanner searches for likely:
+Run from **Analyzers → Secret Scan**. The local security scanner searches for likely:
 
 - API keys
 - access/auth/bearer tokens
@@ -228,7 +234,20 @@ RepoMind provides a provider-neutral context workflow and direct browser-side ad
 - Anthropic
 - Google Gemini
 
-The **AI** view can use selected files, symbols and dependencies from the local Codebase index.
+Answers are **grounded in the local index**. Type a question and click **Build Prompt**:
+
+- RepoMind picks the files most relevant to the question (files you name, files defining symbols you
+  mention, then symbol and path matches) — or uses the Context Builder selection — plus their direct
+  dependencies if selected.
+- The context holds a repository overview, a **repository map** (every file with its top-level
+  symbols, so the model knows what exists), **analyzer findings** you have run, and the source with
+  **line numbers**, all within a token budget (8k–128k). Files that do not fit are cut or listed as
+  left out. The **Context** panel shows each file and why it was included.
+- Lines that look like credentials are **masked** before anything leaves the browser.
+- The model is instructed to answer only from the context and cite `path:line`. After it answers,
+  a **Grounding check** verifies every cited file and line against the index and flags references
+  to files that do not exist, lines past the end of a file, or code that was not sent.
+- **Copy Prompt** / **Export** include the same instructions, for use with any assistant.
 
 To call a provider, open **AI Settings** and enter the provider, a **model ID** (required; RepoMind does not guess one) and an API key.
 
@@ -239,7 +258,12 @@ To call a provider, open **AI Settings** and enter the provider, a **model ID** 
 
 ## Context Builder
 
-Context Builder creates focused, token-aware Markdown context from selected files and related dependencies.
+Context Builder creates the same grounded context (overview, repository map, analyzer findings,
+numbered and redacted source) from the files you select, within a token budget.
+
+**Saved contexts** store the question, file list and options — never the source. Loading one rebuilds
+the context from the files as they are now. (Saved contexts from earlier versions held the full source
+in `localStorage`; it is removed the first time the list is read.)
 
 Typical workflow:
 
@@ -367,8 +391,10 @@ frontend/
     └── services/
         ├── repository.js     # AST indexing (Babel), references, dependencies
         ├── indexClient.js    # runs indexing in a Web Worker (indexWorker.worker.js)
-        ├── intelligence.js   # search, API discovery, security scan, packages, diagrams
-        ├── analyzers.js  health.js  documentation.js  diagram.js
+        ├── analyzers.js      # analyzer contract, registry, runner and built-in analyzers
+        ├── aiContext.js      # grounded AI context, file ranking, citation check
+        ├── savedContexts.js  # saved context recipes (no source)
+        ├── search.js  frameworks.js  health.js  documentation.js  diagram.js
         ├── git.js            # .git metadata and index (v2–v4) reader
         ├── indexCache.js     # IndexedDB cache
         └── ai.js             # provider adapters
@@ -523,8 +549,7 @@ Potential future areas:
 - Better framework-specific analyzers
 - Git diff/change-impact analysis
 - More architecture visualization options
-- Incremental (per-file) re-indexing for very large projects
-- Optional plugin/analyzer architecture
+- Language and domain analyzer packs (e.g. Temenos) on the analyzer contract
 
 ## License
 

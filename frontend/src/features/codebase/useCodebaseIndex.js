@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { buildIndex } from '../../services/indexClient';
 import { attachFileHandles, detectCycles } from '../../services/repository';
-import { detectProjectPackages } from '../../services/intelligence';
+import { detectProjectPackages } from '../../services/frameworks';
 import {
   loadCachedIndex,
   loadLatestCachedIndex,

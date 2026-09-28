@@ -1,52 +1,3 @@
-export const TEXT_EXTENSIONS = new Set([
-  '.js',
-  '.jsx',
-  '.ts',
-  '.tsx',
-  '.vue',
-  '.py',
-  '.java',
-  '.kt',
-  '.go',
-  '.rs',
-  '.php',
-  '.cs',
-  '.cpp',
-  '.c',
-  '.h',
-  '.html',
-  '.css',
-  '.scss',
-  '.json',
-  '.md',
-  '.txt',
-  '.xml',
-  '.yaml',
-  '.yml',
-  '.sql',
-  '.sh',
-  '.bat',
-  '.ps1',
-  '.env',
-]);
-
-export const IGNORE_DIRS = new Set([
-  '.git',
-  'node_modules',
-  'dist',
-  'build',
-  '.venv',
-  'venv',
-  '__pycache__',
-  '.idea',
-  '.vscode',
-  'coverage',
-  '.next',
-  '.nuxt',
-  '.turbo',
-  '.cache',
-]);
-
 export const isTextFile = (file) => file?.text === true;
 export const estimateTokens = (text) => Math.max(0, Math.ceil(String(text || '').length / 4));
 
@@ -846,53 +797,6 @@ export function detectCycles(index) {
   }
   for (const node of graph.keys()) visit(node);
   return cycles;
-}
-
-export function getArchitecture(index) {
-  if (!index) return null;
-  const incoming = new Map(),
-    outgoing = new Map();
-  for (const edge of index.dependencies) {
-    outgoing.set(edge.from, (outgoing.get(edge.from) || 0) + 1);
-    incoming.set(edge.to, (incoming.get(edge.to) || 0) + 1);
-  }
-  return [...index.files]
-    .map((file) => ({
-      path: file.path,
-      language: file.language,
-      dependencies: outgoing.get(file.path) || 0,
-      dependents: incoming.get(file.path) || 0,
-      tokens: file.tokens,
-      symbols: file.symbols.length,
-    }))
-    .sort((a, b) => b.dependencies + b.dependents - (a.dependencies + a.dependents));
-}
-
-export async function buildContext(index, files, options = {}) {
-  const selected = new Set(files);
-  const expanded = new Set(selected);
-  if (options.includeDependencies || options.includeDependents) {
-    for (const path of [...selected]) {
-      if (options.includeDependencies)
-        findDependencies(index, path).forEach((x) => expanded.add(x));
-      if (options.includeDependents) findDependents(index, path).forEach((x) => expanded.add(x));
-    }
-  }
-  const chunks = [];
-  let tokens = 0;
-  for (const item of index?.files || []) {
-    if (!expanded.has(item.path)) continue;
-    const source = index._fileHandles?.get(item.path);
-    if (!source) continue;
-    const content = await (await source.handle.getFile()).text();
-    tokens += estimateTokens(content);
-    chunks.push(
-      options.includeMetadata
-        ? `## ${item.path}\nLanguage: ${item.language}\nLines: ${item.lines}\nSymbols: ${item.symbols.length}\n\n${content}`
-        : `/* --- Start of file: ${item.path} --- */\n${content}\n/* --- End of file: ${item.path} --- */`,
-    );
-  }
-  return { content: chunks.join('\n\n'), tokens, files: [...expanded] };
 }
 
 export function attachFileHandles(index, project) {

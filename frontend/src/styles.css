@@ -1530,7 +1530,7 @@ footer {
 
 /* Developer Intelligence v1 */
 .codebase-intelligence .analyzer-row {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(var(--cols, 5), minmax(0, 1fr));
   font-size: 12px;
 }
 .analyzer-row span {
@@ -2536,4 +2536,82 @@ textarea {
   .investigate-lists {
     grid-template-columns: 1fr;
   }
+}
+
+/* Phase 4: analyzer findings tables */
+.analyzer-registry {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.analyzer-table {
+  margin-top: 8px;
+}
+.codebase-intelligence .analyzer-head {
+  display: grid;
+  gap: 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border-strong);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.analyzer-row .link-button {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+.severity {
+  font-weight: 700;
+}
+.severity.high {
+  color: #dc2626;
+}
+.severity.medium {
+  color: #d97706;
+}
+.severity.low {
+  color: var(--accent-text);
+}
+.severity.info,
+.severity.ok {
+  color: var(--muted);
+}
+
+/* Phase 5: grounded AI context */
+.context-options,
+.context-source {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+  align-items: center;
+}
+.context-option select {
+  margin-left: 6px;
+}
+.context-summary {
+  margin-bottom: 10px;
+}
+.context-summary .context-file b,
+.grounding-check .citation b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.grounding-check {
+  margin: 12px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+.grounding-check .citation.verified span {
+  color: #16a34a;
+}
+.grounding-check .citation:not(.verified) span {
+  color: #d97706;
 }

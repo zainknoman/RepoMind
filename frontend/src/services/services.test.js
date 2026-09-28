@@ -5,7 +5,7 @@ import {
   detectCycles,
   findDependents,
 } from './repository';
-import { discoverApis, redactSecret, scanSecurity } from './intelligence';
+import { redactSecret, runAnalyzer } from './analyzers';
 import { searchProject } from './search';
 import { readProjectFiles, toWorkerProject } from './indexProject';
 import { askAI, buildAIMessages } from './ai';
@@ -200,14 +200,18 @@ describe('architecture health', () => {
   });
 });
 
-describe('intelligence', () => {
+describe('built-in analyzers', () => {
   it('discovers Express routes', async () => {
-    const routes = await discoverApis(await indexFixture());
-    expect(routes).toEqual(expect.arrayContaining([expect.objectContaining({ path: '/health' })]));
+    const routes = await runAnalyzer(await indexFixture(), 'routes');
+    expect(routes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ method: 'GET', path: '/health', file: 'src/server.js', line: 3 }),
+      ]),
+    );
   });
   it('finds secrets without repeating them', async () => {
-    const findings = await scanSecurity(await indexFixture());
-    const hit = findings.find((f) => f.path === 'src/config.js');
+    const findings = await runAnalyzer(await indexFixture(), 'security');
+    const hit = findings.find((f) => f.file === 'src/config.js');
     expect(hit).toBeDefined();
     expect(hit.text).not.toContain('abcdefghijklmnop');
   });

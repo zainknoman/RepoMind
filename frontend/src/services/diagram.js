@@ -37,3 +37,26 @@ export async function renderMermaidBlocks(root) {
   const mermaid = await loadMermaid();
   await mermaid.run({ nodes });
 }
+
+/** Mermaid source for the internal dependency graph (first `limit` edges). */
+export function buildArchitectureMermaid(index, options = {}) {
+  if (!index) return 'graph TD\n  Empty[No index]';
+  const limit = options.limit || 80;
+  const edges = index.dependencies.slice(0, limit);
+  const ids = new Map();
+  const id = (path) => {
+    if (!ids.has(path)) ids.set(path, 'N' + (ids.size + 1));
+    return ids.get(path);
+  };
+  const label = (path) =>
+    path
+      .split('/')
+      .pop()
+      .replace(/[^A-Za-z0-9_.-]/g, '_');
+  const lines = ['graph TD'];
+  for (const e of edges) {
+    lines.push(`  ${id(e.from)}["${label(e.from)}"] --> ${id(e.to)}["${label(e.to)}"]`);
+  }
+  if (!edges.length) lines.push('  Empty["No internal dependencies detected"]');
+  return lines.join('\n');
+}

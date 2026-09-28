@@ -1,30 +1,13 @@
+import { fileCoupling } from './health';
+
 const esc = (v) =>
   String(v ?? '')
     .replace(/\r/g, '')
     .trim();
 const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0);
-function hotspots(index, limit = 15) {
-  const incoming = new Map(),
-    outgoing = new Map();
-  for (const d of index?.dependencies || []) {
-    outgoing.set(d.from, (outgoing.get(d.from) || 0) + 1);
-    incoming.set(d.to, (incoming.get(d.to) || 0) + 1);
-  }
-  return (index?.files || [])
-    .map((f) => ({
-      path: f.path,
-      symbols: (index.symbols || []).filter((s) => s.path === f.path).length,
-      incoming: incoming.get(f.path) || 0,
-      outgoing: outgoing.get(f.path) || 0,
-      tokens: f.tokens || 0,
-      score: (incoming.get(f.path) || 0) * 2 + (outgoing.get(f.path) || 0),
-    }))
-    .sort((a, b) => b.score - a.score)
-    .slice(0, limit);
-}
 export function buildDocumentationReport(
   index,
-  { name, cycles = [], health, routes = [], security = [] } = {},
+  { name, cycles = [], routes = [], security = null } = {},
 ) {
   if (!index) return '';
   const repo = name || index.project?.name || 'Repository',
@@ -67,16 +50,18 @@ export function buildDocumentationReport(
     '- Unresolved relative imports: ' + (index.unresolvedImports?.length || 0),
     '- Unresolved references: ' + (index.stats?.unresolvedReferences || 0),
     '- Parser errors: ' + files.reduce((s, f) => s + (f.parseErrors?.length || 0), 0),
-    '- Security findings: ' + security.length,
+    '- Security findings: ' + (security ? security.length : 'not scanned'),
     '',
     '### Dependency Hotspots',
     '',
   );
   lines.push(
-    ...hotspots(index).map(
-      (x) =>
-        `- **${x.path}** — score ${x.score}; ${x.incoming} incoming, ${x.outgoing} outgoing, ${x.symbols} symbols`,
-    ),
+    ...fileCoupling(index)
+      .slice(0, 15)
+      .map(
+        (x) =>
+          `- **${x.path}** — ${x.score} edges; ${x.dependents} incoming, ${x.dependencies} outgoing, ${x.symbols} symbols`,
+      ),
   );
   if (cycles.length)
     lines.push(
@@ -97,7 +82,7 @@ export function buildDocumentationReport(
             `- ${x.method || 'ROUTE'} ${x.path || '/'} — ${x.framework || 'unknown'} — ${x.file || ''}:${x.line || ''}`,
         ),
     );
-  if (security.length)
+  if (security?.length)
     lines.push(
       '',
       '## Security Scan Findings',
@@ -106,7 +91,7 @@ export function buildDocumentationReport(
         .slice(0, 100)
         .map(
           (x) =>
-            `- **${x.severity || 'review'}** ${x.id || 'finding'} — ${x.path || ''}:${x.line || ''} — ${esc(x.text || x.detail || '')}`,
+            `- **${x.severity || 'review'}** ${x.rule || x.title || 'finding'} — ${x.file || ''}:${x.line || ''} — ${esc(x.text || x.detail || '')}`,
         ),
     );
   lines.push(
@@ -131,7 +116,7 @@ export function buildDocumentationReport(
     );
   if (cycles.length)
     recommendations.push('Review circular dependency paths for unnecessary coupling.');
-  if (security.length)
+  if (security?.length)
     recommendations.push('Review security findings manually; the scanner is heuristic.');
   if (!recommendations.length)
     recommendations.push('No major heuristic review signals were supplied to this report.');
