@@ -228,6 +228,8 @@ export function HelpPage() {
         'Remote and working-tree signals',
         'Recent local reflog activity',
         'Ask RepoMind: context picked for your question, with a repository map and line numbers',
+        'Explain with AI from Impact or Git Change Impact: the analysis, the diff and the affected files go into the prompt',
+        'File ranking follows the dependency graph and T24 routine and application names',
         'Likely secrets masked before any provider call',
         'Grounding check of the file:line citations in each answer',
         'Saved contexts keep the file list and options, never the source',

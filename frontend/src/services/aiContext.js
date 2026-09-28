@@ -15,7 +15,8 @@ export const GROUNDING_RULES = `You are RepoMind, a senior software engineer ans
 3. Separate observed facts (with citations) from assumptions and recommendations.
 4. Never invent files, symbols, APIs or line numbers. The repository map lists the files that exist.
 5. Values shown as •••• were redacted from the source; do not try to reconstruct them.
-6. Dependency data is incomplete for languages listed under analysis coverage gaps: never conclude from it that nothing uses a file or symbol there.`;
+6. Dependency data is incomplete for languages listed under analysis coverage gaps: never conclude from it that nothing uses a file or symbol there.
+7. Impact, change impact and diff sections come from RepoMind's static analysis. Each affected item has a confidence: present high as likely, medium and low as possible, and state the listed blind spots as limits of the analysis.`;
 
 const STOPWORDS = new Set(
   (
@@ -26,6 +27,9 @@ const STOPWORDS = new Set(
     'happen happens called call calls repository repo project each other some also just like only'
   ).split(' '),
 );
+
+const APPLICATION_WEIGHT = { write: 12, read: 8, layout: 6, uses: 6 };
+const ACCESS_VERB = { write: 'writes', read: 'reads', layout: 'uses the layout of', uses: 'uses' };
 
 /** Lowercase parts of an identifier: `getUserName` / `get_user_name` → get, user, name. */
 export const identifierParts = (name) =>
@@ -50,19 +54,27 @@ export function questionTerms(question) {
 
 /**
  * Ranks indexed files by how likely they are to answer `question`: paths named in the question,
- * files defining a symbol it names, then symbol-name and path-part matches. Without usable terms,
- * falls back to the most coupled files. Returns [{ path, score, reasons }].
+ * files defining a symbol it names, T24 routines and applications it names, symbol-name and
+ * path-part matches, then graph neighbours of the best of those (callers, importers, imports).
+ * Without usable terms, falls back to the most coupled files. Returns [{ path, score, reasons }].
  */
 export function rankFilesForQuestion(index, question, { limit = 12 } = {}) {
   const files = index?.files || [];
   const scores = new Map();
   const add = (path, score, reason) => {
-    if (!scores.has(path)) scores.set(path, { path, score: 0, reasons: [] });
+    if (!scores.has(path)) scores.set(path, { path, score: 0, reasons: new Map() });
     const entry = scores.get(path);
     entry.score += score;
-    if (reason && entry.reasons.length < 3 && !entry.reasons.includes(reason))
-      entry.reasons.push(reason);
+    if (reason) entry.reasons.set(reason, Math.max(entry.reasons.get(reason) || 0, score));
   };
+  // The three strongest reasons, strongest first.
+  const reasonsOf = (entry) => ({
+    ...entry,
+    reasons: [...entry.reasons]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([reason]) => reason),
+  });
   const text = String(question || '');
   const words = new Set(text.split(/[\s`'"(),;:?!]+/).map((w) => w.replace(/\.+$/, '')));
   for (const file of files)
@@ -70,11 +82,13 @@ export function rankFilesForQuestion(index, question, { limit = 12 } = {}) {
     else if (words.has(file.path.split('/').pop())) add(file.path, 30, 'named in the question');
 
   const terms = new Set(questionTerms(text));
+  const named = [];
   if (terms.size) {
     for (const symbol of index.symbols || []) {
       const whole = symbol.name.toLowerCase();
       if (terms.has(whole)) {
         add(symbol.path, 10, 'defines ' + symbol.name);
+        named.push(symbol);
         continue;
       }
       const matched = identifierParts(symbol.name).filter((p) => terms.has(p));
@@ -91,9 +105,45 @@ export function rankFilesForQuestion(index, question, { limit = 12 } = {}) {
       }
     }
   }
-  let ranked = [...scores.values()].sort(
-    (a, b) => b.score - a.score || a.path.localeCompare(b.path),
-  );
+  // T24 routine names (ACCOUNT.VALIDATE) and applications (CUSTOMER, FUNDS.TRANSFER), as written.
+  const upper = new Set([
+    ...(text.match(/\b[A-Z][A-Z0-9]*(?:\.[A-Z0-9]+)+\b/g) || []),
+    ...(text.match(/\b[A-Z][A-Z0-9]{2,}\b/g) || []),
+  ]);
+  if (upper.size)
+    for (const file of files) {
+      const t24 = file.temenos;
+      if (!t24) continue;
+      if (upper.has(t24.routine)) add(file.path, 40, 'routine ' + t24.routine);
+      for (const app of t24.applications || [])
+        if (upper.has(app.name))
+          add(
+            file.path,
+            APPLICATION_WEIGHT[app.access] || 6,
+            `${ACCESS_VERB[app.access] || 'uses'} ${app.name}`,
+          );
+    }
+
+  // Graph neighbours of the best matches: callers of the symbols the question names, and the
+  // files the top matches import or are imported by. They stay below the files they came from.
+  const byScore = (a, b) => b.score - a.score || a.path.localeCompare(b.path);
+  const seeds = [...scores.values()].sort(byScore).slice(0, 5);
+  const neighbour = (path, seed, score, reason) => {
+    if (path !== seed.path) add(path, Math.min(score, seed.score / 2), reason);
+  };
+  for (const symbol of named) {
+    const seed = scores.get(symbol.path);
+    for (const from of new Set((symbol.references || []).map((r) => r.from)))
+      neighbour(from, seed, 4, 'uses ' + symbol.name);
+  }
+  for (const seed of seeds) {
+    for (const path of findDependents(index, seed.path))
+      neighbour(path, seed, 3, 'imports ' + seed.path);
+    for (const path of findDependencies(index, seed.path))
+      neighbour(path, seed, 3, 'imported by ' + seed.path);
+  }
+
+  let ranked = [...scores.values()].sort(byScore).map(reasonsOf);
   if (!ranked.length)
     ranked = fileCoupling(index).map((x) => ({
       path: x.path,
@@ -182,7 +232,8 @@ function findingsSection(results, maxTokens) {
  * does not fit is cut to the lines that do, or left out. Lines that look like credentials are
  * masked before anything leaves the browser.
  *
- * `files`: paths or { path, reason }. Returns { content, tokens, requested (the given paths that
+ * `files`: paths or { path, reason }. `sections`: extra Markdown sections (e.g. an impact
+ * briefing) placed before the source; the caller keeps them within budget. Returns { content, tokens, requested (the given paths that
  * exist), files (included, with reason and shown lines), omitted, redactions, budget }.
  */
 export async function buildGroundedContext(index, options = {}) {
@@ -195,6 +246,7 @@ export async function buildGroundedContext(index, options = {}) {
     repoMap = true,
     findings = null,
     projectName,
+    sections: extraSections = [],
     readText = createSourceReader(index),
   } = options;
   const known = new Map(index.files.map((f) => [f.path, f]));
@@ -218,6 +270,8 @@ export async function buildGroundedContext(index, options = {}) {
   if (repoMap) sections.push(repositoryMap(index, Math.round(budget * 0.15)));
   const findingsText = findings ? findingsSection(findings, Math.round(budget * 0.05)) : '';
   if (findingsText) sections.push(findingsText);
+  // Briefings from RepoMind's own analysis (impact, change impact, diff), already budgeted.
+  for (const section of extraSections) if (section) sections.push(section);
   sections.push('## Source\n\nLine numbers are shown as `N|` at the start of each line.');
 
   let remaining = budget - estimateTokens(sections.join('\n\n'));

@@ -61,6 +61,11 @@ export default function CodebasePanel({
     [diagramError, setDiagramError] = useState(''),
     [diagramBusy, setDiagramBusy] = useState(false);
   const ai = useAIContext({ index, project, analyzerResults });
+  // Impact and Change Impact hand their analysis to the AI view as an investigation.
+  const explainWithAI = (investigation) => {
+    setView('ai');
+    ai.investigate(investigation);
+  };
   // Every new index (fresh or restored from cache) resets the selection that depends on it.
   useEffect(() => {
     if (!index) return;
@@ -463,6 +468,7 @@ export default function CodebasePanel({
               impactSymbol={impactSymbol}
               setImpactSymbol={setImpactSymbol}
               onOpenFile={openFile}
+              onExplain={explainWithAI}
             />
           )}
           {view === 'diagram' && (
@@ -525,6 +531,7 @@ export default function CodebasePanel({
               project={project}
               index={index}
               onOpenFile={openFile}
+              onExplain={explainWithAI}
               onSelect={(path) => {
                 setSelectedFile(path);
                 setView('impact');

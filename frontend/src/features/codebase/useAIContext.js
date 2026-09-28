@@ -28,8 +28,10 @@ export function useAIContext({ index, project, analyzerResults }) {
       findings: true,
     }),
     [task, setTask] = useState(DEFAULT_TASK),
-    // 'question': files ranked by relevance to the task; 'selection': Context Builder selection.
+    // 'question': files ranked by relevance to the task; 'selection': Context Builder selection;
+    // 'investigation': the files and briefings of an impact or change investigation.
     [source, setSource] = useState('question'),
+    [investigation, setInvestigation] = useState(null),
     [context, setContext] = useState(null),
     [prompt, setPrompt] = useState(''),
     [busy, setBusy] = useState(false),
@@ -47,12 +49,15 @@ export function useAIContext({ index, project, analyzerResults }) {
     setContext(null);
     setPrompt('');
     setNotice('');
+    setInvestigation(null);
+    setSource((current) => (current === 'investigation' ? 'question' : current));
   }, [index]);
 
-  async function build(files) {
+  async function build(files, sections = []) {
     return buildGroundedContext(index, {
       ...options,
       files,
+      sections,
       findings: options.findings ? analyzerResults : null,
       projectName: project?.name,
     });
@@ -82,21 +87,37 @@ export function useAIContext({ index, project, analyzerResults }) {
       return next;
     });
 
-  const makePrompt = () =>
+  const makePrompt = (use = { source, investigation, task }) =>
     run(async () => {
-      const files =
-        source === 'question'
-          ? rankFilesForQuestion(index, task).map((x) => ({
+      const inv = use.source === 'investigation' ? use.investigation : null;
+      const files = inv
+        ? inv.files
+        : use.source === 'question'
+          ? rankFilesForQuestion(index, use.task).map((x) => ({
               path: x.path,
               reason: x.reasons.join('; '),
             }))
           : [...selected];
-      const next = await build(files);
+      const next = await build(files, inv ? inv.sections(options.budget) : []);
       setContext(next);
-      const text = formatPrompt(task, next.content);
+      const text = formatPrompt(use.task, next.content);
       setPrompt(text);
       return text;
     });
+
+  // Starts an AI investigation of an impact or change: `sections(budget)` returns the briefings.
+  async function investigate(next) {
+    setInvestigation(next);
+    setSource('investigation');
+    setTask(next.task);
+    setAnswer('');
+    const text = await makePrompt({
+      source: 'investigation',
+      investigation: next,
+      task: next.task,
+    });
+    if (text) toast.success(`Prompt built for ${next.title}`);
+  }
 
   async function buildPrompt() {
     const text = await makePrompt();
@@ -193,6 +214,8 @@ export function useAIContext({ index, project, analyzerResults }) {
     setTask,
     source,
     setSource,
+    investigation,
+    investigate,
     context,
     prompt,
     setPrompt,

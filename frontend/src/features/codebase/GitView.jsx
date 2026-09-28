@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { commitChanges, workingTreeChanges } from '../../services/gitChanges';
 import { changeImpact, changeImpactMarkdown } from '../../services/changeImpact';
+import { changeBriefing, changeFiles, changeTask } from '../../services/aiInvestigation';
 import { cp, dl } from '../../lib/text';
 
 const ROW_LIMIT = 200;
 
 // What uncommitted work or one commit could affect: changed symbols, affected code with
 // confidence, broken references and blind spots. Everything is read locally from .git.
-function ChangeImpact({ state, onOpenFile, projectName }) {
+function ChangeImpact({ state, onOpenFile, projectName, onExplain }) {
   if (!state) return null;
   if (state.loading)
     return (
@@ -32,6 +33,26 @@ function ChangeImpact({ state, onOpenFile, projectName }) {
         <b>Change Impact · {title}</b>
         <button onClick={() => cp(markdown, 'Change impact report copied')}>Copy report</button>
         <button onClick={() => dl(fileName, markdown, 'text/markdown')}>Download</button>
+        {onExplain && (
+          <button
+            className="primary"
+            title="Builds an AI prompt from this analysis and the diff; nothing is sent until you ask"
+            onClick={() =>
+              onExplain({
+                title,
+                task: changeTask(title),
+                files: changeFiles(result),
+                sections: (budget) =>
+                  changeBriefing(result, state.changes, title, {
+                    reportTokens: Math.round(budget * 0.1),
+                    maxTokens: Math.round(budget * 0.25),
+                  }),
+              })
+            }
+          >
+            🤖 Explain this change with AI
+          </button>
+        )}
       </div>
       <p className="muted">
         Traced through the current index. {state.note || ''}
@@ -127,7 +148,7 @@ function ChangeImpact({ state, onOpenFile, projectName }) {
   );
 }
 
-export function GitView({ git, busy, onRefresh, onSelect, project, index, onOpenFile }) {
+export function GitView({ git, busy, onRefresh, onSelect, project, index, onOpenFile, onExplain }) {
   const [impact, setImpact] = useState(null);
 
   async function analyse(title, load, note) {
@@ -141,6 +162,7 @@ export function GitView({ git, busy, onRefresh, onSelect, project, index, onOpen
         title,
         note,
         result,
+        changes: changes.changes,
         truncated: changes.truncated,
         markdown: changeImpactMarkdown(result, title),
       });
@@ -239,7 +261,12 @@ export function GitView({ git, busy, onRefresh, onSelect, project, index, onOpen
           ))}
         </div>
       </div>
-      <ChangeImpact state={impact} onOpenFile={onOpenFile} projectName={project?.name} />
+      <ChangeImpact
+        state={impact}
+        onOpenFile={onOpenFile}
+        projectName={project?.name}
+        onExplain={onExplain}
+      />
       <div className="analytics-panel">
         <h2>Recent Git Activity</h2>
         <p className="muted">

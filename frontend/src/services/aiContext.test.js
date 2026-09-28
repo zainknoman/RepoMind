@@ -64,6 +64,47 @@ describe('question terms and ranking', () => {
     });
   });
 
+  it('adds graph neighbours of the best matches, below the files that match', async () => {
+    const index = await fixture({
+      ...SOURCES,
+      'src/routes/session.js':
+        "import { loginUser } from '../auth/login';\nexport function start() {\n  return loginUser('a', 'b');\n}\n",
+    });
+    const ranked = rankFilesForQuestion(index, 'How does loginUser work?');
+    expect(ranked[0].path).toBe('src/auth/login.js');
+    const session = ranked.find((x) => x.path === 'src/routes/session.js');
+    expect(session.reasons).toEqual(
+      expect.arrayContaining(['uses loginUser', 'imports src/auth/login.js']),
+    );
+    const crypto = ranked.find((x) => x.path === 'src/util/crypto.js');
+    expect(crypto.reasons).toContain('imported by src/auth/login.js');
+    expect(session.score).toBeLessThan(ranked[0].score);
+  });
+
+  it('ranks T24 routines by routine and application names', async () => {
+    const basic = (name, body) => ['    SUBROUTINE ' + name, ...body, '    RETURN'].join('\n');
+    const project = toWorkerProject(
+      't24',
+      Object.entries({
+        'BP/ACCOUNT.VALIDATE.b': basic('ACCOUNT.VALIDATE', ['    CALL ACCOUNT.VALIDATE.CHARGES']),
+        'BP/ACCOUNT.VALIDATE.CHARGES.b': basic('ACCOUNT.VALIDATE.CHARGES', ['    X = 1']),
+        'BP/CUSTOMER.UPDATE.b': basic('CUSTOMER.UPDATE', [
+          "    FN.CUS = 'F.CUSTOMER'",
+          "    F.CUS = ''",
+          '    CALL OPF(FN.CUS, F.CUS)',
+          '    WRITE R.CUS ON F.CUS, ID',
+        ]),
+      }).map(([path, content]) => ({ path, name: path.split('/').pop(), ext: '.b', content })),
+    );
+    const index = await buildRepositoryIndex(project);
+    const routine = rankFilesForQuestion(index, 'What does ACCOUNT.VALIDATE do?');
+    expect(routine[0]).toMatchObject({ path: 'BP/ACCOUNT.VALIDATE.b' });
+    expect(routine[0].reasons).toContain('routine ACCOUNT.VALIDATE');
+    const writers = rankFilesForQuestion(index, 'Which routines write CUSTOMER records?');
+    expect(writers[0]).toMatchObject({ path: 'BP/CUSTOMER.UPDATE.b' });
+    expect(writers[0].reasons).toContain('writes CUSTOMER');
+  });
+
   it('falls back to the most coupled files when the question has no usable terms', async () => {
     const index = await fixture();
     const ranked = rankFilesForQuestion(index, 'what?', { limit: 2 });

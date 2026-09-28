@@ -331,6 +331,17 @@ export function AIWorkspace({ ai, projectName, analyzersRun, onOpenFile }) {
               />{' '}
               Context Builder selection ({ai.selected.size} files)
             </label>
+            {ai.investigation && (
+              <label className="context-option">
+                <input
+                  type="radio"
+                  checked={ai.source === 'investigation'}
+                  onChange={() => ai.setSource('investigation')}
+                />{' '}
+                Investigation: {ai.investigation.title} ({ai.investigation.files.length} files and
+                RepoMind&apos;s analysis)
+              </label>
+            )}
           </div>
           <ContextOptions ai={ai} analyzersRun={analyzersRun} />
           <div className="tool-run-strip">

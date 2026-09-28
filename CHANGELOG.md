@@ -2,6 +2,26 @@
 
 All notable changes to RepoMind are recorded here.
 
+## Unreleased — AI investigation (Phase C2)
+
+### Added
+- **Explain with AI.** Codebase › Impact (for a symbol) and Codebase › Git › Change Impact have an
+  explain button that opens AI with a prompt already built from RepoMind's analysis: the impact
+  table (confidence, level, use site) and blind spots, or the change-impact report and a numbered,
+  secret-masked diff (cut with a note when it is too large), plus the changed and affected files in
+  order of confidence. The AI view lists it as a third context source, "Investigation". Nothing is
+  sent until **Ask AI**. A new grounding rule tells the model to present medium and low confidence
+  items as possible and to state the blind spots.
+- **Graph-aware file ranking.** Questions also pull in callers of the symbols they name and the
+  importers and imports of the best-matching files, each with its reason and ranked below the
+  files it came from.
+- **T24 ranking.** Routine names (`ACCOUNT.VALIDATE`) and applications (`CUSTOMER`,
+  `FUNDS.TRANSFER`) written in a question rank the routine itself first, and routines that write,
+  read or use that application next.
+
+### Changed
+- A file's context reasons are its three strongest, not the first three found.
+
 ## Unreleased — Member calls (Phase C1)
 
 ### Added

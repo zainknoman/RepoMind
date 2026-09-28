@@ -272,8 +272,16 @@ RepoMind provides a provider-neutral context workflow and direct browser-side ad
 Answers are **grounded in the local index**. Type a question and click **Build Prompt**:
 
 - RepoMind picks the files most relevant to the question (files you name, files defining symbols you
-  mention, then symbol and path matches) — or uses the Context Builder selection — plus their direct
-  dependencies if selected.
+  mention, T24 routines and applications you name in capitals such as `ACCOUNT.VALIDATE` or
+  `CUSTOMER`, then symbol and path matches, then graph neighbours of the best matches: callers of
+  the named symbols and files that import or are imported by them) — or uses the Context Builder
+  selection — plus their direct dependencies if selected.
+- **Explain with AI** (Impact, for a symbol) and **Explain this change with AI** (Git › Change
+  Impact) start an *investigation*: the prompt carries RepoMind's own analysis — the impact table
+  with confidences and blind spots, or the change-impact report plus a numbered diff — and the
+  changed and affected files, strongest first. The model is told to present medium and low
+  confidence items as possible, not certain. The prompt is built and shown; nothing is sent until
+  you click **Ask AI**.
 - The context holds a repository overview, a **repository map** (every file with its top-level
   symbols, so the model knows what exists), **analyzer findings** you have run, and the source with
   **line numbers**, all within a token budget (8k–128k). Files that do not fit are cut or listed as

@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { findDependencies } from '../../services/repository';
 import { coverageFor } from '../../services/coverage';
 import { fileImpact, symbolImpact } from '../../services/impact';
+import { impactBriefing, impactFiles, impactTask } from '../../services/aiInvestigation';
 
 const ROW_LIMIT = 200;
 
@@ -40,6 +41,7 @@ export function ImpactView({
   impactSymbol,
   setImpactSymbol,
   onOpenFile,
+  onExplain,
 }) {
   const files = useMemo(
     () => (selectedFile ? fileImpact(index, selectedFile) : null),
@@ -131,6 +133,24 @@ export function ImpactView({
                 {symbol.root.name} · {symbol.root.kind}
               </b>
               <button onClick={() => setImpactSymbol(null)}>← Symbols</button>
+              {onExplain && (
+                <button
+                  className="primary"
+                  title="Builds an AI prompt from this analysis; nothing is sent until you ask"
+                  onClick={() =>
+                    onExplain({
+                      title: `impact of ${symbol.root.name}`,
+                      task: impactTask(symbol.root),
+                      files: impactFiles(symbol),
+                      sections: (budget) => [
+                        impactBriefing(symbol, { maxTokens: Math.round(budget * 0.1) }),
+                      ],
+                    })
+                  }
+                >
+                  🤖 Explain with AI
+                </button>
+              )}
             </div>
             <Counts
               items={[

@@ -5,9 +5,10 @@ Update at the end of every phase.
 
 ## Current phase
 
-**Phases B1–B3 and C1 done and on `main`.** Plans with per-task status and outcomes:
+**Phases B1–B3, C1 and C2 done and on `main`.** Plans with per-task status and outcomes:
 `docs/superpowers/plans/2026-09-28-graph-trust.md` (B1), `…-transitive-impact.md` (B2),
-`…-git-change-impact.md` (B3), `…-member-calls.md` (C1). Phases C2–C6 follow in that order.
+`…-git-change-impact.md` (B3), `…-member-calls.md` (C1), `…-ai-investigation.md` (C2). Phases
+C3–C7 follow in that order.
 Plans live in `docs/superpowers/plans/`.
 
 ## Roadmap
@@ -26,6 +27,7 @@ Plans live in `docs/superpowers/plans/`.
 | B2 | Local bindings, transitive impact with confidence and blind spots | Done |
 | B3 | Git change impact (diff → changed symbols → impact) | Done |
 | C1 | Member calls (`this.m()`, `obj.m()`) in references and impact | Done |
+| C2 | AI investigation of impact and changes; graph-aware and T24 file ranking | Done |
 
 ## Completed work (Phase 1)
 
@@ -238,6 +240,18 @@ Plans live in `docs/superpowers/plans/`.
   receiver; Symbol Resolution shows `obj.name()`.
 - Tests: 149 unit (`memberCalls.test.js`, `member-calls` fixture), 62 E2E.
 
+## Completed work (Phase C2 — AI investigation)
+
+- `services/aiInvestigation.js`: `impactBriefing`, `changeBriefing` (report + numbered, masked
+  diff, cut with a note), `impactFiles`, `changeFiles`, `impactTask`, `changeTask`.
+- `buildGroundedContext({ sections })` places briefings before the source; grounding rule 7.
+- `rankFilesForQuestion`: T24 routine (40) and application (write 12 / read 8 / other 6) matches;
+  graph neighbours of the top 5 (callers of named symbols 4, importers/imports 3), capped at half
+  the seed's score; top three reasons by strength.
+- UI: `useAIContext.investigate`, third context source "Investigation"; **Explain with AI** in
+  Impact, **Explain this change with AI** in Git Change Impact.
+- Tests: 156 unit, 62 E2E.
+
 ## Architectural decisions
 
 - **No router introduced.** Tab ids remain App state keys; renames change labels only, so `?tool=`
@@ -259,8 +273,11 @@ Plans live in `docs/superpowers/plans/`.
   packs (Temenos) will be modules calling `registerAnalyzer`.
 - **Analyzers run on the main thread** with async source reads; results live in `CodebasePanel` state
   per index (not cached).
-- **File ranking for AI is lexical** (identifiers, paths), not embeddings: local, deterministic and
-  explainable ("defines greet"). Semantic retrieval is a possible later step.
+- **File ranking for AI is lexical plus graph** (identifiers, paths, T24 names, then callers and
+  imports of the best matches), not embeddings: local, deterministic and explainable ("defines
+  greet", "uses greet"). Semantic retrieval is a possible later step.
+- **AI investigations send RepoMind's analysis, not a summary of it by the model**: the impact
+  table, change report and diff are part of the prompt, with their confidences and blind spots.
 - **Secret masking in AI context reuses the secret-scan rules** per line; it is heuristic, like the
   scan.
 - **The grounding check is advisory**: it verifies that cited files/lines exist and were sent, not
@@ -318,19 +335,14 @@ Carried forward:
 
 ## Next recommended task
 
-Candidates, in order of value (C1, member calls, is done):
-2. AI investigation (roadmap Phase E): send change impact or symbol impact as grounded context.
-3. Import resolution driven by coverage: tsconfig `paths`, Python and Java imports.
-4. Move cache serialization into the index worker for very large repositories. tsconfig `paths`, Python and Java import resolution follow, driven by coverage.
+Phases in progress, in order (owner's list, 2026-09-28):
+- **C3** Import resolution: tsconfig/jsconfig `paths`, Python and Java imports.
+- **C4** Change-impact follow-ups: affected test files; exact Git "Modified" detection; trace old
+  commits against their own code.
+- **C5** Cache save/restore in the worker; block scopes; lower-case extensionless T24 routines.
+- **C6** Header light/dark theme toggle.
+- **C7** Temenos configuration records (VERSION, EB.API, PGM.FILE, BATCH / TSA.SERVICE) and
+  validation on real T24 sources, using the Temenos-Skills reference
+  (github.com/zainknoman/Temenos-Skills).
 
-Phase 6 (Temenos), remaining:
-1. Validate on a real T24 / TAFJ repository (parser coverage, false positives in Coding Practices,
-   performance with thousands of extensionless files).
-2. Configuration records: VERSION, EB.API, PGM.FILE, BATCH / TSA.SERVICE data (DS packages or
-   exported records) to link routines to applications, events (validation, input, authorisation)
-   and scheduled jobs.
-3. Transitive impact ("what breaks if ACCOUNT.VALIDATE changes") — useful for every language, but
-   T24 call chains make it most valuable.
-4. AI context: rank T24 files by routine and application names in the question.
-
-If large repositories matter sooner, first move the cache save into the index worker.
+Done from the earlier Phase 6 list: transitive impact (B2) and T24 ranking for AI (C2).

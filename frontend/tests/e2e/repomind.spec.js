@@ -332,6 +332,18 @@ test.describe('RepoMind Codebase Intelligence end-to-end', () => {
         .filter({ hasText: 'Symbol Impact' })
         .getByText(/Not analysed: .*Python/),
     ).toBeVisible();
+
+    // The impact becomes an AI investigation: briefing and affected files, prompt built, not sent.
+    await page.getByRole('button', { name: '🤖 Explain with AI' }).click();
+    await expect(page.locator('.tabs button.active')).toHaveText('AI');
+    const prompt = page.locator('textarea.ai-output');
+    await expect(prompt).toHaveValue(/## Impact analysis/);
+    await expect(prompt).toHaveValue(
+      /\| UserCard \(function\) \| src\/app\.tsx:\d+ \| 1 \| high \|/,
+    );
+    await expect(prompt).toHaveValue(/### src\/app\.tsx\nReason: affected: uses greet/);
+    await expect(page.getByLabel(/Investigation: impact of greet/)).toBeChecked();
+    await expect(page.locator('textarea.ai-response')).toHaveValue('');
   });
 
   test('Git change impact traces uncommitted changes', async ({ page }) => {
@@ -348,6 +360,15 @@ test.describe('RepoMind Codebase Intelligence end-to-end', () => {
       'UserCard',
     );
     await expect(panel.locator('.impact-row').filter({ hasText: 'src/app.tsx' })).toBeVisible();
+
+    await panel.getByRole('button', { name: '🤖 Explain this change with AI' }).click();
+    const prompt = page.locator('textarea.ai-output');
+    await expect(prompt).toHaveValue(/## Change impact/);
+    await expect(prompt).toHaveValue(/## Diff/);
+    await expect(prompt).toHaveValue(/### src\/service\.js \(added\)/);
+    await expect(page.locator('textarea.ai-task')).toHaveValue(
+      /Explain this change \(Uncommitted changes\)/,
+    );
   });
 
   test('Analyzers API discovery finds routes from multiple frameworks', async ({ page }) => {
@@ -467,7 +488,9 @@ test.describe('RepoMind Codebase Intelligence end-to-end', () => {
     await expect(prompt).not.toHaveValue(/fixture-secret-1234567890/);
     await expect(page.locator('.context-summary')).toContainText('likely secrets masked');
     await expect(
-      page.locator('.context-summary .context-file').filter({ hasText: 'src/service.js' }),
+      page
+        .locator('.context-summary .context-file')
+        .filter({ has: page.getByTitle('src/service.js', { exact: true }) }),
     ).toContainText('defines greet');
   });
 
