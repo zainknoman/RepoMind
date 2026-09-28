@@ -55,6 +55,55 @@ describe('scoreGraph', () => {
   });
 });
 
+const fixture = (name) => GRAPH_FIXTURES.find((f) => f.name === name).files;
+const referenceTo = (index, from, name) =>
+  index.references.find((r) => r.from === from && r.name === name);
+
+describe('reference resolution', () => {
+  it('marks an imported symbol as a high-confidence import', async () => {
+    const index = await indexFixture(fixture('relative-named-import'));
+    expect(referenceTo(index, 'app.js', 'greet')).toMatchObject({
+      resolution: 'import',
+      confidence: 'high',
+    });
+  });
+
+  it('marks a same-name guess across files as low confidence', async () => {
+    const index = await indexFixture(fixture('name-collision'));
+    expect(referenceTo(index, 'c.js', 'init')).toMatchObject({
+      resolution: 'name-match',
+      confidence: 'low',
+    });
+    expect(index.stats.referenceConfidence).toMatchObject({ low: 1 });
+  });
+
+  it('keeps a local declaration high confidence and an unknown name unresolved', async () => {
+    const index = await indexFixture({
+      'x.js': ['function helper() {}', 'helper();', 'missing();'].join('\n'),
+    });
+    expect(referenceTo(index, 'x.js', 'helper')).toMatchObject({
+      resolution: 'local',
+      confidence: 'high',
+    });
+    expect(referenceTo(index, 'x.js', 'missing')).toMatchObject({
+      resolution: 'unresolved',
+      confidence: 'none',
+    });
+  });
+
+  it('does not count package imports or JS globals as unresolved', async () => {
+    const index = await indexFixture({
+      'y.js': ["import { useState } from 'react';", 'useState();', "console.log('x');"].join('\n'),
+    });
+    expect(index.references).toEqual([]);
+    expect(index.stats).toMatchObject({
+      unresolvedReferences: 0,
+      externalReferences: 1,
+      globalReferences: 1,
+    });
+  });
+});
+
 describe('graph fixtures', () => {
   for (const fixture of GRAPH_FIXTURES) {
     it(`resolves ${fixture.name} exactly`, async () => {

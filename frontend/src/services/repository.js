@@ -494,6 +494,76 @@ function frameworkSignals(files) {
 
 const cancelled = () => new DOMException('Indexing cancelled', 'AbortError');
 
+// Names every JS runtime provides; a reference to one is neither a repository symbol nor unresolved.
+const JS_GLOBALS = new Set([
+  'require',
+  'module',
+  'exports',
+  '__dirname',
+  '__filename',
+  'console',
+  'window',
+  'document',
+  'navigator',
+  'location',
+  'globalThis',
+  'self',
+  'process',
+  'Buffer',
+  'JSON',
+  'Math',
+  'Object',
+  'Array',
+  'String',
+  'Number',
+  'Boolean',
+  'Symbol',
+  'BigInt',
+  'Date',
+  'RegExp',
+  'Map',
+  'Set',
+  'WeakMap',
+  'WeakSet',
+  'Promise',
+  'Proxy',
+  'Reflect',
+  'Error',
+  'TypeError',
+  'RangeError',
+  'SyntaxError',
+  'Intl',
+  'URL',
+  'URLSearchParams',
+  'fetch',
+  'setTimeout',
+  'clearTimeout',
+  'setInterval',
+  'clearInterval',
+  'queueMicrotask',
+  'structuredClone',
+  'undefined',
+  'NaN',
+  'Infinity',
+  'isNaN',
+  'isFinite',
+  'parseInt',
+  'parseFloat',
+  'encodeURIComponent',
+  'decodeURIComponent',
+]);
+
+/**
+ * How far a reference's link can be trusted. An import binding or an enclosing declaration names
+ * its target (several targets: a namespace import or duplicate declarations); a match on a
+ * top-level name in another file is a guess.
+ */
+export function referenceConfidence(resolution, targets) {
+  if (!targets || resolution === 'unresolved') return 'none';
+  if (resolution === 'name-match') return 'low';
+  return targets === 1 ? 'high' : 'medium';
+}
+
 /**
  * Of one file's same-name declarations, those a reference at `offset` can see: the ones in the
  * innermost scope that contains it. Without an offset (pattern-parsed files) all qualify.
@@ -592,8 +662,14 @@ export async function buildRepositoryIndex(project, options = {}) {
       internalEdges: 0,
       externalImports: 0,
       reusedFiles: 0,
+      externalReferences: 0,
+      globalReferences: 0,
+      referenceConfidence: { high: 0, medium: 0, low: 0, none: 0 },
     },
   };
+  // file::local names bound by imports that do not resolve inside the repository. A reference to
+  // one of them names a package (or a missing file), never a same-name repository symbol.
+  const externalLocals = new Set();
 
   for (let fileIndex = 0; fileIndex < files.length; fileIndex++) {
     if (signal?.aborted) throw cancelled();
@@ -645,12 +721,15 @@ export async function buildRepositoryIndex(project, options = {}) {
       if (target) {
         index.dependencies.push(edge);
         index.stats.internalEdges++;
-      } else if (item.module.startsWith('.')) {
-        // A relative import names a file in this repository: missing, not external.
-        index.unresolvedImports.push(edge);
       } else {
-        index.externalDependencies.push(edge);
-        index.stats.externalImports++;
+        if (item.module.startsWith('.'))
+          // A relative import names a file in this repository: missing, not external.
+          index.unresolvedImports.push(edge);
+        else {
+          index.externalDependencies.push(edge);
+          index.stats.externalImports++;
+        }
+        for (const binding of edge.bindings) externalLocals.add(`${file.path}::${binding.local}`);
       }
     }
   }
@@ -719,24 +798,41 @@ export async function buildRepositoryIndex(project, options = {}) {
   for (const file of index.files) {
     if (signal?.aborted) throw cancelled();
     for (const ref of file.references || []) {
-      let resolved = bindingByFileLocal.get(`${file.path}::${ref.name}`)?.resolvedSymbols || none;
-      if (!resolved.length)
-        resolved = visibleAt(
-          symbolsByPathName.get(`${file.path}::${ref.name}`) || none,
-          ref.offset,
-        );
-      if (!resolved.length) resolved = topLevelByName.get(ref.name) || none;
+      const local = `${file.path}::${ref.name}`;
+      const binding = bindingByFileLocal.get(local);
+      let resolution = 'import';
+      let resolved = binding?.resolvedSymbols || none;
+      if (!binding && externalLocals.has(local)) {
+        index.stats.externalReferences++;
+        continue;
+      }
+      if (!resolved.length) {
+        resolution = 'local';
+        resolved = visibleAt(symbolsByPathName.get(local) || none, ref.offset);
+      }
+      if (!resolved.length && ref.kind === 'identifier' && JS_GLOBALS.has(ref.name)) {
+        index.stats.globalReferences++;
+        continue;
+      }
+      if (!resolved.length) {
+        resolution = 'name-match';
+        resolved = topLevelByName.get(ref.name) || none;
+      }
       // A BASIC CALL to a routine outside the repository (a core API such as F.READ) is already an
       // external dependency; as a reference it would only swell the unresolved count.
       if (!resolved.length && ref.kind === 'call') continue;
+      if (!resolved.length) resolution = 'unresolved';
       const reference = {
         from: file.path,
         name: ref.name,
         line: ref.line,
         column: ref.column,
         resolvedSymbols: resolved,
+        resolution,
+        confidence: referenceConfidence(resolution, resolved.length),
       };
       index.references.push(reference);
+      index.stats.referenceConfidence[reference.confidence]++;
       if (reference.resolvedSymbols.length) index.stats.resolvedReferences++;
       else index.stats.unresolvedReferences++;
     }

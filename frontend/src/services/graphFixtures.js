@@ -15,4 +15,25 @@ export const GRAPH_FIXTURES = [
     edges: ['app.js -> lib.js'],
     links: ['app.js:2 greet -> lib.js::greet'],
   },
+  {
+    // No import names `init`: both same-name top-level functions are possible targets.
+    name: 'name-collision',
+    files: {
+      'a.js': 'export function init() {}',
+      'b.js': 'export function init() {}',
+      'c.js': 'init();',
+    },
+    edges: [],
+    links: ['c.js:1 init -> a.js::init', 'c.js:1 init -> b.js::init'],
+  },
+  {
+    // `useState` comes from a package, so the repository's own useState is not its target.
+    name: 'external-shadow',
+    files: {
+      'hooks.js': 'export function useState() {}',
+      'view.js': lines("import { useState } from 'react';", 'useState();'),
+    },
+    edges: [],
+    links: [],
+  },
 ];
