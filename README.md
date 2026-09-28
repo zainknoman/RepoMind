@@ -436,7 +436,7 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-The E2E suite (57 tests) covers every workspace in the header (with heading assertions), the header grouping (including Engineering staying out of it), the Dashboard first-run workflow and its links into Codebase views, each Codebase view, Compare, Quick Analysis, Explorer, Search, Editor find/replace and the unsaved-changes guard, Ingest, Transform, Markdown + Mermaid rendering and sanitisation, Developer Tools opened by deep link, the sandboxed tools and their bridge, index caching, dark mode, AI settings validation and the unsupported-browser notice. Browser-side AI calls are never made during tests.
+The E2E suite (`npm run test:e2e` reports the current count) covers every workspace in the header (with heading assertions), the header grouping (including Engineering staying out of it), the Dashboard first-run workflow and its links into Codebase views, each Codebase view, Compare, Quick Analysis, Explorer, Search, Editor find/replace and the unsaved-changes guard, Ingest, Transform, Markdown + Mermaid rendering and sanitisation, Developer Tools opened by deep link, the sandboxed tools and their bridge, index caching, dark mode, AI settings validation and the unsupported-browser notice. Browser-side AI calls are never made during tests.
 
 ## CI and deployment
 

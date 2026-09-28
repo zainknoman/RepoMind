@@ -5,8 +5,8 @@ Update at the end of every phase.
 
 ## Current phase
 
-**Phase 6 (Temenos code intelligence): first slice on `feature/temenos-intelligence`, not yet merged.**
-Phases 1–5 are on `main`. Remaining Phase 6 work is listed under "Next recommended task".
+**Phase B2 (transitive impact) on `feature/graph-trust`.** Phases 1–6 (first Temenos slice) are on
+`main`; Phase B1 (graph trust) is on `feature/graph-trust`. Plans live in `docs/superpowers/plans/`.
 
 ## Roadmap
 
@@ -19,7 +19,10 @@ Phases 1–5 are on `main`. Remaining Phase 6 work is listed under "Next recomme
 | 3b | Incremental indexing + unified search (only if the benchmark justifies it) | Done |
 | 4 | Analyzer/plugin contract | Done — `docs/ANALYZERS.md` |
 | 5 | AI grounding and repository context | Done |
-| 6 | Temenos code intelligence | In progress — indexing, linking, analyzers done |
+| 6 | Temenos code intelligence | First slice on `main` (indexing, linking, analyzers); more below |
+| B1 | Graph trust: reference confidence, coverage, re-exports, accuracy fixtures | Done |
+| B2 | Parameters as symbols, transitive impact with confidence | In progress |
+| B3 | Git change impact (diff → changed symbols → impact) | Planned |
 
 ## Completed work (Phase 1)
 
@@ -168,6 +171,28 @@ Phases 1–5 are on `main`. Remaining Phase 6 work is listed under "Next recomme
 - `npm run check` (Prettier, ESLint, 89 unit tests, production build): passing.
 - Playwright E2E against the production build: 61/61 passing (no Temenos E2E test yet).
 
+## Completed work (Phase B1 — graph trust)
+
+- `repository.js`: references carry `resolution` (`import` / `local` / `name-match` / `unresolved`)
+  and `confidence` (`high` / `medium` / `low` / `none`, `referenceConfidence`);
+  `stats.referenceConfidence`, `externalReferences`, `globalReferences`. Locals bound by imports
+  that do not resolve in the repository are never name-matched; JS globals are not references.
+- Re-exports are import edges (`reexport: true`); `resolveExported` follows `export … from` and
+  `export *` chains (cycle-safe); default imports match only `kind: 'default'` exports
+  (`export default name`, `module.exports = name`); `import()` / `require()` are edges with
+  `require` bindings. Cache version 5.
+- `services/coverage.js`: `analysisCoverage` / `coverageGaps` / `coverageFor`; `index.coverage`.
+- `services/graphAccuracy.js` + `graphFixtures.js`: fixture repositories with exact expected edges
+  and links; `bench:index` prints references by confidence.
+- UI: confidence tags in the Symbol inspector, Analysis Coverage panel (Overview), coverage warning
+  in Impact, Guessed refs card (Analyzers). AI: coverage gaps in the overview, grounding rule 6.
+- RepoMind `src` after B1: 3,821 high / 174 medium / 218 low / 4,466 unresolved references,
+  964 package or global names not linked. Most unresolved are parameters and destructured locals.
+
+## Tests / build status (Phase B1)
+
+- `npm run check`: passing (111 unit tests). E2E: 61/61 passing.
+
 ## Architectural decisions
 
 - **No router introduced.** Tab ids remain App state keys; renames change labels only, so `?tool=`
@@ -245,7 +270,12 @@ Carried forward:
 
 ## Next recommended task
 
-Phase 6, remaining:
+Phase B2: parameters, catch and destructured bindings as scoped symbols (so unresolved means
+unknown), then transitive impact over dependency edges and symbol references with confidence
+propagation (a path is as strong as its weakest edge) and coverage boundaries. Then Phase B3 (Git
+change impact). tsconfig `paths`, Python and Java import resolution follow, driven by coverage.
+
+Phase 6 (Temenos), remaining:
 1. Validate on a real T24 / TAFJ repository (parser coverage, false positives in Coding Practices,
    performance with thousands of extensionless files).
 2. Configuration records: VERSION, EB.API, PGM.FILE, BATCH / TSA.SERVICE data (DS packages or

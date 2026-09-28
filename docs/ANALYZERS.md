@@ -111,7 +111,7 @@ findings, throwing on error.
 |---|---|---|
 | `routes` | source | HTTP routes (Express, NestJS, FastAPI, Flask, Spring, ASP.NET) |
 | `framework-structure` | source | React/Vue components, controllers, application entry points |
-| `symbol-resolution` | index | Ambiguous (`low`) and unresolved (`medium`) references |
+| `symbol-resolution` | index | References that are not certain: ambiguous or guessed by name (`low`), unresolved (`medium`) |
 | `architecture-hotspots` | index | Files with internal dependency edges, most coupled first |
 | `security` | source | Likely hard-coded secrets (values masked) |
 

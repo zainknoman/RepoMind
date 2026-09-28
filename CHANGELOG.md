@@ -2,9 +2,35 @@
 
 All notable changes to RepoMind are recorded here.
 
+## Unreleased — Graph trust (Phase B1)
+
+### Added
+
+- **Reference confidence.** Every reference records how it was linked (import, declaration in scope,
+  same-name guess, unresolved) and a confidence level. The Symbol inspector tags each reference;
+  Analyzers shows guessed references separately from ambiguous and unresolved ones.
+- **Analysis coverage.** Codebase › Overview lists, per language, whether imports and references were
+  extracted and how many imports look like unresolved path aliases (`@/…`). Impact warns when the
+  selected file's language is not analysed, and the AI context lists these gaps.
+- **Graph accuracy fixtures** (`services/graphFixtures.js`) scored by `services/graphAccuracy.js`;
+  `npm run bench:index` reports references by confidence.
+
+### Changed
+
+- Re-exports (`export * from`, `export { a } from`) are dependency edges, and imports through a
+  barrel link to the file that defines the symbol.
+- A default import links only to the default export (including `export default name` and
+  `module.exports = name`); it previously matched every export of the file.
+- `import('x')` and `require('x')` are dependency edges.
+- A name imported from a package no longer links to a repository symbol with the same name, and JS
+  globals (`console`, `require`, …) are no longer counted as unresolved references.
+- The `symbol-resolution` analyzer reports same-name guesses as `guessed`.
+- The index cache version is 5; existing cached indexes are rebuilt once.
+
 ## Unreleased — Temenos code intelligence (Phase 6)
 
 ### Added
+
 - **Temenos T24 / Transact BASIC is indexed.** `.b` files and extensionless routines and inserts
   (recognised by their content, e.g. `BP/ACCOUNT.VALIDATE`, `I_COMMON`) are parsed: routines,
   labels, `CALL`, `DEFFUN`, `$INSERT` and `CALLJ` links, `GOSUB`/`GOTO` references and the T24
@@ -16,16 +42,19 @@ All notable changes to RepoMind are recorded here.
 - Analyzers can declare `appliesTo(index)`; unrelated analyzer packs are not listed.
 
 ### Changed
+
 - "External imports" no longer includes relative imports that could not be resolved; those are
   counted only as unresolved relative imports.
 - The index cache version is 4; existing cached indexes are rebuilt once.
 
 ### Fixed
+
 - On phones the header grows to fit its wrapped buttons instead of pushing them above the screen.
 
 ## Unreleased — Analyzer contract and grounded AI (Phases 4 and 5)
 
 ### Added
+
 - **Analyzer contract.** Every analyzer is defined, validated and registered the same way
   (`defineAnalyzer`, `definePatternAnalyzer`, `registerAnalyzer`) and returns findings with a
   severity, title, file and line. One run reads each file once and isolates a failing analyzer.
@@ -40,6 +69,7 @@ All notable changes to RepoMind are recorded here.
 - Copied and exported prompts include the grounding instructions.
 
 ### Changed
+
 - API discovery and the secret scan are now the **Route Discovery** and **Secret Scan** analyzers;
   the separate API and security panels are gone.
 - Symbol Resolution lists only ambiguous and unresolved references (resolved counts stay in the
@@ -50,6 +80,7 @@ All notable changes to RepoMind are recorded here.
 - Dependency hotspots use one ranking everywhere (Health, Dependencies, report, analyzer).
 
 ### Fixed
+
 - Lines that look like credentials are masked in AI context and prompts; before, source was sent as-is.
 - **Saved contexts no longer store source code in `localStorage`.** They store the question, file
   list and options and rebuild on load. Existing saved contexts lose their stored source the first
@@ -60,6 +91,7 @@ All notable changes to RepoMind are recorded here.
 ## Unreleased — Indexer performance, incremental indexing and unified search (Phase 3)
 
 ### Added
+
 - **Incremental indexing.** Rebuilding the index reuses the analysis of every file whose size and
   modification time are unchanged, from the index on screen or the repository's last cached index,
   so only changed files are read and parsed. The Codebase and Dashboard show e.g. "Updated index
@@ -70,6 +102,7 @@ All notable changes to RepoMind are recorded here.
   folder. Results are in `docs/INDEXER_BENCHMARK.md`.
 
 ### Changed
+
 - References resolve only to declarations in scope: a function's locals are visible inside that
   function (the innermost declaration wins), and imports and matches by name from other files consider
   only top-level declarations. Previously a local `value` in one function was also counted as a
@@ -82,6 +115,7 @@ All notable changes to RepoMind are recorded here.
 - Index progress is reported every 25 files instead of every file.
 
 ### Fixed
+
 - Indexing was quadratic: linking every reference and import to its symbols scanned the whole
   symbol list, so a 20-file repository took ~47 s and RepoMind's own source ~22 s (now 0.17 s). A
   1,500-file, 240k-line repository indexes in ~4 s.
@@ -94,6 +128,7 @@ All notable changes to RepoMind are recorded here.
 ## Unreleased — Fixes
 
 ### Fixed
+
 - After a new deploy, a page opened earlier showed "Failed to fetch dynamically imported module" in
   the Diagram tab (and could fail to open a workspace). RepoMind now says it was updated and offers a
   page reload.
@@ -102,6 +137,7 @@ All notable changes to RepoMind are recorded here.
 ## Unreleased — Dashboard and first-run workflow (Phase 2)
 
 ### Added
+
 - **Investigate** on the Dashboard: build or restore the code index, then see health signals,
   dependency hotspots, unresolved imports and circular dependencies. Each item opens the Codebase view
   that explains it (Impact focused on the file, Dependencies, Health, Analyzers).
@@ -109,6 +145,7 @@ All notable changes to RepoMind are recorded here.
   screen and on the Dashboard, with an **Open Repository Folder** button on first run.
 
 ### Changed
+
 - The Dashboard and Codebase share one index. A cached index is restored as soon as a folder opens,
   not only when Codebase is visited.
 - The Codebase security card reads "not scanned" until the security scan runs, instead of showing 0.
@@ -118,6 +155,7 @@ All notable changes to RepoMind are recorded here.
 ## Unreleased — Product consolidation (Phase 1)
 
 ### Changed
+
 - Header navigation is grouped by workflow: **Understand** (Dashboard, Codebase), **Explore**
   (Explorer, Search, Editor), **Analyze** (Ingest, Quick Analysis, Transform, Compare) and a small,
   secondary **Tools** group (Developer Tools, Temenos / OFS, Markdown). Codebase is emphasised as the
@@ -130,6 +168,7 @@ All notable changes to RepoMind are recorded here.
 - Help is grouped the same way as the header navigation.
 
 ### Unchanged on purpose
+
 - **Engineering** stays out of the header; it still opens from `?tool=eng`. All `?tool=` links and
   internal workspace ids are unchanged.
 
@@ -138,6 +177,7 @@ All notable changes to RepoMind are recorded here.
 Based on the audit in [`docs/PROJECT_AUDIT.md`](docs/PROJECT_AUDIT.md).
 
 ### Fixed
+
 - The production build on `main` failed: `App.jsx` was duplicated and corrupted and `indexCache.js`
   was invalid. Both are repaired.
 - **Compare** treated every file as a single line; it now splits lines correctly and uses an LCS line
@@ -157,6 +197,7 @@ Based on the audit in [`docs/PROJECT_AUDIT.md`](docs/PROJECT_AUDIT.md).
 - Clicking a file in the Dashboard's file list crashed the app.
 
 ### Added
+
 - **Tools** navigation group (Developer Tools, Temenos / OFS, Engineering).
 - Notice for browsers without folder access; the Open Folder button is disabled there.
 - Unsaved-changes confirmation and a warning before closing the tab with unsaved edits.
@@ -168,6 +209,7 @@ Based on the audit in [`docs/PROJECT_AUDIT.md`](docs/PROJECT_AUDIT.md).
 - Unit tests (Vitest), linting (ESLint) and formatting (Prettier) in CI.
 
 ### Changed
+
 - `App.jsx` split into feature modules; workspaces load on demand (initial bundle 721 KB → ~250 KB).
 - Repository indexing runs in a Web Worker; long file lists are virtualised; search results are capped.
 - Mermaid and JSZip are bundled from npm instead of loaded from a CDN.
