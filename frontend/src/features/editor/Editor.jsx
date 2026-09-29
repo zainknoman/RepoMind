@@ -41,7 +41,11 @@ export function Editor({ sel, text, setText, dirty, save, readOnly = false }) {
           <h1>
             {sel?.path || 'Editor'} {dirty && <em>● modified</em>}
           </h1>
-          <small>{readOnly ? 'Read-only imported repository file.' : 'Local editor with Find, Replace and Replace All.'}</small>
+          <small>
+            {readOnly
+              ? 'Read-only imported repository file.'
+              : 'Local editor with Find, Replace and Replace All.'}
+          </small>
         </div>
         <div className="toolbar-actions">
           <button onClick={() => ref.current?.focus()} disabled={!sel}>

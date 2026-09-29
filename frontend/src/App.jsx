@@ -339,7 +339,8 @@ function App() {
             </small>
           )}
           <small className="muted">
-            Public repositories only in P0. GitHub imports are read-only and analyzed locally in your browser.
+            Public repositories only in P0. GitHub imports are read-only and analyzed locally in
+            your browser.
           </small>
         </div>
       )}
