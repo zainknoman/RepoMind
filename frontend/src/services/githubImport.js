@@ -1,4 +1,3 @@
-import JSZip from 'jszip';
 import {
   EXTS,
   IGN,
@@ -10,6 +9,8 @@ import {
 } from '../lib/files';
 
 const GITHUB_HOST = 'github.com';
+const MAX_TEXT_BYTES = 2 * 1024 * 1024;
+const FETCH_CONCURRENCY = 8;
 
 export function parseGithubUrl(value) {
   const raw = String(value || '').trim();
@@ -64,16 +65,6 @@ async function fetchJson(url, { signal, fetchImpl }) {
   return response.json();
 }
 
-function archivePath(name) {
-  const normalized = name.replace(/\\/g, '/').replace(/^\/+/, '');
-  const slash = normalized.indexOf('/');
-  return slash >= 0 ? normalized.slice(slash + 1) : normalized;
-}
-
-function shouldIgnorePath(path) {
-  return path.split('/').some((part) => IGN.has(part));
-}
-
 function extensionOf(name) {
   const lower = name.toLowerCase();
   const dot = lower.lastIndexOf('.');
@@ -86,6 +77,39 @@ function isCandidate(name) {
 
 function basicCandidate(name) {
   return !isCandidate(name) && maybeBasicName(name);
+}
+
+function ignoredByGitignore(path, matcher) {
+  return matcher ? matcher(path) : false;
+}
+
+async function fetchTextFile(owner, repo, branch, path, { signal, fetchImpl }) {
+  const rawPath = path
+    .split('/')
+    .map(encodeURIComponent)
+    .join('/');
+  const rawBranch = branch
+    .split('/')
+    .map(encodeURIComponent)
+    .join('/');
+  const url = `https://raw.githubusercontent.com/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/${rawBranch}/${rawPath}`;
+  const response = await fetchImpl(url, { signal });
+  if (!response.ok) throw new Error(`Unable to fetch GitHub file: ${path} (${response.status})`);
+  return response.text();
+}
+
+async function mapConcurrent(items, worker, concurrency) {
+  const results = new Array(items.length);
+  let cursor = 0;
+  async function run() {
+    while (true) {
+      const index = cursor++;
+      if (index >= items.length) return;
+      results[index] = await worker(items[index], index);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, run));
+  return results;
 }
 
 export async function importGithubRepository(value, options = {}) {
@@ -111,77 +135,81 @@ export async function importGithubRepository(value, options = {}) {
   );
   const commitSha = commit.sha || branch;
 
-  onProgress?.({ phase: 'download', current: 0, total: 1, path: null });
-  const archiveUrl =
-    `https://codeload.github.com/${encodeURIComponent(parsed.owner)}/${encodeURIComponent(parsed.repo)}/zip/refs/heads/${branch
-      .split('/')
-      .map(encodeURIComponent)
-      .join('/')}`;
-  const archiveResponse = await fetchImpl(archiveUrl, { signal });
-  if (!archiveResponse.ok)
+  onProgress?.({ phase: 'tree', current: 0, total: 1, path: null });
+  const tree = await fetchJson(
+    `https://api.github.com/repos/${encodeURIComponent(parsed.owner)}/${encodeURIComponent(parsed.repo)}/git/trees/${encodeURIComponent(branch)}?recursive=1`,
+    { signal, fetchImpl },
+  );
+  if (tree.truncated)
     throw new Error(
-      archiveResponse.status === 404
-        ? `Unable to download branch "${branch}" from GitHub`
-        : `GitHub archive download failed (${archiveResponse.status})`,
+      'GitHub returned a truncated repository tree. This P0 importer cannot safely analyze a repository of this size yet.',
     );
 
-  const zip = await JSZip.loadAsync(await archiveResponse.blob());
-  const files = [];
-  const entries = Object.values(zip.files).filter((entry) => !entry.dir);
-  const candidates = entries.filter((entry) => {
-    const path = archivePath(entry.name);
-    return path && !shouldIgnorePath(path) && (isCandidate(path.split('/').pop()) || basicCandidate(path.split('/').pop()));
-  });
-
-  onProgress?.({ phase: 'extract', current: 0, total: candidates.length, path: null });
-  for (let i = 0; i < candidates.length && files.length < MAX_FILES; i++) {
-    if (signal?.aborted) throw new DOMException('Import cancelled', 'AbortError');
-
-    const entry = candidates[i];
-    const path = archivePath(entry.name);
-    const name = path.split('/').pop();
-    let ext = extensionOf(name);
-    let text = true;
-
-    if (!includeSensitive && sensitiveName.test(path)) text = false;
-    if (!text) {
-      onProgress?.({ phase: 'extract', current: i + 1, total: candidates.length, path });
-      continue;
-    }
-
-    let content = '';
-    try {
-      content = await entry.async('string');
-    } catch {
-      text = false;
-    }
-
-    if (text && content.length > 2 * 1024 * 1024) text = false;
-
-    if (text && !isCandidate(name) && basicCandidate(name)) {
-      if (looksLikeBasic(content.slice(0, 4096))) ext = '.b';
-      else text = false;
-    }
-
-    if (text) {
-      files.push({
-        name,
-        path,
-        ext,
-        text: true,
-        content,
-        size: content.length,
-        lastModified: entry.date?.getTime?.() || 0,
-      });
-    }
-    onProgress?.({ phase: 'extract', current: i + 1, total: candidates.length, path });
+  const entries = (tree.tree || []).filter((entry) => entry.type === 'blob');
+  const rootIgnore = entries.find((entry) => entry.path === '.gitignore');
+  let ignoreMatcher = null;
+  if (rootIgnore) {
+    const ignoreText = await fetchTextFile(parsed.owner, parsed.repo, branch, '.gitignore', {
+      signal,
+      fetchImpl,
+    });
+    ignoreMatcher = gitignoreMatcher(ignoreText);
   }
 
-  const gitignore = files.find((file) => file.path === '.gitignore');
-  const filtered = gitignore
-    ? files.filter((file) => file.path === '.gitignore' || !gitignoreMatcher(gitignore.content)(file.path))
-    : files;
+  const candidates = entries.filter((entry) => {
+    const name = entry.path.split('/').pop();
+    if (ignoredByGitignore(entry.path, ignoreMatcher)) return false;
+    if (IGN.has(entry.path.split('/')[0])) return false;
+    if (!isCandidate(name) && !basicCandidate(name)) return false;
+    if (!includeSensitive && sensitiveName.test(entry.path)) return false;
+    if (typeof entry.size === 'number' && entry.size > MAX_TEXT_BYTES) return false;
+    return true;
+  });
 
+  const selected = candidates.slice(0, MAX_FILES);
+  onProgress?.({ phase: 'download', current: 0, total: selected.length, path: null });
+
+  const files = await mapConcurrent(
+    selected,
+    async (entry, index) => {
+      if (signal?.aborted) throw new DOMException('Import cancelled', 'AbortError');
+      const name = entry.path.split('/').pop();
+      let content = await fetchTextFile(parsed.owner, parsed.repo, branch, entry.path, {
+        signal,
+        fetchImpl,
+      });
+      if (content.length > MAX_TEXT_BYTES) content = content.slice(0, MAX_TEXT_BYTES + 1);
+      let ext = extensionOf(name);
+      let text = content.length <= MAX_TEXT_BYTES;
+
+      if (text && !isCandidate(name) && basicCandidate(name)) {
+        if (looksLikeBasic(content.slice(0, 4096))) ext = '.b';
+        else text = false;
+      }
+
+      onProgress?.({
+        phase: 'download',
+        current: index + 1,
+        total: selected.length,
+        path: entry.path,
+      });
+
+      return text
+        ? {
+            name,
+            path: entry.path,
+            ext,
+            text: true,
+            content,
+            size: entry.size ?? content.length,
+            lastModified: 0,
+          }
+        : null;
+    },
+    FETCH_CONCURRENCY,
+  );
+
+  const filtered = files.filter(Boolean);
   const extStats = {};
   for (const file of filtered) extStats[file.ext] = (extStats[file.ext] || 0) + 1;
 
