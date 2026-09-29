@@ -312,7 +312,7 @@ test.describe('RepoMind Codebase Intelligence end-to-end', () => {
   });
 
   test('Impact child tab supports file selection', async ({ page }) => {
-    await page.getByRole('button', { name: 'Impact', exact: true }).click();
+    await page.locator('.git-workspace').getByRole('button', { name: 'Impact', exact: true }).click();
     await page.locator('select').first().selectOption('src/app.js');
     await expect(page.getByRole('heading', { name: 'Dependencies', exact: true })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Imported by', exact: true })).toBeVisible();
