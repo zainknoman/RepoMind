@@ -4,6 +4,7 @@ import { TOKEN_BUDGETS, exportablePrompt } from '../../services/aiContext';
 import { MAX_SAVED_CONTEXTS } from '../../services/savedContexts';
 import { cp, dl } from '../../lib/text';
 import { toast } from '../../lib/toast';
+import { PaginatedList } from '../../components/PaginatedList';
 
 const tokens = (n) => '~' + (n || 0).toLocaleString() + ' tokens';
 
@@ -101,16 +102,12 @@ export function ContextBuilderView({ ai, index, projectName, analyzersRun }) {
           </button>
           <button onClick={() => setSelected(new Set())}>☐ Clear</button>
         </div>
-        <div className="search">
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Filter files"
-          />
-          <button onClick={() => setQuery('')}>✕ Clear</button>
-        </div>
-        <div className="file-checks">
-          {files.map((f) => (
+
+        <PaginatedList
+          className="file-checks"
+          items={files}
+          search={false}
+          renderItem={(f) => (
             <label key={f.path}>
               <input
                 type="checkbox"
@@ -119,8 +116,8 @@ export function ContextBuilderView({ ai, index, projectName, analyzersRun }) {
               />
               {f.path}
             </label>
-          ))}
-        </div>
+          )}
+        />
         <ContextOptions ai={ai} analyzersRun={analyzersRun} />
         <div className="tool-run-strip">
           <button onClick={ai.generateContext} disabled={!selected.size || ai.busy}>
