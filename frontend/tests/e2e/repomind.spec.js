@@ -680,7 +680,7 @@ test.describe('RepoMind GitHub Intelligence', () => {
     await expect(page.getByText(/Fresh index/)).toBeVisible({ timeout: 30_000 });
     await page.getByRole('button', { name: 'Codebase', exact: true }).click();
     await page.getByRole('button', { name: 'Git', exact: true }).click();
-    await expect(page.getByText('🐙 GitHub Intelligence')).toBeVisible();
+    await expect(page.getByText('GitHub Intelligence', { exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Repository', exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Branches', exact: true }).click();
     await expect(page.getByText('main', { exact: true })).toBeVisible();
