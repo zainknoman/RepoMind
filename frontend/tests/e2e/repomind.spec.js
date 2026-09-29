@@ -317,7 +317,10 @@ test.describe('RepoMind Codebase Intelligence end-to-end', () => {
   });
 
   test('Impact child tab supports file selection', async ({ page }) => {
-    await page.locator('.codebase-intelligence').getByRole('button', { name: 'Impact', exact: true }).click();
+    await page
+      .locator('.codebase-intelligence')
+      .getByRole('button', { name: 'Impact', exact: true })
+      .click();
     await page.locator('select').first().selectOption('src/app.js');
     await expect(page.getByRole('heading', { name: 'Dependencies', exact: true })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Imported by', exact: true })).toBeVisible();
@@ -683,7 +686,10 @@ test.describe('RepoMind GitHub Intelligence', () => {
     await expect(page.getByText('main', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Commits', exact: true }).click();
     await expect(page.getByText('Initial commit', { exact: true })).toBeVisible();
-    await page.locator('.git-workspace').getByRole('button', { name: 'Impact', exact: true }).click();
+    await page
+      .locator('.git-workspace')
+      .getByRole('button', { name: 'Impact', exact: true })
+      .click();
     await expect(page.getByText('GitHub Change Impact')).toBeVisible();
     await page.getByRole('button', { name: /Analyse change impact/ }).click();
     await expect(page.getByText('1 changed files')).toBeVisible();
