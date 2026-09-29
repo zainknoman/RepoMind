@@ -1,7 +1,5 @@
-import { useState } from 'react';
 import { SEVERITIES, countBySeverity } from '../../services/analyzers';
-
-const ROW_LIMIT = 100;
+import { PaginatedList } from '../../components/PaginatedList';
 
 // Every registered analyzer, with one findings table per analyzer (columns declared by the
 // analyzer). Clicking a file opens it in the Editor.
@@ -56,10 +54,8 @@ export function AnalyzersView({ catalog, results, summary, busy, onRun, onOpenFi
 }
 
 function AnalyzerPanel({ analyzer, result, running, disabled, onRun, onOpenFile }) {
-  const [showAll, setShowAll] = useState(false);
   const findings = result?.findings || [];
   const counts = countBySeverity(findings);
-  const rows = showAll ? findings : findings.slice(0, ROW_LIMIT);
   const cols = { '--cols': analyzer.columns.length };
   return (
     <div className="analytics-panel" data-analyzer={analyzer.id}>
@@ -90,28 +86,30 @@ function AnalyzerPanel({ analyzer, result, running, disabled, onRun, onOpenFile 
         <p className="muted">No result yet. Run this analyzer against the current index.</p>
       )}
       {result && !result.error && !findings.length && <p className="muted">No findings.</p>}
-      {rows.length > 0 && (
-        <div className="analyzer-table" role="table">
-          <div className="analyzer-row analyzer-head" role="row" style={cols}>
-            {analyzer.columns.map(([key, label]) => (
-              <span key={key} role="columnheader">
-                {label}
-              </span>
-            ))}
-          </div>
-          {rows.map((f, i) => (
-            <div className="index-row analyzer-row" role="row" key={i} style={cols}>
-              {analyzer.columns.map(([key]) => (
-                <Cell key={key} name={key} finding={f} onOpenFile={onOpenFile} />
-              ))}
+      {findings.length > 0 && (
+        <PaginatedList
+          items={findings}
+          searchPlaceholder={'Search ' + analyzer.name + ' findings'}
+          getSearchText={(finding) =>
+            analyzer.columns.map(([key]) => finding[key]).filter(Boolean).join(' ')
+          }
+          renderItem={(finding, i) => (
+            <div className="analyzer-table" role="table" key={i}>
+              <div className="analyzer-row analyzer-head" role="row" style={cols}>
+                {analyzer.columns.map(([key, label]) => (
+                  <span key={key} role="columnheader">
+                    {label}
+                  </span>
+                ))}
+              </div>
+              <div className="index-row analyzer-row" role="row" style={cols}>
+                {analyzer.columns.map(([key]) => (
+                  <Cell key={key} name={key} finding={finding} onOpenFile={onOpenFile} />
+                ))}
+              </div>
             </div>
-          ))}
-        </div>
-      )}
-      {findings.length > ROW_LIMIT && (
-        <button className="link-button" onClick={() => setShowAll(!showAll)}>
-          {showAll ? 'Show first ' + ROW_LIMIT : `Show all ${findings.length} findings`}
-        </button>
+          )}
+        />
       )}
     </div>
   );

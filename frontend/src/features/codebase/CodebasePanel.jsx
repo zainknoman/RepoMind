@@ -15,6 +15,7 @@ import { AIWorkspace, ContextBuilderView } from './AIViews';
 import { useAIContext } from './useAIContext';
 import { cp, dl } from '../../lib/text';
 import { toast } from '../../lib/toast';
+import { PaginatedList } from '../../components/PaginatedList';
 
 const IMPORT_LEVELS = {
   resolved: 'resolved by name',
@@ -120,16 +121,6 @@ export default function CodebasePanel({
       active = false;
     };
   }, [view, diagram]);
-  const symbols = useMemo(
-    () =>
-      (index?.symbols || []).filter(
-        (s) =>
-          !query ||
-          s.name.toLowerCase().includes(query.toLowerCase()) ||
-          s.path.toLowerCase().includes(query.toLowerCase()),
-      ),
-    [index, query],
-  );
   const architecture = useMemo(() => fileCoupling(index), [index]),
     details = useMemo(() => getSymbolDetails(index, selectedSymbol), [index, selectedSymbol]);
   const profile = useMemo(
@@ -274,16 +265,7 @@ export default function CodebasePanel({
               </button>
             ))}
           </div>
-          {['overview', 'files', 'symbols', 'dependencies', 'impact'].includes(view) && (
-            <div className="search">
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Filter files, symbols or dependencies"
-              />
-              <button onClick={() => setQuery('')}>✕ Clear</button>
-            </div>
-          )}
+
           {view === 'overview' && (
             <div className="analyze-grid">
               <div className="analytics-panel">
@@ -352,22 +334,27 @@ export default function CodebasePanel({
           {view === 'symbols' && (
             <div className="analytics-panel">
               <h2>Symbol Intelligence</h2>
-              {symbols.slice(0, 500).map((s) => (
-                <button
-                  className="index-row clickable"
-                  key={s.definitionKey}
-                  onClick={() => setSelectedSymbol(s.definitionKey)}
-                >
-                  <b>{s.name}</b>
-                  <span>
-                    {s.kind}
-                    {s.parent ? ' · ' + s.parent : ''}
-                  </span>
-                  <small>
-                    {s.path}:{s.line}
-                  </small>
-                </button>
-              ))}
+              <PaginatedList
+                items={index.symbols || []}
+                searchPlaceholder="Search symbols"
+                getSearchText={(s) => [s.name, s.path, s.kind, s.parent].filter(Boolean).join(' ')}
+                renderItem={(s) => (
+                  <button
+                    className="index-row clickable"
+                    key={s.definitionKey}
+                    onClick={() => setSelectedSymbol(s.definitionKey)}
+                  >
+                    <b>{s.name}</b>
+                    <span>
+                      {s.kind}
+                      {s.parent ? ' · ' + s.parent : ''}
+                    </span>
+                    <small>
+                      {s.path}:{s.line}
+                    </small>
+                  </button>
+                )}
+              />
               {details && (
                 <SymbolDetails
                   details={details}
@@ -385,24 +372,29 @@ export default function CodebasePanel({
             <div className="analyze-grid">
               <div className="analytics-panel">
                 <h2>Dependency Hotspots</h2>
-                {architecture.slice(0, 100).map((x) => (
-                  <button
-                    className="index-row clickable"
-                    key={x.path}
-                    onClick={() => {
-                      setSelectedFile(x.path);
-                      setView('impact');
-                    }}
-                  >
-                    <b>{x.path}</b>
-                    <span>
-                      {x.dependencies} out · {x.dependents} in
-                    </span>
-                    <small>
-                      {x.symbols} symbols · ~{x.tokens.toLocaleString()} tokens
-                    </small>
-                  </button>
-                ))}
+                <PaginatedList
+                  items={architecture}
+                  searchPlaceholder="Search dependency hotspots"
+                  getSearchText={(x) => x.path}
+                  renderItem={(x) => (
+                    <button
+                      className="index-row clickable"
+                      key={x.path}
+                      onClick={() => {
+                        setSelectedFile(x.path);
+                        setView('impact');
+                      }}
+                    >
+                      <b>{x.path}</b>
+                      <span>
+                        {x.dependencies} out · {x.dependents} in
+                      </span>
+                      <small>
+                        {x.symbols} symbols · ~{x.tokens.toLocaleString()} tokens
+                      </small>
+                    </button>
+                  )}
+                />
               </div>
               <div className="analytics-panel">
                 <h2>Circular Dependencies</h2>
@@ -609,10 +601,12 @@ function SymbolDetails({ details, onClose, onImpact }) {
         </div>
         <div>
           <h3>References ({details.references.length})</h3>
-          {byConfidence(details.references)
-            .slice(0, 100)
-            .map((r, i) => (
-              <div className="mini-row" key={i}>
+          <PaginatedList
+            items={byConfidence(details.references)}
+            searchPlaceholder="Search references"
+            getSearchText={(r) => [r.from, r.receiver, r.confidence, r.resolution].filter(Boolean).join(' ')}
+            renderItem={(r, i) => (
+              <div className="mini-row" key={r.from + ':' + r.line + ':' + i}>
                 {r.from}:{r.line}:{r.column}
                 {r.receiver && <code> {r.receiver}.</code>}
                 {r.confidence && (
@@ -624,19 +618,25 @@ function SymbolDetails({ details, onClose, onImpact }) {
                   </span>
                 )}
               </div>
-            ))}
+            )}
+          />
         </div>
       </div>
       <h3>Imported by ({details.importedBy.length})</h3>
-      {details.importedBy.map((x, i) => (
-        <div className="index-row" key={i}>
-          <b>{x.from}</b>
-          <span>{x.local}</span>
-          <small>
-            {x.imported} · line {x.line}
-          </small>
-        </div>
-      ))}
+      <PaginatedList
+        items={details.importedBy}
+        searchPlaceholder="Search imported-by references"
+        getSearchText={(x) => [x.from, x.local, x.imported].filter(Boolean).join(' ')}
+        renderItem={(x, i) => (
+          <div className="index-row" key={x.from + ':' + x.line + ':' + i}>
+            <b>{x.from}</b>
+            <span>{x.local}</span>
+            <small>
+              {x.imported} · line {x.line}
+            </small>
+          </div>
+        )}
+      />
     </div>
   );
 }
@@ -672,15 +672,20 @@ function HealthView({ health }) {
         </div>
         <div className="analytics-panel">
           <h2>Hotspot Files</h2>
-          {health.hotspots.slice(0, 30).map((x) => (
-            <div className="index-row" key={x.path}>
-              <b>{x.path}</b>
-              <span>{x.score} edges</span>
-              <small>
-                {x.dependencies} out · {x.dependents} in · {x.symbols} symbols
-              </small>
-            </div>
-          ))}
+          <PaginatedList
+            items={health.hotspots || []}
+            searchPlaceholder="Search hotspot files"
+            getSearchText={(x) => x.path}
+            renderItem={(x) => (
+              <div className="index-row" key={x.path}>
+                <b>{x.path}</b>
+                <span>{x.score} edges</span>
+                <small>
+                  {x.dependencies} out · {x.dependents} in · {x.symbols} symbols
+                </small>
+              </div>
+            )}
+          />
         </div>
       </div>
     </div>

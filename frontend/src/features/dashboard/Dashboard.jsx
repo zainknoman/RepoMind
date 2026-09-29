@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Investigation, Workflow } from './Investigation';
+import { PaginatedList } from '../../components/PaginatedList';
 
 export function Dashboard({
   p,
@@ -13,7 +14,6 @@ export function Dashboard({
 }) {
   const [selectedType, setSelectedType] = useState('all'),
     [view, setView] = useState('overview'),
-    [fileQ, setFileQ] = useState(''),
     [sort, setSort] = useState('lines'),
     [chart, setChart] = useState('types');
   if (!p)
@@ -49,16 +49,9 @@ export function Dashboard({
         </div>
       </section>
     );
-  const visible = p.files
-    .filter(
-      (f) =>
-        (selectedType === 'all' || f.ext === selectedType) &&
-        f.path.toLowerCase().includes(fileQ.toLowerCase()),
-    )
-    .sort((a, b) => {
-      if (sort === 'name') return a.path.localeCompare(b.path);
-      return 0;
-    });
+  const filteredFiles = p.files
+    .filter((f) => selectedType === 'all' || f.ext === selectedType)
+    .sort((a, b) => (sort === 'name' ? a.path.localeCompare(b.path) : 0));
   const maxType = Math.max(...data.types.map((x) => x.count), 1),
     maxDir = Math.max(...data.dirs.map((x) => x.count), 1),
     maxSize = Math.max(...data.sizeBuckets.map((x) => x.count), 1),
@@ -258,25 +251,35 @@ export function Dashboard({
           <div className="dashboard-grid">
             <div className="analytics-panel">
               <h2>🗂️ Top-level folders</h2>
-              {data.dirs.map((x) => (
-                <div className="dashboard-folder-row" key={x.name}>
-                  <span>📁 {x.name}</span>
-                  <i>
-                    <b style={{ width: Math.max(4, Math.round((x.count / maxDir) * 100)) + '%' }} />
-                  </i>
-                  <strong>{x.count}</strong>
-                </div>
-              ))}
+              <PaginatedList
+                items={data.dirs}
+                searchPlaceholder="Search folders"
+                getSearchText={(x) => x.name}
+                renderItem={(x) => (
+                  <div className="dashboard-folder-row" key={x.name}>
+                    <span>📁 {x.name}</span>
+                    <i>
+                      <b style={{ width: Math.max(4, Math.round((x.count / maxDir) * 100)) + '%' }} />
+                    </i>
+                    <strong>{x.count}</strong>
+                  </div>
+                )}
+              />
             </div>
             <div className="analytics-panel">
               <h2>📄 Largest files</h2>
-              {data.largest.slice(0, 12).map((x) => (
-                <div className="index-row" key={x.path}>
-                  <b>{x.path}</b>
-                  <span>{x.lines.toLocaleString()} lines</span>
-                  <small>{Math.round(x.size / 1024)} KB</small>
-                </div>
-              ))}
+              <PaginatedList
+                items={data.largest}
+                searchPlaceholder="Search largest files"
+                getSearchText={(x) => x.path}
+                renderItem={(x) => (
+                  <div className="index-row" key={x.path}>
+                    <b>{x.path}</b>
+                    <span>{x.lines.toLocaleString()} lines</span>
+                    <small>{Math.round(x.size / 1024)} KB</small>
+                  </div>
+                )}
+              />
             </div>
           </div>
         </>
@@ -331,14 +334,9 @@ export function Dashboard({
           <div className="transform-toolbar">
             <div>
               <h2>🗂️ Repository Files</h2>
-              <small>{visible.length} matching files</small>
+              <small>{filteredFiles.length} matching files</small>
             </div>
             <div className="dashboard-file-controls">
-              <input
-                value={fileQ}
-                onChange={(e) => setFileQ(e.target.value)}
-                placeholder="Filter files"
-              />
               <select value={sort} onChange={(e) => setSort(e.target.value)}>
                 <option value="lines">Source order</option>
                 <option value="name">Name A–Z</option>
@@ -346,17 +344,18 @@ export function Dashboard({
               <button onClick={() => setSelectedType('all')}>All types</button>
             </div>
           </div>
-          <div className="list dashboard-file-list">
-            {visible.slice(0, 100).map((f) => (
+          <PaginatedList
+            className="dashboard-file-list"
+            items={filteredFiles}
+            searchPlaceholder="Search repository files"
+            getSearchText={(f) => [f.path, f.ext].filter(Boolean).join(' ')}
+            renderItem={(f) => (
               <button key={f.path} onClick={() => open(f)}>
                 <span>📄 {f.path}</span>
                 <small>{f.ext}</small>
               </button>
-            ))}
-          </div>
-          {visible.length > 100 && (
-            <small className="muted">Showing first 100 of {visible.length} matching files.</small>
-          )}
+            )}
+          />
         </div>
       )}
     </section>

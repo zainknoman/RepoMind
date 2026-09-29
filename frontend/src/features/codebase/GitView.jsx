@@ -4,8 +4,7 @@ import { changeImpact, changeImpactMarkdown } from '../../services/changeImpact'
 import { changeBriefing, changeFiles, changeTask } from '../../services/aiInvestigation';
 import { cp, dl } from '../../lib/text';
 import { GitHubView } from './GitHubView';
-
-const ROW_LIMIT = 200;
+import { PaginatedList } from '../../components/PaginatedList';
 
 // What uncommitted work or one commit could affect: changed symbols, affected code with
 // confidence, broken references and blind spots. Everything is read locally from .git.
@@ -80,57 +79,72 @@ function ChangeImpact({ state, onOpenFile, projectName, onExplain }) {
           {!result.files.length && !result.skipped.length && !result.nonCode.length && (
             <p className="muted">No changes.</p>
           )}
-          {result.files.map((f) => (
-            <div className="changed-file" key={f.path}>
-              <button className="mini-row clickable" onClick={() => onOpenFile(f.path)}>
-                {f.path} <small>({f.status})</small>
-              </button>
-              {f.symbols.map((s) => (
-                <div className="changed-symbol" key={`${s.kind}|${s.parent}|${s.name}`}>
-                  <code>{s.name}</code> <small>{s.kind}</small>
-                  <span className={'change-tag change-' + s.change}>{s.change}</span>
-                </div>
-              ))}
-              {f.moduleLevel && <div className="changed-symbol muted">module-level code</div>}
-            </div>
-          ))}
-          {[...result.skipped, ...result.nonCode].map((c) => (
-            <div className="mini-row muted" key={c.path}>
-              {c.path} <small>({c.status}, not analysed)</small>
-            </div>
-          ))}
+          <PaginatedList
+            items={result.files}
+            searchPlaceholder="Search changed files"
+            getSearchText={(f) => [f.path, f.status].filter(Boolean).join(' ')}
+            renderItem={(f) => (
+              <div className="changed-file" key={f.path}>
+                <button className="mini-row clickable" onClick={() => onOpenFile(f.path)}>
+                  {f.path} <small>({f.status})</small>
+                </button>
+                {f.symbols.map((s) => (
+                  <div className="changed-symbol" key={s.kind + '|' + s.parent + '|' + s.name}>
+                    <code>{s.name}</code> <small>{s.kind}</small>
+                    <span className={'change-tag change-' + s.change}>{s.change}</span>
+                  </div>
+                ))}
+                {f.moduleLevel && <div className="changed-symbol muted">module-level code</div>}
+              </div>
+            )}
+          />
+          <PaginatedList
+            items={[...result.skipped, ...result.nonCode]}
+            searchPlaceholder="Search skipped and non-code files"
+            getSearchText={(c) => [c.path, c.status].filter(Boolean).join(' ')}
+            renderItem={(c) => (
+              <div className="mini-row muted" key={c.path}>
+                {c.path} <small>({c.status}, not analysed)</small>
+              </div>
+            )}
+          />
         </div>
         <div>
           <h3>Affected</h3>
-          {result.affected.slice(0, ROW_LIMIT).map((a) => (
-            <button
-              className="impact-row clickable"
-              key={a.key || 'file:' + a.path}
-              onClick={() => onOpenFile(a.path)}
-              title={`Because of: ${a.because.join(', ')}`}
-            >
-              <b>{a.name || '(module)'}</b>
-              <span>{a.path}</span>
-              <small>level {a.depth}</small>
-              <span className={'confidence conf-' + a.confidence}>{a.confidence}</span>
-            </button>
-          ))}
+          <PaginatedList
+            items={result.affected}
+            searchPlaceholder="Search affected files"
+            getSearchText={(a) => [a.name, a.path, a.confidence].filter(Boolean).join(' ')}
+            renderItem={(a) => (
+              <button
+                className="impact-row clickable"
+                key={a.key || 'file:' + a.path}
+                onClick={() => onOpenFile(a.path)}
+                title={'Because of: ' + a.because.join(', ')}
+              >
+                <b>{a.name || '(module)'}</b>
+                <span>{a.path}</span>
+                <small>level {a.depth}</small>
+                <span className={'confidence conf-' + a.confidence}>{a.confidence}</span>
+              </button>
+            )}
+          />
           {!result.affected.length && (
             <p className="muted">Nothing in the index depends on the changed code.</p>
-          )}
-          {result.affected.length > ROW_LIMIT && (
-            <p className="muted">
-              Showing {ROW_LIMIT} of {result.affected.length}; the report lists all.
-            </p>
           )}
           {!!result.broken.length && (
             <>
               <h3>Broken references</h3>
-              {result.broken.map((b, i) => (
-                <button className="mini-row clickable" key={i} onClick={() => onOpenFile(b.path)}>
-                  {b.path}:{b.line} — {b.reason}
-                </button>
-              ))}
+              <PaginatedList
+                items={result.broken}
+                searchPlaceholder="Search broken references"
+                getSearchText={(b) => [b.path, b.line, b.reason].filter(Boolean).join(' ')}
+                renderItem={(b, i) => (
+                  <button className="mini-row clickable" key={b.path + ':' + b.line + ':' + i} onClick={() => onOpenFile(b.path)}>
+                    {b.path}:{b.line} — {b.reason}
+                  </button>
+                )}
+              />
             </>
           )}
           {!!result.blindSpots.length && (
@@ -254,11 +268,15 @@ export function GitView({ git, busy, onRefresh, onSelect, project, index, onOpen
               <h3>
                 {label} ({items?.length || 0})
               </h3>
-              {(items || []).slice(0, 30).map((x) => (
-                <button className="mini-row clickable" key={x} onClick={() => onSelect?.(x)}>
-                  {x}
-                </button>
-              ))}
+              <PaginatedList
+                items={items || []}
+                searchPlaceholder={'Search ' + label.toLowerCase() + ' files'}
+                renderItem={(x) => (
+                  <button className="mini-row clickable" key={x} onClick={() => onSelect?.(x)}>
+                    {x}
+                  </button>
+                )}
+              />
             </div>
           ))}
         </div>
@@ -275,18 +293,23 @@ export function GitView({ git, busy, onRefresh, onSelect, project, index, onOpen
           From the local reflog. Impact reads that commit from .git on this device; nothing is
           uploaded.
         </p>
-        {(git.activity || []).slice(0, 20).map((x, i) => (
-          <div className="git-activity" key={i}>
-            <code>{x.hash?.slice(0, 10)}</code>
-            <span>{x.message || x.action}</span>
-            <small>{x.date ? new Date(x.date).toLocaleString() : ''}</small>
-            {/^[0-9a-f]{40}$/.test(x.hash || '') && (
-              <button onClick={() => commit(x)} disabled={impact?.loading}>
-                Impact
-              </button>
-            )}
-          </div>
-        ))}
+        <PaginatedList
+          items={git.activity || []}
+          searchPlaceholder="Search Git activity"
+          getSearchText={(x) => [x.hash, x.message, x.action].filter(Boolean).join(' ')}
+          renderItem={(x, i) => (
+            <div className="git-activity" key={x.hash || i}>
+              <code>{x.hash?.slice(0, 10)}</code>
+              <span>{x.message || x.action}</span>
+              <small>{x.date ? new Date(x.date).toLocaleString() : ''}</small>
+              {/^[0-9a-f]{40}$/.test(x.hash || '') && (
+                <button onClick={() => commit(x)} disabled={impact?.loading}>
+                  Impact
+                </button>
+              )}
+            </div>
+          )}
+        />
       </div>
     </div>
   );

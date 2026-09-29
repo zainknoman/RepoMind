@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { cp, dl } from '../../lib/text';
 import { renderMarkdown } from '../../lib/markdown';
 import { searchPattern } from '../../services/search';
+import { PaginatedList } from '../../components/PaginatedList';
 
 export function SearchPanel({
   p,
@@ -86,10 +87,14 @@ export function SearchPanel({
         {res?.symbols.length > 0 && (
           <>
             <h2 className="search-group">Symbols ({res.symbols.length})</h2>
-            <div className="list">
-              {res.symbols.map((s) => (
+            <PaginatedList
+              className="list"
+              items={res.symbols}
+              searchPlaceholder="Search symbol results"
+              getSearchText={(s) => [s.name, s.kind, s.path].filter(Boolean).join(" ")}
+              renderItem={(s) => (
                 <button
-                  key={`${s.path}|${s.name}|${s.kind}|${s.line}`}
+                  key={s.path + "|" + s.name + "|" + s.kind + "|" + s.line}
                   onClick={() => openPath(s.path)}
                 >
                   <b>
@@ -99,21 +104,25 @@ export function SearchPanel({
                     {s.path}:{s.line} · {s.references} refs
                   </code>
                 </button>
-              ))}
-            </div>
+              )}
+            />
           </>
         )}
         {res?.files.length > 0 && (
           <>
             <h2 className="search-group">Files ({res.files.length})</h2>
-            <div className="list">
-              {res.files.map((f) => (
+            <PaginatedList
+              className="list"
+              items={res.files}
+              searchPlaceholder="Search file results"
+              getSearchText={(f) => [f.path, f.language].filter(Boolean).join(" ")}
+              renderItem={(f) => (
                 <button key={f.path} onClick={() => openPath(f.path)}>
                   <b>{f.path}</b>
                   <code>{f.language}</code>
                 </button>
-              ))}
-            </div>
+              )}
+            />
           </>
         )}
         {res?.text.length > 0 && (
@@ -125,16 +134,20 @@ export function SearchPanel({
                 see more.
               </p>
             )}
-            <div className="list">
-              {res.text.map((r, i) => (
+            <PaginatedList
+              className="list"
+              items={res.text}
+              searchPlaceholder="Search text results"
+              getSearchText={(r) => [r.path, r.line, r.text].filter(Boolean).join(" ")}
+              renderItem={(r, i) => (
                 <button key={r.path + '-' + r.line + '-' + i} onClick={() => openPath(r.path)}>
                   <b>
                     {r.path} · Line {r.line}
                   </b>
                   <code>{r.text}</code>
                 </button>
-              ))}
-            </div>
+              )}
+            />
           </>
         )}
       </div>
