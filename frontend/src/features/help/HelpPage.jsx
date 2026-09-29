@@ -12,7 +12,7 @@ export function HelpPage() {
       id: 'dashboard',
       title: 'Dashboard',
       icon: '📊',
-      group: 'Understand',
+      group: 'Workspace',
       definition:
         'The investigation starting point: it builds or restores the code index and shows what needs attention, each item linked to the Codebase view that explains it. The repository profile follows below.',
       features: [
@@ -59,7 +59,7 @@ export function HelpPage() {
       id: 'explorer',
       title: 'Explorer',
       icon: '🗂️',
-      group: 'Explore',
+      group: 'Workspace',
       definition: 'A local file browser for the opened project.',
       features: [
         'Filter files by path or filename',
