@@ -1,4 +1,3 @@
-import JSZip from 'jszip';
 import { describe, expect, it, vi } from 'vitest';
 import { importGithubRepository } from './githubImport';
 import { parseGithubUrl } from './githubImport';
@@ -36,23 +35,29 @@ describe('parseGithubUrl', () => {
 describe('importGithubRepository', () => {
   it('imports supported files, applies ignore rules and keeps GitHub source metadata', async () => {
     const responses = new Map([
-      ['metadata', {
-        name: 'demo',
-        default_branch: 'main',
-        description: 'Demo',
-        html_url: 'https://github.com/acme/demo',
-      }],
+      [
+        'metadata',
+        {
+          name: 'demo',
+          default_branch: 'main',
+          description: 'Demo',
+          html_url: 'https://github.com/acme/demo',
+        },
+      ],
       ['commit', { sha: 'abc123' }],
-      ['tree', {
-        truncated: false,
-        tree: [
-          { path: '.gitignore', type: 'blob', size: 9 },
-          { path: 'src/App.jsx', type: 'blob', size: 31 },
-          { path: 'src/ignored.txt', type: 'blob', size: 7 },
-          { path: 'ignored/file.js', type: 'blob', size: 7 },
-          { path: '.env', type: 'blob', size: 12 },
-        ],
-      }],
+      [
+        'tree',
+        {
+          truncated: false,
+          tree: [
+            { path: '.gitignore', type: 'blob', size: 9 },
+            { path: 'src/App.jsx', type: 'blob', size: 31 },
+            { path: 'src/ignored.txt', type: 'blob', size: 7 },
+            { path: 'ignored/file.js', type: 'blob', size: 7 },
+            { path: '.env', type: 'blob', size: 12 },
+          ],
+        },
+      ],
     ]);
 
     const fetchImpl = vi.fn(async (url) => {
@@ -65,7 +70,11 @@ describe('importGithubRepository', () => {
       if (url.includes('/repos/acme/demo') && !url.includes('raw.')) {
         return { ok: true, json: async () => responses.get('metadata') };
       }
-      if (url.endsWith('/main/.gitignore')) return { ok: true, text: async () => 'ignored/\\n' };
+      if (url.endsWith('/main/.gitignore'))
+        return {
+          ok: true,
+          text: async () => 'src/ignored.txt\nignored/\n',
+        };
       if (url.endsWith('/main/src/App.jsx'))
         return { ok: true, text: async () => 'export default function App() {}' };
       throw new Error(`Unexpected fetch: ${url}`);
