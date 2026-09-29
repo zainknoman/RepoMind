@@ -4,6 +4,7 @@ import { changeImpact, changeImpactMarkdown } from '../../services/changeImpact'
 import { changeBriefing, changeFiles, changeTask } from '../../services/aiInvestigation';
 import { cp, dl } from '../../lib/text';
 import { GitHubView } from './GitHubView';
+import { PaginatedList } from '../../components/PaginatedList';
 
 const ROW_LIMIT = 200;
 
@@ -254,11 +255,15 @@ export function GitView({ git, busy, onRefresh, onSelect, project, index, onOpen
               <h3>
                 {label} ({items?.length || 0})
               </h3>
-              {(items || []).slice(0, 30).map((x) => (
-                <button className="mini-row clickable" key={x} onClick={() => onSelect?.(x)}>
-                  {x}
-                </button>
-              ))}
+              <PaginatedList
+                items={items || []}
+                searchPlaceholder={'Search ' + label.toLowerCase() + ' files'}
+                renderItem={(x) => (
+                  <button className="mini-row clickable" key={x} onClick={() => onSelect?.(x)}>
+                    {x}
+                  </button>
+                )}
+              />
             </div>
           ))}
         </div>
@@ -275,18 +280,23 @@ export function GitView({ git, busy, onRefresh, onSelect, project, index, onOpen
           From the local reflog. Impact reads that commit from .git on this device; nothing is
           uploaded.
         </p>
-        {(git.activity || []).slice(0, 20).map((x, i) => (
-          <div className="git-activity" key={i}>
-            <code>{x.hash?.slice(0, 10)}</code>
-            <span>{x.message || x.action}</span>
-            <small>{x.date ? new Date(x.date).toLocaleString() : ''}</small>
-            {/^[0-9a-f]{40}$/.test(x.hash || '') && (
-              <button onClick={() => commit(x)} disabled={impact?.loading}>
-                Impact
-              </button>
-            )}
-          </div>
-        ))}
+        <PaginatedList
+          items={git.activity || []}
+          searchPlaceholder="Search Git activity"
+          getSearchText={(x) => [x.hash, x.message, x.action].filter(Boolean).join(' ')}
+          renderItem={(x, i) => (
+            <div className="git-activity" key={x.hash || i}>
+              <code>{x.hash?.slice(0, 10)}</code>
+              <span>{x.message || x.action}</span>
+              <small>{x.date ? new Date(x.date).toLocaleString() : ''}</small>
+              {/^[0-9a-f]{40}$/.test(x.hash || '') && (
+                <button onClick={() => commit(x)} disabled={impact?.loading}>
+                  Impact
+                </button>
+              )}
+            </div>
+          )}
+        />
       </div>
     </div>
   );
