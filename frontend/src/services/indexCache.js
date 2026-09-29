@@ -35,7 +35,13 @@ async function projectKey(project) {
       project.source.commit || project.source.ref || project.source.branch || '',
     ].join(':');
     let hash = 2166136261;
-    for (const value of [identity, ...(project.files || []).filter((f) => f.text).map((f) => f.path).sort()])
+    for (const value of [
+      identity,
+      ...(project.files || [])
+        .filter((f) => f.text)
+        .map((f) => f.path)
+        .sort(),
+    ])
       for (let i = 0; i < value.length; i++) {
         hash ^= value.charCodeAt(i);
         hash = Math.imul(hash, 16777619);

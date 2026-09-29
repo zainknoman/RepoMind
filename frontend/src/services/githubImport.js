@@ -31,7 +31,8 @@ export function parseGithubUrl(value) {
     .filter(Boolean)
     .map((part) => decodeURIComponent(part));
 
-  if (parts.length < 2) throw new Error('GitHub URL must look like https://github.com/owner/repository');
+  if (parts.length < 2)
+    throw new Error('GitHub URL must look like https://github.com/owner/repository');
 
   const owner = parts[0];
   const repo = parts[1].replace(/\.git$/i, '');
@@ -56,8 +57,7 @@ async function fetchJson(url, { signal, fetchImpl }) {
     headers: { Accept: 'application/vnd.github+json' },
   });
   if (!response.ok) {
-    if (response.status === 404)
-      throw new Error('GitHub repository not found, or it is private');
+    if (response.status === 404) throw new Error('GitHub repository not found, or it is private');
     if (response.status === 403 || response.status === 429)
       throw new Error('GitHub API rate limit reached. Try again later.');
     throw new Error(`GitHub request failed (${response.status})`);
@@ -84,14 +84,8 @@ function ignoredByGitignore(path, matcher) {
 }
 
 async function fetchTextFile(owner, repo, branch, path, { signal, fetchImpl }) {
-  const rawPath = path
-    .split('/')
-    .map(encodeURIComponent)
-    .join('/');
-  const rawBranch = branch
-    .split('/')
-    .map(encodeURIComponent)
-    .join('/');
+  const rawPath = path.split('/').map(encodeURIComponent).join('/');
+  const rawBranch = branch.split('/').map(encodeURIComponent).join('/');
   const url = `https://raw.githubusercontent.com/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/${rawBranch}/${rawPath}`;
   const response = await fetchImpl(url, { signal });
   if (!response.ok) throw new Error(`Unable to fetch GitHub file: ${path} (${response.status})`);
@@ -113,12 +107,7 @@ async function mapConcurrent(items, worker, concurrency) {
 }
 
 export async function importGithubRepository(value, options = {}) {
-  const {
-    includeSensitive = false,
-    signal,
-    onProgress,
-    fetchImpl = fetch,
-  } = options;
+  const { includeSensitive = false, signal, onProgress, fetchImpl = fetch } = options;
   const parsed = parseGithubUrl(value);
 
   onProgress?.({ phase: 'metadata', current: 0, total: 1, path: null });
