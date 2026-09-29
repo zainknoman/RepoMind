@@ -25,3 +25,4 @@ export const NAV_GROUPS = [
 ];
 
 export const PRIMARY_TAB = 'codebase';
+export const SECONDARY_GROUP = 'Analyze';
