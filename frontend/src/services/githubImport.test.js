@@ -35,32 +35,41 @@ describe('parseGithubUrl', () => {
 
 describe('importGithubRepository', () => {
   it('imports supported files, applies ignore rules and keeps GitHub source metadata', async () => {
-    const zip = new JSZip();
-    zip.file('demo-main/.gitignore', 'ignored/\n');
-    zip.file('demo-main/src/App.jsx', 'export default function App() {}');
-    zip.file('demo-main/src/ignored.txt', 'ignored');
-    zip.file('demo-main/ignored/file.js', 'ignored');
-    zip.file('demo-main/.env', 'SECRET=value');
-    const blob = await zip.generateAsync({ type: 'blob' });
+    const responses = new Map([
+      ['metadata', {
+        name: 'demo',
+        default_branch: 'main',
+        description: 'Demo',
+        html_url: 'https://github.com/acme/demo',
+      }],
+      ['commit', { sha: 'abc123' }],
+      ['tree', {
+        truncated: false,
+        tree: [
+          { path: '.gitignore', type: 'blob', size: 9 },
+          { path: 'src/App.jsx', type: 'blob', size: 31 },
+          { path: 'src/ignored.txt', type: 'blob', size: 7 },
+          { path: 'ignored/file.js', type: 'blob', size: 7 },
+          { path: '.env', type: 'blob', size: 12 },
+        ],
+      }],
+    ]);
 
-    const fetchImpl = vi.fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          name: 'demo',
-          default_branch: 'main',
-          description: 'Demo',
-          html_url: 'https://github.com/acme/demo',
-        }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ sha: 'abc123' }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        blob: async () => blob,
-      });
+    const fetchImpl = vi.fn(async (url) => {
+      if (url.includes('/repos/acme/demo/git/trees/')) {
+        return { ok: true, json: async () => responses.get('tree') };
+      }
+      if (url.includes('/repos/acme/demo/commits/')) {
+        return { ok: true, json: async () => responses.get('commit') };
+      }
+      if (url.includes('/repos/acme/demo') && !url.includes('raw.')) {
+        return { ok: true, json: async () => responses.get('metadata') };
+      }
+      if (url.endsWith('/main/.gitignore')) return { ok: true, text: async () => 'ignored/\\n' };
+      if (url.endsWith('/main/src/App.jsx'))
+        return { ok: true, text: async () => 'export default function App() {}' };
+      throw new Error(`Unexpected fetch: ${url}`);
+    });
 
     const project = await importGithubRepository('https://github.com/acme/demo', {
       fetchImpl,
@@ -74,6 +83,6 @@ describe('importGithubRepository', () => {
       commit: 'abc123',
     });
     expect(project.files.map((file) => file.path)).toEqual(['.gitignore', 'src/App.jsx']);
-    expect(fetchImpl).toHaveBeenCalledTimes(3);
+    expect(fetchImpl).toHaveBeenCalledTimes(5);
   });
 });
