@@ -34,8 +34,8 @@ function reusableAnalyses(previous) {
 
 /**
  * Reads every text file of a project into plain records, reporting progress and honouring abort.
- * With a `previous` index, files whose size and modification time are unchanged are not read: their
- * record carries the previous analysis instead.
+ * Local files are read through their File System Access handle. Imported sources such as GitHub keep
+ * their already-fetched content on the file record and never need a local handle.
  */
 export async function readProjectFiles(project, { signal, onProgress, previous } = {}) {
   const textFiles = project.files.filter((f) => f.text);
@@ -47,17 +47,30 @@ export async function readProjectFiles(project, { signal, onProgress, previous }
     const f = textFiles[i];
     const record = { path: f.path, name: f.name, ext: f.ext, content: '' };
     try {
-      const raw = await f.handle.getFile();
       const prior = reusable.get(f.path);
-      if (prior && prior.size === raw.size && prior.modified === raw.lastModified) {
-        record.analysis = prior;
-        delete record.content;
-        reused++;
+      if (typeof f.content === 'string') {
+        const size = f.content.length;
+        const lastModified = f.lastModified || 0;
+        if (prior && prior.size === size && prior.modified === lastModified) {
+          record.analysis = prior;
+          delete record.content;
+          reused++;
+        } else {
+          record.content = f.content;
+          record.size = size;
+          record.lastModified = lastModified;
+        }
       } else {
-        record.content = await raw.text();
-        // Only a file that was actually read may be reused next time.
-        record.size = raw.size;
-        record.lastModified = raw.lastModified;
+        const raw = await f.handle.getFile();
+        if (prior && prior.size === raw.size && prior.modified === raw.lastModified) {
+          record.analysis = prior;
+          delete record.content;
+          reused++;
+        } else {
+          record.content = await raw.text();
+          record.size = raw.size;
+          record.lastModified = raw.lastModified;
+        }
       }
     } catch {
       // Unreadable files (deleted or permission revoked) are indexed as empty.
