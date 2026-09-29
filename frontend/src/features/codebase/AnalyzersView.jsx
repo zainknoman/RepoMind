@@ -56,7 +56,6 @@ export function AnalyzersView({ catalog, results, summary, busy, onRun, onOpenFi
 function AnalyzerPanel({ analyzer, result, running, disabled, onRun, onOpenFile }) {
   const findings = result?.findings || [];
   const counts = countBySeverity(findings);
-  const rows = showAll ? findings : findings.slice(0, ROW_LIMIT);
   const cols = { '--cols': analyzer.columns.length };
   return (
     <div className="analytics-panel" data-analyzer={analyzer.id}>
