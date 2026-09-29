@@ -559,11 +559,8 @@ test.describe('RepoMind GitHub Intelligence', () => {
       console.log(`[PAGE ERROR] ${error.stack || error.message}`);
     });
 
-    page.on('requestfailed', (request) => {
-      console.log(
-        `[REQUEST FAILED] ${request.url()} :: ${request.failure()?.errorText || 'unknown'}`,
-      );
-    });
+    await openFixture(page);
+
     await page.route('https://api.github.com/**', async (route) => {
       const url = new URL(route.request().url());
       const path = url.pathname;
@@ -675,11 +672,6 @@ test.describe('RepoMind GitHub Intelligence', () => {
         body: 'export function service() { return 1; }\n',
       });
     });
-    console.log('[TEST] Current URL:', page.url());
-    console.log('[TEST] Page title:', await page.title());
-    console.log('[TEST] Body text:', await page.locator('body').innerText());
-    console.log('[TEST] HTML length:', (await page.content()).length);
-
     await page.getByRole('button', { name: 'GitHub Repository', exact: true }).click();
     await page.getByLabel('GitHub repository URL').fill('github.com/zainknoman/Fixture');
     await page.getByRole('button', { name: 'Import Repository' }).click();
