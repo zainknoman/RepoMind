@@ -78,7 +78,7 @@ function searchItem(kind, item, query) {
   return values.some((value) => String(value ?? '').toLowerCase().includes(q));
 }
 
-function useResource(loader, source) {
+function useResource(loader, source, kind) {
   const [page, setPage] = useState(1);
   const [query, setQuery] = useState('');
   const [items, setItems] = useState([]);
@@ -99,8 +99,8 @@ function useResource(loader, source) {
     return () => {
       active = false;
     };
-  }, [loader, source, page]);
-  const filteredItems = items.filter((item) => searchItem(source.kind || '', item, query));
+  }, [loader, source, page, kind]);
+  const filteredItems = items.filter((item) => searchItem(kind, item, query));
   return {
     page,
     setPage,
@@ -185,13 +185,30 @@ function Repository({ repo, source }) {
 
 function ListView({ kind, source, onImpact }) {
   const loader = LOADERS[kind];
-  const resourceSource = { ...source, kind };
   const { page, setPage, query, setQuery, items, totalItems, state } = useResource(
     loader,
-    resourceSource,
+    source,
+    kind,
   );
   return (
-    <LoadState {...state} empty={!items.length}>
+    <>
+      <div className="search" aria-label={LABELS[kind] + ' search'}>
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={'Search ' + LABELS[kind].toLowerCase() + '…'}
+          aria-label={'Search ' + LABELS[kind]}
+        />
+        {query && (
+          <button onClick={() => setQuery('')} aria-label={'Clear ' + LABELS[kind] + ' search'}>
+            ✕ Clear
+          </button>
+        )}
+        <span className="muted">
+          {totalItems ? `\${items.length} of \${totalItems} on this page` : '0 records'}
+        </span>
+      </div>
+      <LoadState {...state} empty={!items.length}>
       <div className="search" aria-label={LABELS[kind] + ' search'}>
         <input
           value={query}
@@ -290,7 +307,11 @@ function ListView({ kind, source, onImpact }) {
           );
         })}
       </Pager>
-    </LoadState>
+      </LoadState>
+      {!state.loading && !state.error && query && !items.length && (
+        <p className="muted">No matches on this page.</p>
+      )}
+    </>
   );
 }
 
