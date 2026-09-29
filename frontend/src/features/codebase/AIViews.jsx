@@ -59,13 +59,18 @@ function ContextSummary({ context }) {
         {context.redactions > 0 &&
           ` · ${context.redactions} line${context.redactions === 1 ? '' : 's'} with likely secrets masked`}
       </p>
-      {context.files.map((f) => (
-        <div className="index-row context-file" key={f.path}>
-          <b title={f.path}>{f.path}</b>
-          <span>{f.truncated ? `lines 1–${f.shownLines} of ${f.lines}` : `${f.lines} lines`}</span>
-          <small>{f.reason}</small>
-        </div>
-      ))}
+      <PaginatedList
+        items={context.files}
+        searchPlaceholder="Search context files"
+        getSearchText={(f) => [f.path, f.reason].filter(Boolean).join(' ')}
+        renderItem={(f) => (
+          <div className="index-row context-file" key={f.path}>
+            <b title={f.path}>{f.path}</b>
+            <span>{f.truncated ? `lines 1–${f.shownLines} of ${f.lines}` : `${f.lines} lines`}</span>
+            <small>{f.reason}</small>
+          </div>
+        )}
+      />
       {context.omitted.length > 0 && (
         <p className="muted">
           Left out (over budget): {context.omitted.map((x) => x.path).join(', ')}
@@ -192,21 +197,26 @@ function GroundingCheck({ grounding, onOpenFile }) {
             : 'The answer cites no files — treat it as unverified.'}
         </span>
       </div>
-      {citations.map((c) => (
-        <div className={'index-row citation ' + c.status} key={c.text}>
-          {c.status === 'unknown-file' ? (
-            <b>{c.text}</b>
-          ) : (
-            <b>
-              <button className="link-button" onClick={() => onOpenFile?.(c.path, c.line)}>
-                {c.text}
-              </button>
-            </b>
-          )}
-          <span>{c.status === 'verified' ? '✓' : '⚠'}</span>
-          <small>{CITATION_LABELS[c.status]}</small>
-        </div>
-      ))}
+      <PaginatedList
+        items={citations}
+        searchPlaceholder="Search citations"
+        getSearchText={(c) => [c.text, c.path, c.status].filter(Boolean).join(' ')}
+        renderItem={(c) => (
+          <div className={'index-row citation ' + c.status} key={c.text}>
+            {c.status === 'unknown-file' ? (
+              <b>{c.text}</b>
+            ) : (
+              <b>
+                <button className="link-button" onClick={() => onOpenFile?.(c.path, c.line)}>
+                  {c.text}
+                </button>
+              </b>
+            )}
+            <span>{c.status === 'verified' ? '✓' : '⚠'}</span>
+            <small>{CITATION_LABELS[c.status]}</small>
+          </div>
+        )}
+      />
       {problems.length > 0 && (
         <p className="muted">
           Check flagged references before relying on them: the model may have guessed.
@@ -415,24 +425,29 @@ function SavedContexts({ ai }) {
         A saved context keeps the question, file list and options — not the source. Loading it
         rebuilds the context from the files as they are now.
       </p>
-      {ai.saved.map((item) => (
-        <div className="saved-context" key={item.id}>
-          <div>
-            <b>{item.name}</b>
-            <small>
-              {item.legacy
-                ? 'Saved by an older version with the source inside; the source was removed from browser storage.'
-                : `${item.repository ? item.repository + ' · ' : ''}${item.paths.length} files · ${tokens(item.tokens)} · ${new Date(item.createdAt).toLocaleString()}`}
-            </small>
+      <PaginatedList
+        items={ai.saved}
+        searchPlaceholder="Search saved contexts"
+        getSearchText={(item) => [item.name, item.repository].filter(Boolean).join(' ')}
+        renderItem={(item) => (
+          <div className="saved-context" key={item.id}>
+            <div>
+              <b>{item.name}</b>
+              <small>
+                {item.legacy
+                  ? 'Saved by an older version with the source inside; the source was removed from browser storage.'
+                  : `${item.repository ? item.repository + ' · ' : ''}${item.paths.length} files · ${tokens(item.tokens)} · ${new Date(item.createdAt).toLocaleString()}`}
+              </small>
+            </div>
+            <div>
+              <button onClick={() => ai.load(item)} disabled={item.legacy || ai.busy}>
+                Load
+              </button>
+              <button onClick={() => ai.remove(item.id)}>Delete</button>
+            </div>
           </div>
-          <div>
-            <button onClick={() => ai.load(item)} disabled={item.legacy || ai.busy}>
-              Load
-            </button>
-            <button onClick={() => ai.remove(item.id)}>Delete</button>
-          </div>
-        </div>
-      ))}
+        )}
+      />
       {!ai.saved.length && <p className="muted">No saved contexts yet.</p>}
     </div>
   );
