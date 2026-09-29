@@ -1,10 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import {
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  utimesSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { directoryHandle, fileHandle } from '../test-utils/nodeHandles';
-import { commitChanges, workingTreeChanges } from './gitChanges';
+import { commitChanges, workingTreeChanges, workingTreeStatus } from './gitChanges';
+import { gitStatusSummary } from './git';
 
 let gitAvailable = true;
 try {
@@ -126,5 +135,32 @@ describe.skipIf(!gitAvailable)('commitChanges', { timeout: 60_000 }, () => {
     const result = await commitChanges(directoryHandle(repo.dir), repo.git('rev-parse', 'HEAD'));
     expect(summary(result.changes)).toEqual(['added a.js']);
     expect(result.changes[0].newText).toBe('x\n');
+  });
+});
+
+describe.skipIf(!gitAvailable)('workingTreeStatus', { timeout: 60_000 }, () => {
+  it('compares content, so a touched but unchanged file is not modified', async () => {
+    const repo = makeRepo();
+    repo.write('a.js', 'a\n');
+    repo.write('b.js', 'b\n');
+    repo.write('c.js', 'c\n');
+    repo.git('add', '.');
+    repo.git('commit', '-q', '-m', 'first');
+    repo.write('a.js', 'a2\n');
+    repo.write('b.js', 'b\n');
+    const later = new Date(Date.now() + 100_000);
+    utimesSync(join(repo.dir, 'b.js'), later, later);
+    rmSync(join(repo.dir, 'c.js'));
+    repo.write('new.js', 'n\n');
+    const root = directoryHandle(repo.dir);
+    const files = projectFiles(repo.dir);
+    expect(await workingTreeStatus(root, files)).toMatchObject({
+      available: true,
+      modified: ['a.js'],
+      added: ['new.js'],
+      deleted: ['c.js'],
+    });
+    const summary = await gitStatusSummary(root, files);
+    expect(summary).toMatchObject({ modified: ['a.js'], deleted: ['c.js'], untracked: ['new.js'] });
   });
 });

@@ -136,13 +136,14 @@ export async function importGithubRepository(value, options = {}) {
 
   const entries = (tree.tree || []).filter((entry) => entry.type === 'blob');
   const rootIgnore = entries.find((entry) => entry.path === '.gitignore');
+  let rootIgnoreContent = null;
   let ignoreMatcher = null;
   if (rootIgnore) {
-    const ignoreText = await fetchTextFile(parsed.owner, parsed.repo, branch, '.gitignore', {
+    rootIgnoreContent = await fetchTextFile(parsed.owner, parsed.repo, branch, '.gitignore', {
       signal,
       fetchImpl,
     });
-    ignoreMatcher = gitignoreMatcher(ignoreText);
+    ignoreMatcher = gitignoreMatcher(rootIgnoreContent);
   }
 
   const candidates = entries.filter((entry) => {
@@ -163,10 +164,13 @@ export async function importGithubRepository(value, options = {}) {
     async (entry, index) => {
       if (signal?.aborted) throw new DOMException('Import cancelled', 'AbortError');
       const name = entry.path.split('/').pop();
-      let content = await fetchTextFile(parsed.owner, parsed.repo, branch, entry.path, {
-        signal,
-        fetchImpl,
-      });
+      let content =
+        entry.path === '.gitignore' && rootIgnoreContent !== null
+          ? rootIgnoreContent
+          : await fetchTextFile(parsed.owner, parsed.repo, branch, entry.path, {
+              signal,
+              fetchImpl,
+            });
       if (content.length > MAX_TEXT_BYTES) content = content.slice(0, MAX_TEXT_BYTES + 1);
       let ext = extensionOf(name);
       let text = content.length <= MAX_TEXT_BYTES;

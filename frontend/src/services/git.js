@@ -100,29 +100,42 @@ export function parseIndex(buffer) {
 export async function gitStatusSummary(root, files = []) {
   const g = await dir(root, '.git');
   if (!g) return { available: false };
+
   try {
     const indexFile = await file(g, 'index');
     const entries = parseIndex(await (await indexFile.getFile()).arrayBuffer());
+
     const current = new Map(files.map((f) => [f.path, f]));
     const tracked = new Set(entries.map((x) => x.path));
     const untracked = files.filter((f) => !tracked.has(f.path)).map((f) => f.path);
     const deleted = entries.filter((e) => !current.has(e.path)).map((e) => e.path);
+
     const byPath = new Map(entries.map((e) => [e.path, e]));
-    const probableModified = [];
+    const modified = [];
+
     for (const f of files) {
-      const e = byPath.get(f.path);
-      if (e) {
-        try {
-          const lf = (await f.handle.getFile()).lastModified / 1000;
-          if (Math.abs(lf - e.mtime) > 2) probableModified.push(f.path);
-        } catch {}
+      const entry = byPath.get(f.path);
+      if (!entry || !f.text) continue;
+
+      try {
+        const bytes = new Uint8Array(await f.handle.getFile().then((x) => x.arrayBuffer()));
+
+        if ((await blobSha(bytes)) === entry.sha) continue;
+
+        if (bytes.includes(13) && (await blobSha(withoutCarriageReturns(bytes))) === entry.sha)
+          continue;
+
+        modified.push(f.path);
+      } catch {
+        // Ignore files that disappear while scanning.
       }
     }
+
     return {
       available: true,
-      modified: [...new Set(probableModified)],
-      untracked,
-      deleted,
+      modified: [...new Set(modified)].sort(),
+      untracked: [...new Set(untracked)].sort(),
+      deleted: [...new Set(deleted)].sort(),
       tracked: entries.length,
     };
   } catch (e) {
@@ -153,4 +166,23 @@ export async function gitActivity(root) {
         ? { oldHash: m[1], hash: m[2], author: m[3], date: Number(m[4]) * 1000, message: m[5] }
         : { hash: line.slice(41, 81), action: line.slice(0, 180) };
     });
+}
+async function blobSha(bytes) {
+  const header = new TextEncoder().encode(`blob ${bytes.length}\0`);
+  const data = new Uint8Array(header.length + bytes.length);
+  data.set(header);
+  data.set(bytes, header.length);
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-1', data));
+  return Array.from(digest, (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+function withoutCarriageReturns(bytes) {
+  const out = new Uint8Array(bytes.length);
+  let n = 0;
+
+  for (let i = 0; i < bytes.length; i++) {
+    if (!(bytes[i] === 13 && bytes[i + 1] === 10)) out[n++] = bytes[i];
+  }
+
+  return out.subarray(0, n);
 }

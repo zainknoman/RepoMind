@@ -89,23 +89,26 @@ async function trustedEntries(gitDir) {
 }
 
 /**
- * Uncommitted changes (staged or not, plus new files) against HEAD. `files` are the project's
- * files from the folder walk; a HEAD file missing from them is deleted only if it is gone on disk.
+ * Walks the working tree against HEAD and calls `onChange(status, path, { sha, bytes })` for each
+ * file whose content differs (`modified`), that HEAD lacks (`added`) or that is gone (`deleted`).
+ * Unchanged files are skipped by the index fast path or by blob SHA-1 (CRLF-tolerant). Stops when
+ * `onChange` returns false.
  */
-export async function workingTreeChanges(root, files) {
-  const gitDir = await directory(root, '.git');
-  if (!gitDir) return { available: false };
+async function compareToHead(root, gitDir, files, onChange) {
   const store = createObjectStore(gitDir);
   const { head } = await readGitRepository(root);
   const { files: headFiles } = await treeFiles(store, head);
   const staged = await trustedEntries(gitDir);
-  const changes = [];
   const present = new Set(files.map((f) => f.path));
-
   for (const f of files) {
-    if (!f.text || changes.length >= MAX_CHANGES) continue;
+    if (!f.text) continue;
     const oldSha = headFiles.get(f.path);
-    const file = await f.handle.getFile();
+    let file;
+    try {
+      file = await f.handle.getFile();
+    } catch {
+      continue;
+    }
     // Fast path: the index entry matches the file on disk and HEAD, so nothing changed.
     const entry = staged.get(f.path);
     if (
@@ -117,17 +120,96 @@ export async function workingTreeChanges(root, files) {
       continue;
     const bytes = new Uint8Array(await file.arrayBuffer());
     if (!oldSha) {
-      changes.push(change(f.path, 'added', null, bytes));
+      if ((await onChange('added', f.path, { bytes })) === false) return { store, head };
       continue;
     }
     if ((await blobSha(bytes)) === oldSha) continue;
     // core.autocrlf: the working copy has CRLF where the committed blob has LF.
     if (bytes.includes(13) && (await blobSha(withoutCarriageReturns(bytes))) === oldSha) continue;
-    changes.push(change(f.path, 'modified', (await store.read(oldSha)).bytes, bytes));
+    if ((await onChange('modified', f.path, { sha: oldSha, bytes })) === false)
+      return { store, head };
   }
   for (const [path, sha] of headFiles) {
-    if (present.has(path) || changes.length >= MAX_CHANGES || (await exists(root, path))) continue;
-    changes.push(change(path, 'deleted', (await store.read(sha))?.bytes || null, null));
+    if (present.has(path) || (await exists(root, path))) continue;
+    if ((await onChange('deleted', path, { sha })) === false) break;
+  }
+  return { store, head };
+}
+
+/**
+ * Exact status of the working tree against HEAD, by content: `{ available, modified, added,
+ * deleted }` (paths). A file whose time changed but whose content did not is not modified.
+ */
+export async function workingTreeStatus(root, files) {
+  const gitDir = await directory(root, '.git');
+  if (!gitDir) return { available: false };
+
+  const store = createObjectStore(gitDir);
+  const { head } = await readGitRepository(root);
+  const { files: headFiles } = await treeFiles(store, head);
+
+  const status = {
+    available: true,
+    modified: [],
+    added: [],
+    deleted: [],
+  };
+
+  const present = new Set(files.map((f) => f.path));
+
+  for (const f of files) {
+    if (!f.text) continue;
+
+    let file;
+    try {
+      file = await f.handle.getFile();
+    } catch {
+      continue;
+    }
+
+    const oldSha = headFiles.get(f.path);
+    const bytes = new Uint8Array(await file.arrayBuffer());
+
+    if (!oldSha) {
+      status.added.push(f.path);
+      continue;
+    }
+
+    if ((await blobSha(bytes)) === oldSha) continue;
+
+    // core.autocrlf: CRLF working copy vs LF committed blob.
+    if (bytes.includes(13) && (await blobSha(withoutCarriageReturns(bytes))) === oldSha) continue;
+
+    status.modified.push(f.path);
+  }
+
+  for (const [path] of headFiles) {
+    if (present.has(path) || (await exists(root, path))) continue;
+    status.deleted.push(path);
+  }
+
+  for (const list of [status.modified, status.added, status.deleted]) list.sort();
+
+  return status;
+}
+
+/**
+ * Uncommitted changes (staged or not, plus new files) against HEAD, with old and new text.
+ * `files` are the project's files from the folder walk; a HEAD file missing from them is deleted
+ * only if it is gone on disk.
+ */
+export async function workingTreeChanges(root, files) {
+  const gitDir = await directory(root, '.git');
+  if (!gitDir) return { available: false };
+  const changes = [];
+  const pending = [];
+  const { store, head } = await compareToHead(root, gitDir, files, (status, path, sides) => {
+    pending.push({ status, path, ...sides });
+    return pending.length < MAX_CHANGES;
+  });
+  for (const { status, path, sha, bytes } of pending) {
+    const old = sha ? (await store.read(sha))?.bytes || null : null;
+    changes.push(change(path, status, old, bytes || null));
   }
   return {
     available: true,
