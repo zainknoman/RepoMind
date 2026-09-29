@@ -39,7 +39,11 @@ function reusableAnalyses(previous) {
  */
 export async function readProjectFiles(project, { signal, onProgress, previous } = {}) {
   const textFiles = project.files.filter((f) => f.text);
-  const reusable = reusableAnalyses(previous);
+  const sameGithubSnapshot =
+    project?.source?.type !== 'github' ||
+    (previous?.project?.source?.type === 'github' &&
+      previous.project.source.commit === project.source.commit);
+  const reusable = sameGithubSnapshot ? reusableAnalyses(previous) : new Map();
   const out = [];
   let reused = 0;
   for (let i = 0; i < textFiles.length; i++) {
