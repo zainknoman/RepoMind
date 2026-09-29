@@ -33,25 +33,20 @@ RepoMind is published at **https://zainknoman.github.io/RepoMind/**.
 | Browser | Status |
 |---|---|
 | Chrome, Edge, other Chromium browsers (desktop) | Fully supported |
-| Firefox, Safari, mobile browsers | Folder access unavailable (no File System Access API). RepoMind shows a notice; the Markdown viewer and the Developer Tools (under **Tools**) still work. |
+| Firefox, Safari, mobile browsers | Folder access unavailable (no File System Access API). RepoMind shows a notice; the Markdown workspace still works. |
 
 Folders with more than 50,000 files are truncated with a warning; open a subfolder for complete results. Files larger than 2 MB, and sensitive-looking files (`.env`, keys, credentials) unless **Include sensitive files** is ticked, are listed but not read.
 
 ## Workspace guide
 
-The header groups follow one workflow: **Understand → Explore → Analyze**, with a small secondary **Tools** group at the far end. RepoMind is a codebase intelligence workspace, not a utility collection, so Tools is deliberately kept short.
+The header has two product workflows: **Workspace** for navigating and inspecting a repository, and **Analyze** for understanding, transforming and documenting it. RepoMind intentionally does not expose unrelated developer utilities or embedded Temenos/OFS/Engineering tools.
 
-### Understand
+### Workspace
 
 | Workspace | Purpose |
 |---|---|
-| **Dashboard** | The investigation starting point. Shows the workflow (Open → Index → Understand → Investigate → Analyze → Report / AI), builds or restores the code index, and lists what needs attention (unresolved imports, cycles, hotspots, parser errors) with links into Codebase. The repository profile (composition, structure, quality signals, file list) follows below. |
+| **Dashboard** | The investigation starting point. Shows the workflow (Open → Index → Understand → Investigate → Analyze → Report / AI), builds or restores the code index, and lists what needs attention (unresolved imports, cycles, hotspots, parser errors) with links into Codebase. |
 | **Codebase** | The centre of RepoMind: symbols, references, dependencies, impact, health, analyzers, Git, diagrams, reports, context and AI. |
-
-### Explore
-
-| Workspace | Purpose |
-|---|---|
 | **Explorer** | Browse and filter local project files (virtualised for large folders). |
 | **Search** | One search for symbols (from the code index), file paths and source text, with regex and match-case options. |
 | **Editor** | Edit supported text files with find/replace (optional match case) and save back to disk. Unsaved changes are protected. |
@@ -64,16 +59,7 @@ The header groups follow one workflow: **Understand → Explore → Analyze**, w
 | **Quick Analysis** | Fast pattern scan of JS/TS files: line counts, functions, classes, imports and exports. Use **Codebase** for the full index. |
 | **Transform** | Combine files into one bundle, split a bundle back into files, export a ZIP. |
 | **Compare** | Line diff of two files that aligns inserted/removed lines, with filters and compact output. |
-
-### Tools
-
-| Workspace | Purpose | Deep link |
-|---|---|---|
-| **Developer Tools** | JSON Formatter, Text Cleanup, Base64, Regex, JWT Decoder (decode only), UUID and Timestamp utilities. | `?tool=json`, `text`, `base64`, `regex`, `jwt`, `uuid`, `timestamp` |
-| **Temenos / OFS** | OFS Generator and T24 Log Analyzer (sandboxed). | `?tool=ofs` |
-| **Markdown** | Render Markdown, including Mermaid diagrams. | — |
-
-The **Engineering** utilities (sandboxed) are intentionally not in the header. They open only from `?tool=eng`.
+| **Markdown** | Render Markdown, including Mermaid diagrams, for documentation and review. |
 
 ## GitHub Intelligence\n\nWhen a repository is imported from the **GitHub Repository** control, Codebase › Git becomes a read-only GitHub workspace for public repositories. It exposes repository metadata, branches, commits, pull requests, issues and releases. Commits and pull requests can be traced through the current local index with **Change Impact**, using RepoMind's existing dependency graph. Historical source that is not present in the imported revision is reported as a blind spot rather than treated as analysed.\n\n## Codebase Intelligence
 
@@ -378,7 +364,6 @@ For the normal local workflow:
 
 - RepoMind has no backend. All scripts, including Mermaid and JSZip, are bundled and served from the RepoMind site; no third-party CDN is contacted.
 - Production builds ship a Content Security Policy: scripts only from the site itself, network access only to the site and the supported AI providers.
-- The embedded Temenos/OFS and Engineering tools run in an **opaque-origin sandbox**. They cannot read RepoMind's storage (including the AI key) or navigate the app, and they have no network access. They exchange two allow-listed settings with RepoMind through a `postMessage` bridge.
 - Security-scan findings mask the matched secret value, so reports never repeat a credential.
 - The only outbound requests are AI provider calls that you explicitly trigger.
 - Git data (including file contents at earlier commits, for change impact) is read from `.git` on your device and never uploaded.
@@ -392,11 +377,7 @@ For the normal local workflow:
 - [x] Code ingest
 - [x] Transform / combine / split
 - [x] Diff / Compare
-- [x] Developer utilities
-- [x] Temenos / OFS utilities
-- [x] T24 Log Analyzer
 - [x] Markdown viewer
-- [x] Engineering utilities
 - [x] AST codebase indexing
 - [x] Symbol definitions and references
 - [x] Dependency and architecture analysis
@@ -477,7 +458,7 @@ npm run dev          # http://localhost:5173
 
 ## Testing
 
-- **Unit tests (Vitest)** cover `.gitignore` matching, folder walking, the line diff, find/replace, Transform bundles, developer tools, the embedded-tool bridge, AI request shapes, the IndexedDB cache (via `fake-indexeddb`), the repository indexer and incremental reuse, unified search, security redaction, the Git index parser (checked against indexes written by the `git` CLI), the Git object reader and change detection (checked against `git cat-file`, `git status` and `git diff` on repositories built with the `git` CLI), graph accuracy fixtures (exact expected dependency edges and reference links), transitive impact and change impact.
+- **Unit tests (Vitest)** cover `.gitignore` matching, folder walking, the line diff, find/replace, Transform bundles, AI request shapes, the IndexedDB cache (via `fake-indexeddb`), the repository indexer and incremental reuse, unified search, security redaction, the Git index parser (checked against indexes written by the `git` CLI), the Git object reader and change detection (checked against `git cat-file`, `git status` and `git diff` on repositories built with the `git` CLI), graph accuracy fixtures (exact expected dependency edges and reference links), transitive impact and change impact.
 - **End-to-end tests (Playwright)** run against the production bundle served under `/RepoMind/`, so base-path, code-splitting and CSP problems are caught. An in-browser File System Access fixture stands in for the folder picker.
 
 Run E2E locally:
@@ -488,7 +469,7 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-The E2E suite (`npm run test:e2e` reports the current count) covers every workspace in the header (with heading assertions), the header grouping (including Engineering staying out of it), the Dashboard first-run workflow and its links into Codebase views, each Codebase view, Compare, Quick Analysis, Explorer, Search, Editor find/replace and the unsaved-changes guard, Ingest, Transform, Markdown + Mermaid rendering and sanitisation, Developer Tools opened by deep link, the sandboxed tools and their bridge, index caching, dark mode, AI settings validation and the unsupported-browser notice. Browser-side AI calls are never made during tests.
+The E2E suite (`npm run test:e2e` reports the current count) covers every workspace in the header (with heading assertions), the two-level header grouping, the Dashboard first-run workflow and its links into Codebase views, each Codebase view, Compare, Quick Analysis, Explorer, Search, Editor find/replace and the unsaved-changes guard, Ingest, Transform, Markdown + Mermaid rendering and sanitisation, index caching, dark mode, AI settings validation and the unsupported-browser notice. Browser-side AI calls are never made during tests.
 
 ## CI and deployment
 
@@ -581,7 +562,7 @@ See **[docs/UPGRADE_JOURNEY.md](docs/UPGRADE_JOURNEY.md)** for the milestone his
 - [x] Sandboxed embedded tools, bundled dependencies, production CSP
 - [x] Dark mode, accessibility and error boundaries
 - [x] E2E against the production build
-- [x] Tools menu hidden from the header (opened by `?tool=` deep links)
+- [x] Product navigation consolidated into Workspace + Analyze; unrelated legacy utilities removed
 - [x] Proprietary LICENSE, SECURITY.md, CONTRIBUTING.md and CHANGELOG.md
 
 ### Help Workspace

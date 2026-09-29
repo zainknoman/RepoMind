@@ -33,13 +33,12 @@ Plans live in `docs/superpowers/plans/`.
 | C3 | Import resolution: tsconfig/jsconfig paths, Python, Java | Done |
 | P0 | Public GitHub import + production analysis parity | Done |
 | P1 | GitHub Intelligence: repository, branches, commits, PRs, issues, releases + impact integration | Done |
+| P2 | Product cleanup: consolidate navigation, remove unrelated legacy utility surfaces | Done |
 
 ## Completed work (Phase 1)
 
-- Navigation groups defined once in `frontend/src/navigation.js`: Understand · Explore · Analyze · Tools.
-  Codebase is emphasised; Tools is visually secondary and right-aligned.
-- Tools = Developer Tools, Temenos / OFS, Markdown. Engineering is deliberately not in the header
-  (owner decision); it opens only from `?tool=eng` and is not listed in Help.
+- Navigation groups are defined once in `frontend/src/navigation.js`: **Workspace** (Dashboard, Codebase, Explorer, Search, Editor) and **Analyze** (Ingest, Quick Analysis, Transform, Compare, Markdown).
+- Markdown is part of Analyze. Developer Tools, Temenos / OFS and Engineering utility surfaces are removed; Temenos code intelligence remains an analyzer/indexing capability inside Codebase.
 - Project Analysis → Quick Analysis, with a link to Codebase Intelligence. Code unchanged.
 - Codebase views: Overview, Search, Symbols, Dependencies, Impact, Health, Analyzers, Git, Diagram,
   Reports, Context Builder, AI. API discovery and security scan render inside Analyzers.
@@ -274,14 +273,8 @@ Plans live in `docs/superpowers/plans/`.
 
 ## Architectural decisions
 
-- **No router introduced.** Tab ids remain App state keys; renames change labels only, so `?tool=`
-  deep links and internal state are stable.
-- **Temenos / OFS stays in Tools (decided in Phase 6).** Temenos *code* intelligence is not a separate
-  workspace: BASIC sources are indexed like any language, so Impact, Dependencies, Symbols, Search,
-  Health, Diagram and AI context work on them, and the domain views are analyzers that appear in
-  Codebase › Analyzers only for T24 folders. The OFS Generator and T24 Log Analyzer work on runtime
-  messages and logs, not source, so they remain utilities under Tools; each surface points to the
-  other (Help, OFS subtitle).
+- **No router introduced.** Tab ids remain App state keys; navigation is still App state rather than a routing library.
+- **Temenos code intelligence stays in Codebase.** BASIC sources are indexed like any language, so Impact, Dependencies, Symbols, Search, Health, Diagram and AI context work on them, and the domain views are analyzers that appear in Codebase › Analyzers only for T24 folders. Runtime OFS and log-analysis utility surfaces were removed in P2.
 - **BASIC routines are linked by name, not path.** T24 has one global routine namespace; the first
   file with a given routine name wins and duplicates are flagged by `temenos-routines`.
 - **Extensionless BASIC is recognised by content, only for upper-case names**, to avoid reading every

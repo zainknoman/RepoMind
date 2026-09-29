@@ -136,24 +136,29 @@ test.describe('RepoMind parent navigation', () => {
     ['Quick Analysis', /Quick Analysis/],
     ['Transform', /Transform/],
     ['Compare', /Compare/],
-    ['Developer Tools', 'Developer Tools'],
-    ['Temenos / OFS', 'Temenos / OFS'],
     ['Markdown', /Markdown/],
   ];
 
   test('Header groups follow the product hierarchy', async ({ page }) => {
     await openFixture(page);
     const nav = page.getByRole('navigation');
-    for (const group of ['Understand', 'Explore', 'Analyze', 'Tools'])
+    for (const group of ['Workspace', 'Analyze'])
       await expect(nav.getByText(group, { exact: true })).toBeVisible();
     await expect(nav.locator('button.nav-primary')).toHaveText('Codebase');
-    const tools = nav.locator('.nav-group.secondary');
-    await expect(tools.getByRole('button')).toHaveText([
-      'Developer Tools',
-      'Temenos / OFS',
+    await expect(nav.getByRole('button')).toHaveText([
+      'Dashboard',
+      'Codebase',
+      'Explorer',
+      'Search',
+      'Editor',
+      'Ingest',
+      'Quick Analysis',
+      'Transform',
+      'Compare',
       'Markdown',
     ]);
-    // Engineering is deliberately kept out of the header (it opens from ?tool=eng).
+    await expect(nav.getByRole('button', { name: 'Developer Tools', exact: true })).toHaveCount(0);
+    await expect(nav.getByRole('button', { name: 'Temenos / OFS', exact: true })).toHaveCount(0);
     await expect(nav.getByRole('button', { name: 'Engineering', exact: true })).toHaveCount(0);
     await expect(nav.getByRole('button', { name: 'Project Analysis', exact: true })).toHaveCount(0);
   });
@@ -854,66 +859,6 @@ test.describe('RepoMind workspaces', () => {
     await expect(page.locator('.md-viewer img[onerror]')).toHaveCount(0);
     await expect(page.locator('.md-viewer svg')).toBeVisible({ timeout: 20_000 });
     expect(errors).toEqual([]);
-  });
-
-  test('Developer Tools format JSON and run a regex against typed text', async ({ page }) => {
-    await openFixture(page);
-    await page.goto('./?tool=json');
-    await page.getByRole('textbox', { name: 'Tool input' }).fill('{"a":1}');
-    await page.getByRole('button', { name: '▶ Run' }).click();
-    await expect(page.getByRole('textbox', { name: 'Tool output' })).toHaveValue('{\n  "a": 1\n}');
-    await page.getByRole('tab', { name: /Regex/ }).click();
-    await page.getByRole('textbox', { name: 'Regular Expression' }).fill('\\d+');
-    await page.getByRole('textbox', { name: 'Test Text' }).fill('a1 b22');
-    await page.getByRole('button', { name: '▶ Run' }).click();
-    await expect(page.getByRole('textbox', { name: 'Output' })).toHaveValue(/"count": 2/);
-  });
-
-  test('Tools open from a ?tool= deep link', async ({ page }) => {
-    await page.goto('./?tool=uuid');
-    await expect(
-      page.getByRole('main').getByRole('heading', { level: 1, name: 'Developer Tools' }),
-    ).toBeVisible();
-    await expect(page.getByRole('tab', { name: /UUID/ })).toHaveAttribute('aria-selected', 'true');
-  });
-
-  test('Embedded OFS tool is sandboxed and persists settings through the bridge', async ({
-    page,
-  }) => {
-    await openFixture(page);
-    await page.goto('./?tool=ofs');
-    const iframe = page.locator('iframe[title="OFS Generator"]');
-    await expect(iframe).toHaveAttribute('sandbox', /allow-scripts/);
-    await expect(iframe).not.toHaveAttribute('sandbox', /allow-same-origin/);
-    const tool = page.frameLocator('iframe[title="OFS Generator"]');
-    await tool.locator('#application').fill('FUNDS.TRANSFER');
-    await tool.locator('#saveBtn').click();
-    await expect
-      .poll(() => page.evaluate(() => localStorage.getItem('repomind.ofs.config') || ''))
-      .toContain('FUNDS.TRANSFER');
-    const frame = page.frames().find((f) => f.url().includes('ofsMessageGenNew.html'));
-    const reachParent = await frame.evaluate(() => {
-      try {
-        return String(window.parent.localStorage.length);
-      } catch {
-        return 'blocked';
-      }
-    });
-    expect(reachParent).toBe('blocked');
-  });
-
-  test('Engineering and T24 tools load inside the sandbox', async ({ page }) => {
-    await openFixture(page);
-    await page.goto('./?tool=ofs');
-    await page.getByRole('tab', { name: /T24 Log Analyzer/ }).click();
-    await expect(page.frameLocator('iframe[title="T24 Log Analyzer"]').locator('h1')).toContainText(
-      'T24 Log Analyzer',
-    );
-    await page.goto('./?tool=eng');
-    await expect(page.locator('iframe[title="Engineering Utilities"]')).toHaveAttribute(
-      'sandbox',
-      /allow-scripts/,
-    );
   });
 
   test('Reopening the same folder restores the cached index', async ({ page }) => {

@@ -170,44 +170,10 @@ export function HelpPage() {
         'Compare a before/after Java class to verify that only the intended validation logic changed.',
     },
     {
-      id: 'tools',
-      title: 'Developer Tools',
-      icon: '🧰',
-      group: 'Tools',
-      definition: 'A compact collection of everyday developer utilities.',
-      features: [
-        'JSON Formatter',
-        'Text Cleanup',
-        'Base64',
-        'Regex',
-        'JWT Decoder',
-        'UUID generator',
-        'Timestamp conversion',
-      ],
-      how: 'Open Tools › Developer Tools (or a ?tool=json, ?tool=regex, … link), select the utility, enter the input and click Run. Clear resets the working fields. Operations run in the browser.',
-      example: 'Paste minified JSON, choose JSON Formatter and click Run to produce readable JSON.',
-    },
-    {
-      id: 'ofs',
-      title: 'Temenos / OFS',
-      icon: '📨',
-      group: 'Tools',
-      definition:
-        'Temenos-oriented utilities for developers working with OFS and related banking integration data.',
-      features: [
-        'OFS Generator',
-        'T24 Log Analyzer',
-        'T24 source analysis (routines, applications, services, Java links) in Codebase › Analyzers',
-      ],
-      how: 'Open Tools › Temenos / OFS and select the utility. From a T24 log entry you can send its OFS data straight to the OFS Generator. The tools run in an isolated sandbox. To analyse T24 source code, open the folder of BASIC routines (.b or extensionless, such as BP/ACCOUNT.VALIDATE), build the index and use Codebase: Impact shows which routines call or include a routine, and Analyzers lists routines, applications, services, core calls and Java links.',
-      example:
-        'Use OFS Generator to build a transaction message from the required application, field and value inputs before testing it in a controlled environment.',
-    },
-    {
       id: 'markdown',
       title: 'Markdown',
       icon: '📖',
-      group: 'Tools',
+      group: 'Analyze',
       definition:
         'A browser Markdown workspace for previewing documentation and Mermaid code blocks.',
       features: [
@@ -215,7 +181,7 @@ export function HelpPage() {
         'Mermaid code-block support',
         'Local editing and preview',
       ],
-      how: 'Open Tools › Markdown and paste Markdown into the editor. The rendered document appears in the preview area.',
+      how: 'Open Analyze › Markdown and paste Markdown into the editor. The rendered document appears in the preview area.',
       example:
         'Paste a README section containing a Mermaid flowchart to review its rendered documentation layout.',
     },

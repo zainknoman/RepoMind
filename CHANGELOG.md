@@ -2,6 +2,19 @@
 
 All notable changes to RepoMind are recorded here.
 
+## Unreleased — Product cleanup (P2)
+
+### Changed
+- Consolidated the top-level navigation into **Workspace** (Dashboard, Codebase, Explorer, Search, Editor) and **Analyze** (Ingest, Quick Analysis, Transform, Compare, Markdown).
+- Moved **Markdown** into Analyze as a documentation/review workspace.
+- Removed the legacy Developer Tools, Temenos / OFS, and Engineering utility surfaces, including their deep-link entry points and sandboxed public assets.
+- Kept Temenos **code intelligence** inside Codebase indexing and analyzer packs; removing the runtime utility surfaces does not remove BASIC analysis.
+
+### Removed
+- Developer utility collection and `?tool=` routing.
+- Embedded OFS Generator, T24 Log Analyzer and Engineering Utilities.
+
+
 ## Unreleased — GitHub intelligence (P1)
 
 ### Added

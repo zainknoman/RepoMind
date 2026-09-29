@@ -7,7 +7,6 @@ import { Dashboard } from './features/dashboard/Dashboard';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Toaster } from './components/Toaster';
 import { toast } from './lib/toast';
-import { TOOL_IDS } from './features/tools/runTool';
 import { NAV_GROUPS, PRIMARY_TAB, SECONDARY_GROUP } from './navigation';
 import { useCodebaseIndex } from './features/codebase/useCodebaseIndex';
 import { importGithubRepository } from './services/githubImport';
@@ -23,27 +22,12 @@ const CodeIngest = named(() => import('./features/ingest/CodeIngest'), 'CodeInge
 const Analyze = named(() => import('./features/analysis/Analyze'), 'Analyze');
 const Transform = named(() => import('./features/transform/Transform'), 'Transform');
 const Diff = named(() => import('./features/compare/Diff'), 'Diff');
-const Tools = named(() => import('./features/tools/Tools'), 'Tools');
-const OFSWorkspace = named(() => import('./features/tools/EmbeddedTools'), 'OFSWorkspace');
-const EngineeringWorkspace = named(
-  () => import('./features/tools/EmbeddedTools'),
-  'EngineeringWorkspace',
-);
 const HelpPage = named(() => import('./features/help/HelpPage'), 'HelpPage');
 
 const MAX_SEARCH_RESULTS = 2000;
 
 function initialState() {
-  const queryTool = new URLSearchParams(window.location.search).get('tool') || '';
-  const tab =
-    queryTool === 'ofs'
-      ? 'ofs'
-      : queryTool === 'eng'
-        ? 'engineering'
-        : TOOL_IDS.includes(queryTool)
-          ? 'tools'
-          : 'dashboard';
-  return { tab, tool: TOOL_IDS.includes(queryTool) ? queryTool : 'json' };
+  return { tab: 'dashboard' };
 }
 
 function App() {
@@ -65,13 +49,6 @@ function App() {
     [searching, setSearching] = useState(false),
     [text, setText] = useState(''),
     [dirty, setDirty] = useState(false),
-    [toolState, setToolState] = useState({
-      tool: initial.tool,
-      input: '',
-      regex: '',
-      regexText: '',
-      output: '',
-    }),
     [transformState, setTransformState] = useState({ compiled: '', split: '', parts: [] }),
     [diff, setDiff] = useState(null),
     [err, setErr] = useState(''),
@@ -310,7 +287,7 @@ function App() {
         <div className="notice unsupported-browser" role="status">
           <b>Opening local folders needs a Chromium-based browser</b> such as Chrome or Edge
           (desktop). This browser does not support the File System Access API. The Markdown viewer
-          and the Developer Tools still work here.
+          and the Markdown workspace still works here.
         </div>
       )}
       {githubOpen && (
@@ -481,10 +458,7 @@ function App() {
                 />
               )}
               {tab === 'diff' && <Diff p={p} diff={diff} setDiff={setDiff} />}
-              {tab === 'tools' && <Tools state={toolState} setState={setToolState} />}
-              {tab === 'ofs' && <OFSWorkspace />}
-              {tab === 'engineering' && <EngineeringWorkspace />}
-              {tab === 'help' && <HelpPage />}
+                          {tab === 'help' && <HelpPage />}
             </ErrorBoundary>
           )}
         </Suspense>
