@@ -458,7 +458,7 @@ function App() {
                 />
               )}
               {tab === 'diff' && <Diff p={p} diff={diff} setDiff={setDiff} />}
-                          {tab === 'help' && <HelpPage />}
+              {tab === 'help' && <HelpPage />}
             </ErrorBoundary>
           )}
         </Suspense>
