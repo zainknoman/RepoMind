@@ -3,8 +3,7 @@ import { findDependencies } from '../../services/repository';
 import { coverageFor } from '../../services/coverage';
 import { fileImpact, symbolImpact } from '../../services/impact';
 import { impactBriefing, impactFiles, impactTask } from '../../services/aiInvestigation';
-
-const ROW_LIMIT = 200;
+import { PaginatedList } from '../../components/PaginatedList';
 
 function BlindSpots({ spots }) {
   if (!spots?.length) return null;
@@ -82,25 +81,34 @@ export function ImpactView({
               ]}
             />
             <h3>Dependencies</h3>
-            {findDependencies(index, selectedFile).map((p) => (
-              <div className="index-row" key={p}>
-                <b>{p}</b>
-                <span>outgoing</span>
-              </div>
-            ))}
+            <PaginatedList
+              items={findDependencies(index, selectedFile)}
+              searchPlaceholder="Search dependencies"
+              renderItem={(p) => (
+                <div className="index-row" key={p}>
+                  <b>{p}</b>
+                  <span>outgoing</span>
+                </div>
+              )}
+            />
             <h3>Imported by</h3>
-            {files.affected.slice(0, ROW_LIMIT).map((a) => (
-              <button
-                className="index-row clickable"
-                key={a.path}
-                onClick={() => setSelectedFile(a.path)}
-                title="Show this file's impact"
-              >
-                <b>{a.path}</b>
-                <span>{a.depth === 1 ? 'direct' : `level ${a.depth}`}</span>
-                <small>{a.depth === 1 ? '' : `via ${a.via}`}</small>
-              </button>
-            ))}
+            <PaginatedList
+              items={files.affected}
+              searchPlaceholder="Search imported-by files"
+              getSearchText={(a) => [a.path, a.via].filter(Boolean).join(' ')}
+              renderItem={(a) => (
+                <button
+                  className="index-row clickable"
+                  key={a.path}
+                  onClick={() => setSelectedFile(a.path)}
+                  title="Show this file's impact"
+                >
+                  <b>{a.path}</b>
+                  <span>{a.depth === 1 ? 'direct' : `level ${a.depth}`}</span>
+                  <small>{a.depth === 1 ? '' : `via ${a.via}`}</small>
+                </button>
+              )}
+            />
             {!files.affected.length && <p className="muted">No file imports this one.</p>}
             <BlindSpots spots={files.blindSpots} />
           </>
@@ -112,17 +120,22 @@ export function ImpactView({
         {selectedFile && !symbol && (
           <>
             <p className="muted">Choose a symbol to see what uses it, directly and indirectly.</p>
-            {fileSymbols.map((s) => (
-              <button
-                className="index-row clickable"
-                key={s.definitionKey}
-                onClick={() => setImpactSymbol(s.definitionKey)}
-              >
-                <b>{s.name}</b>
-                <span>{s.kind}</span>
-                <small>{s.references.length} refs</small>
-              </button>
-            ))}
+            <PaginatedList
+              items={fileSymbols}
+              searchPlaceholder="Search symbols"
+              getSearchText={(s) => [s.name, s.kind, s.path].filter(Boolean).join(' ')}
+              renderItem={(s) => (
+                <button
+                  className="index-row clickable"
+                  key={s.definitionKey}
+                  onClick={() => setImpactSymbol(s.definitionKey)}
+                >
+                  <b>{s.name}</b>
+                  <span>{s.kind}</span>
+                  <small>{s.references.length} refs</small>
+                </button>
+              )}
+            />
             {!fileSymbols.length && <p className="muted">No symbols in this file.</p>}
           </>
         )}
@@ -161,25 +174,28 @@ export function ImpactView({
                 ['low', symbol.counts.low],
               ]}
             />
-            {symbol.affected.slice(0, ROW_LIMIT).map((a) => (
-              <button
-                className="impact-row clickable"
-                key={a.key}
-                onClick={() => onOpenFile(a.path)}
-                title={`${a.via.name} is used at ${a.via.path}:${a.via.line}`}
-              >
-                <b>{a.name || '(module code)'}</b>
-                <span>
-                  {a.path}:{a.via.line}
-                </span>
-                <small>level {a.depth}</small>
-                <span className={'confidence conf-' + a.confidence}>{a.confidence}</span>
-              </button>
-            ))}
+            <PaginatedList
+              items={symbol.affected}
+              searchPlaceholder="Search affected symbols"
+              getSearchText={(a) => [a.name, a.path, a.confidence, a.via?.name, a.via?.path].filter(Boolean).join(' ')}
+              renderItem={(a) => (
+                <button
+                  className="impact-row clickable"
+                  key={a.key}
+                  onClick={() => onOpenFile(a.path)}
+                  title={`${a.via.name} is used at ${a.via.path}:${a.via.line}`}
+                >
+                  <b>{a.name || '(module code)'}</b>
+                  <span>
+                    {a.path}:{a.via.line}
+                  </span>
+                  <small>level {a.depth}</small>
+                  <span className={'confidence conf-' + a.confidence}>{a.confidence}</span>
+                </button>
+              )}
+            />
             {!symbol.affected.length && <p className="muted">Nothing uses this symbol.</p>}
-            {symbol.truncated && (
-              <p className="muted">Showing the first {symbol.affected.length} affected items.</p>
-            )}
+
             <BlindSpots spots={symbol.blindSpots} />
           </>
         )}
