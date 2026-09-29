@@ -551,14 +551,6 @@ test.describe('RepoMind GitHub Intelligence', () => {
   test('imports a public repository and exposes GitHub intelligence resources', async ({
     page,
   }) => {
-    page.on('console', (msg) => {
-      console.log(`[browser:${msg.type()}] ${msg.text()}`);
-    });
-
-    page.on('pageerror', (error) => {
-      console.log(`[PAGE ERROR] ${error.stack || error.message}`);
-    });
-
     await openFixture(page);
 
     await page.route('https://api.github.com/**', async (route) => {
@@ -589,7 +581,7 @@ test.describe('RepoMind GitHub Intelligence', () => {
         };
       } else if (path.endsWith('/branches')) {
         body = [{ name: 'main', protected: false, commit: { sha: 'a'.repeat(40) } }];
-      } else if (path.endsWith('/commits')) {
+      } else if (path.endsWith('/commits') && url.searchParams.get('sha') === 'main') {
         body = [
           {
             sha: 'a'.repeat(40),
