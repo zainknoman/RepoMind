@@ -33,7 +33,7 @@ export function HelpPage() {
       id: 'codebase',
       title: 'Codebase Intelligence',
       icon: '🧠',
-      group: 'Understand',
+      group: 'Workspace',
       definition:
         'The central intelligence workspace. RepoMind indexes the selected project into a local graph of files, symbols, references, imports, exports and dependencies.',
       features: [
