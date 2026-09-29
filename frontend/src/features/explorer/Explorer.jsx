@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { PaginatedList } from '../../components/PaginatedList';
 
-export function Explorer({ p, q, setQ, open }) {
+export function Explorer({ p, open }) {
   const visible = useMemo(
     () => (p?.files || []).filter((f) => f.path.toLowerCase().includes(q.toLowerCase())),
     [p, q],
@@ -12,15 +12,6 @@ export function Explorer({ p, q, setQ, open }) {
         <div>
           <h1>Explorer</h1>
           <small>Browse local project files.</small>
-        </div>
-        <div className="search">
-          <input
-            aria-label="Filter files"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Filter files"
-          />
-          <button onClick={() => setQ('')}>✕ Clear</button>
         </div>
       </div>
       {!p && <div className="empty">📂 Open a local folder to browse its files.</div>}
