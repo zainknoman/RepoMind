@@ -76,14 +76,7 @@ function ContextSummary({ context }) {
 }
 
 export function ContextBuilderView({ ai, index, projectName, analyzersRun }) {
-  const [query, setQuery] = useState('');
-  const files = useMemo(
-    () =>
-      (index?.files || []).filter(
-        (f) => !query || f.path.toLowerCase().includes(query.toLowerCase()),
-      ),
-    [index, query],
-  );
+  const files = index?.files || [];
   const { selected, setSelected, context } = ai;
   const toggle = (path) =>
     setSelected((s) => {
