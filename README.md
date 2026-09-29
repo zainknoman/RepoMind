@@ -1,589 +1,741 @@
 # RepoMind
 
-**RepoMind is a local-first codebase intelligence workspace for developers.**
+**Local-first codebase intelligence for understanding, analyzing and working with existing software projects.**
 
-It turns a selected local repository into a browser-based workspace for:
+[Live App](https://zainknoman.github.io/RepoMind/) · [GitHub](https://github.com/zainknoman/RepoMind)
 
-**Scan → Search → Inspect → Analyze → Visualize → Transform → Document → Understand → Export**
+> **Open → Index → Understand → Investigate → Analyze → Explain → Document → AI**
 
-RepoMind is designed to help developers understand an unfamiliar codebase, trace dependencies, inspect symbols, review changes, generate context and documentation, and work with common developer utilities without uploading the repository.
+RepoMind turns a local repository into a browser-based **codebase intelligence workspace**.
 
-**Current version:** 0.10.0 (see [CHANGELOG.md](CHANGELOG.md)) · **Live:** https://zainknoman.github.io/RepoMind/
+It helps developers understand unfamiliar projects, navigate symbols and dependencies, investigate change impact, inspect Git history, discover APIs, identify architectural signals, generate reports and build grounded context for AI-assisted engineering.
 
-## Core principles
+RepoMind is designed around one idea:
 
-- **Local-first:** repository files are processed in the browser.
-- **No backend required for the core workflow:** open a local folder with the browser File System Access API.
-- **Explicit external AI:** AI provider calls happen only when the user chooses to run them.
-- **Heuristic where appropriate:** security, route discovery, Git status and some framework analysis are signals rather than full compiler/security audits.
-- **One workspace:** exploration, intelligence, transformation and documentation are connected instead of being separate utilities.
+> **Make complex software systems easier to understand, investigate and evolve.**
 
-## Getting started
+---
 
-RepoMind is published at **https://zainknoman.github.io/RepoMind/**.
+## Why RepoMind?
 
-1. Open RepoMind in **Chrome or Edge on desktop** (see [Browser support](#browser-support)).
-2. Click **Open Folder** and select a local project directory. Grant read/write access if you want to save edits.
-3. On the **Dashboard**, click **Build Project Index**. RepoMind parses the code locally (and restores a cached index when you reopen the same folder).
-4. Review **Investigate**: unresolved imports, circular dependencies, dependency hotspots and parser errors. Each item opens the Codebase view that explains it.
-5. Open **Help** in the top-right corner for feature-by-feature guidance.
+Understanding an existing codebase often requires switching between:
 
-### Browser support
+* file explorers,
+* text search,
+* IDE navigation,
+* Git,
+* dependency tools,
+* architecture diagrams,
+* security scanners,
+* documentation,
+* and AI assistants.
 
-| Browser | Status |
-|---|---|
-| Chrome, Edge, other Chromium browsers (desktop) | Fully supported |
-| Firefox, Safari, mobile browsers | Folder access unavailable (no File System Access API). RepoMind shows a notice; the Markdown workspace still works. |
+RepoMind brings these activities into one connected workspace.
 
-Folders with more than 50,000 files are truncated with a warning; open a subfolder for complete results. Files larger than 2 MB, and sensitive-looking files (`.env`, keys, credentials) unless **Include sensitive files** is ticked, are listed but not read.
+Instead of treating the repository as a collection of files, RepoMind builds a structured model containing:
 
-## Workspace guide
+```text
+Files
+  ↓
+Symbols
+  ↓
+References
+  ↓
+Dependencies
+  ↓
+Architecture
+  ↓
+Impact
+  ↓
+Analysis
+  ↓
+Reports / Context
+  ↓
+AI
+```
 
-The header has two product workflows: **Workspace** for navigating and inspecting a repository, and **Analyze** for understanding, transforming and documenting it. RepoMind intentionally does not expose unrelated developer utilities or embedded Temenos/OFS/Engineering tools.
+This makes RepoMind a **codebase intelligence workspace**, rather than another general-purpose IDE.
 
-### Workspace
+---
 
-| Workspace | Purpose |
-|---|---|
-| **Dashboard** | The investigation starting point. Shows the workflow (Open → Index → Understand → Investigate → Analyze → Report / AI), builds or restores the code index, and lists what needs attention (unresolved imports, cycles, hotspots, parser errors) with links into Codebase. |
-| **Codebase** | The centre of RepoMind: symbols, references, dependencies, impact, health, analyzers, Git, diagrams, reports, context and AI. |
-| **Explorer** | Browse and filter local project files (virtualised for large folders). |
-| **Search** | One search for symbols (from the code index), file paths and source text, with regex and match-case options. |
-| **Editor** | Edit supported text files with find/replace (optional match case) and save back to disk. Unsaved changes are protected. |
+# Core capabilities
 
-### Analyze
+## 🔎 Codebase Intelligence
 
-| Workspace | Purpose |
-|---|---|
-| **Ingest** | Generate a Gitingest-style summary, directory tree and combined source context. |
-| **Quick Analysis** | Fast pattern scan of JS/TS files: line counts, functions, classes, imports and exports. Use **Codebase** for the full index. |
-| **Transform** | Combine files into one bundle, split a bundle back into files, export a ZIP. |
-| **Compare** | Line diff of two files that aligns inserted/removed lines, with filters and compact output. |
-| **Markdown** | Render Markdown, including Mermaid diagrams, for documentation and review. |
+After indexing a repository, RepoMind can understand:
 
-## GitHub Intelligence\n\nWhen a repository is imported from the **GitHub Repository** control, Codebase › Git becomes a read-only GitHub workspace for public repositories. It exposes repository metadata, branches, commits, pull requests, issues and releases. Commits and pull requests can be traced through the current local index with **Change Impact**, using RepoMind's existing dependency graph. Historical source that is not present in the imported revision is reported as a blind spot rather than treated as analysed.\n\n## Codebase Intelligence
+* files and languages
+* functions
+* classes
+* methods
+* variables
+* interfaces
+* type aliases
+* imports and exports
+* definitions
+* references
+* internal dependencies
+* external dependencies
+* unresolved imports
+* architecture relationships
 
-Codebase is the main RepoMind workspace. After **Build / Refresh Index**, its views are:
+JavaScript, JSX, TypeScript and TSX use Babel AST parsing with conservative fallback for malformed source.
 
-**Overview · Symbols · Dependencies · Impact · Health · Analyzers · Git · Diagram · Reports · Context Builder · AI**
+Additional language analysis is available where supported, including Python, Java and Temenos BASIC.
 
-Searching lives in the **Search** workspace, which includes indexed symbols once the index is built.
+---
 
-API discovery and the security scan run from **Analyzers**.
+## 🧩 Symbols
 
-### Indexing
+Symbols represent meaningful programming constructs such as:
 
-The local index captures:
-
-- Files and languages
-- Estimated lines, bytes and tokens
-- AST symbols
-- Definitions
-- References
-- Imports and exports
-- Internal dependencies
-- External dependencies
-- Unresolved imports
-- Import bindings
-- Architecture relationships
-
-JavaScript, JSX, TypeScript and TSX use Babel AST parsing with conservative pattern fallback for malformed source.
-
-Indexing is incremental: rebuilding reuses the analysis of every file whose size and modification time are unchanged (from the index on screen, or the last cached index of the repository), so only changed files are read and parsed again. Cross-file links are always recomputed. Indexer performance is tracked with `npm run bench:index`; see [docs/INDEXER_BENCHMARK.md](docs/INDEXER_BENCHMARK.md).
-
-### Symbols and references
-
-RepoMind can identify functions, classes, interfaces, type aliases, variables and class methods.
-
-Reference intelligence connects symbols across files where the available source information allows reliable resolution.
-
-Example:
-
-`orders/controller.js` imports `createOrder` from `orders/service.js`.
+```text
+Function
+Class
+Method
+Variable
+Interface
+Type
+Constant
+```
 
 RepoMind can show:
 
-- where `createOrder` is defined,
-- where it is referenced,
-- which file imports it,
-- and which files may be affected by a change.
+* where a symbol is defined
+* where it is referenced
+* which files import it
+* related dependencies
+* potential impact of changing it
 
-**Every reference has a confidence**, shown as a tag in the Symbol inspector:
+References carry confidence information so uncertain relationships are not presented as facts.
 
-| Confidence | Meaning |
-|---|---|
-| high | Linked through an import, or to a declaration in scope |
-| medium | Several possible targets (a namespace import or duplicate declarations) |
-| low | Guessed: a top-level symbol with the same name that nothing imports |
-| none | Unresolved |
+---
 
-Re-exports (`export * from`, `export { a } from`), default exports (including `export default name` and `module.exports = name`), `import()` and `require()` are followed. Names imported from packages, JS globals, parameters and destructured variables are never linked to unrelated repository symbols.
+## 🔗 Dependencies
 
-**Analysis coverage** (Codebase › Overview) lists, per language, whether imports and references were extracted. JavaScript/TypeScript (including `.mjs`/`.cjs`/`.mts`/`.cts`) resolve relative imports and the `paths` and `baseUrl` of the nearest `tsconfig.json`/`jsconfig.json` (with `extends`); **Python** resolves absolute and relative module imports (also packages under `src/`, and `from pkg import submodule`); **Java** resolves imports, wildcard imports and same-package classes by package; Temenos BASIC resolves `CALL`, `$INSERT` and `CALLJ` by name. Other languages (C#, Go, Kotlin, …) currently have symbols only, so their dependencies and impact are empty, and RepoMind says so rather than showing an empty result as complete. Imports that still look like path aliases (`@/…`, e.g. bundler-only aliases) are counted.
+RepoMind builds dependency relationships between parts of a repository.
 
-### Dependencies and architecture
+It can identify:
 
-The Codebase workspace can identify:
+* dependency edges
+* dependents
+* circular dependencies
+* dependency hotspots
+* unresolved imports
+* external dependencies
+* architecture relationships
 
-- dependency edges,
-- dependents,
-- circular dependencies,
-- dependency hotspots,
-- unresolved relative imports,
-- external dependencies,
-- architecture relationships.
+For example:
 
-### Impact
+```text
+Controller
+    ↓
+Service
+    ↓
+Repository
+    ↓
+Database
+```
 
-**Codebase › Impact** answers "if I change this, what could be affected?":
+This allows developers to investigate how functionality flows through a project.
 
-- **File impact:** every file that imports the selected file, level by level, with the file it came through.
-- **Symbol impact:** choose a function, class, method or T24 routine to see every function, method, class, routine or module-level code that uses it, directly or indirectly. Each item has a confidence; a chain is only as strong as its weakest link.
-- **Method calls through objects** are followed: `this.save()` (also when `save` is inherited), `super.save()`, `ns.fn()`, `Store.create()`, and calls on variables created with `new` or annotated with a class type. A call on an object of unknown class is matched by method name at low confidence.
-- **Blind spots** are always listed, so an empty result is never read as "safe": languages that are not analysed, unresolved references with the same name, calls on objects of unknown class or through computed names (`obj[name]()`), dynamic `CALL @var` sites and guessed links.
+---
 
-The Symbol inspector has **Show impact**.
+## 💥 Impact Analysis
 
-### Search
+Impact answers:
 
-The **Search** workspace is the one search for the project. It finds matching symbols (once the code index is built), file paths and source lines, with regex and match-case options, and opens a result in the match viewer or the Editor.
+> **“If I change this, what could be affected?”**
 
-### Health and analyzers
+RepoMind supports:
 
-Health signals include:
+* file impact
+* symbol impact
+* transitive impact
+* method-call tracing
+* changed-symbol analysis
+* broken-reference detection
+* Git change impact
+* confidence levels
+* blind-spot reporting
 
-- unresolved imports,
-- unresolved references,
-- circular dependencies,
-- parser errors,
-- dependency hotspots,
-- external dependency signals.
+For example:
 
-**Analyzers** lists every registered analyzer — Route Discovery, Framework Structure, Symbol
-Resolution, Architecture Hotspots and Secret Scan. Run one, or **Run All**; each shows its findings
-in a table with severity, and clicking a file opens it in the Editor. Findings also feed the project
-report and AI context. Analyzers follow one contract, so new ones (including language or domain
-packs) plug in without UI changes — see [`docs/ANALYZERS.md`](docs/ANALYZERS.md).
+```text
+CustomerService
+      ↓
+CustomerController
+      ↓
+Customer API
+```
 
-Framework-aware analysis covers patterns used by:
+Changing `CustomerService` can therefore be investigated through the dependency and reference graph instead of relying only on text search.
 
-- React
-- Vue
-- NestJS
-- Spring
-- ASP.NET
-- FastAPI
-- Flask
+RepoMind deliberately reports **blind spots** where analysis cannot establish a reliable relationship.
 
-These analyzers are intentionally heuristic and should not be treated as a replacement for a compiler, linter or dedicated security scanner.
+---
 
-### API discovery
+## ❤️ Health
 
-Run from **Analyzers → Route Discovery**. RepoMind detects common route declarations for:
+Health aggregates signals that can indicate areas worth investigating.
 
-- Express
-- NestJS
-- FastAPI
-- Flask
-- Spring
-- ASP.NET
+Signals include:
 
-Results are intended for code navigation and architecture understanding.
+* unresolved imports
+* unresolved references
+* circular dependencies
+* parser errors
+* dependency hotspots
+* external dependency signals
 
-### Security scanning
+Health is an **engineering signal**, not a claim that a project is objectively "good" or "bad".
 
-Run from **Analyzers → Secret Scan**. The local security scanner searches for likely:
+---
 
-- API keys
-- access/auth/bearer tokens
-- passwords and secrets
-- private keys
-- database connection strings
-- common credential environment variables
+## 🧪 Analyzers
 
-Findings mask the matched value (only the first four characters are kept), so on-screen results and exported reports never repeat the secret.
+Analyzers are specialized inspections that examine the repository for a particular purpose.
 
-**Important:** matches are heuristic findings and can include false positives. Review the source manually before taking action.
+Current analyzer capabilities include:
 
-## Architecture visualization
+* Route Discovery
+* Framework Structure
+* Symbol Resolution
+* Architecture Hotspots
+* Secret Scan
 
-The **Diagram** workspace generates Mermaid dependency diagrams from the local codebase graph.
+Framework-aware analysis includes patterns for:
 
-Mermaid is loaded lazily only when visualization is requested. The rendered result is displayed as SVG with:
+* React
+* Vue
+* NestJS
+* Spring
+* ASP.NET
+* FastAPI
+* Flask
 
-- Generate
-- Re-render
-- Copy
-- Download
-- Error/loading feedback
+Analyzers use a common contract so additional language, framework or domain analyzers can be added without changing the main UI.
 
-Mermaid is bundled with RepoMind and loaded on first use, so diagrams render without any network access.
+See [`docs/ANALYZERS.md`](docs/ANALYZERS.md).
 
-## Git intelligence
+---
 
-RepoMind reads Git data locally from the repository's `.git` folder. Nothing is uploaded, and Git contents are never added to the code index.
+## 🛣️ API / Route Discovery
 
-Available signals include:
+Route Discovery identifies common API declarations in supported frameworks.
 
-- current branch,
-- HEAD,
-- remote information,
-- working-tree file signals,
-- recent reflog activity.
+Examples include:
 
-The Modified / Untracked / Deleted counts are timestamp-based signals, because the browser cannot run `git status`.
+```text
+GET    /users
+POST   /users
+GET    /users/:id
+DELETE /users/:id
+```
 
-### Change impact
+Supported patterns include:
 
-**Codebase › Git › Impact of uncommitted changes**, or **Impact** next to a commit in Recent Git Activity, shows what a change could affect:
+* Express
+* NestJS
+* FastAPI
+* Flask
+* Spring
+* ASP.NET
 
-- the changed files, and the functions, methods, classes and routines they modify, add or remove;
-- everything that could be affected through them, with confidence and the changed symbols that reach each item;
-- references broken by removed exports or deleted files;
-- blind spots: binary, large (over 1 MB) and non-code files that are not traced.
+The purpose is primarily **code navigation and architecture understanding**, not replacing a dedicated API security or testing platform.
 
-**Copy report** / **Download** export it as Markdown for a pull request or review.
+---
 
-To do this, RepoMind reads commits, trees and file contents from `.git` itself (loose objects and packfiles, including deltas). Uncommitted changes are compared with HEAD exactly (by content, tolerant of CRLF line endings). A past commit is compared with its parent, and its changed symbols are traced through the current index.
+## 🔐 Security Heuristics
 
-## AI
+Secret Scan looks for likely:
 
-RepoMind provides a provider-neutral context workflow and direct browser-side adapters for:
+* API keys
+* authentication tokens
+* bearer tokens
+* passwords
+* secrets
+* private keys
+* database connection strings
+* credential environment variables
 
-- OpenAI
-- OpenAI-compatible endpoints
-- Anthropic
-- Google Gemini
+Detected values are masked in findings and reports.
 
-Answers are **grounded in the local index**. Type a question and click **Build Prompt**:
+Security findings are **heuristic signals** and can contain false positives. They should be manually reviewed and are not a replacement for dedicated security tooling.
 
-- RepoMind picks the files most relevant to the question (files you name, files defining symbols you
-  mention, T24 routines and applications you name in capitals such as `ACCOUNT.VALIDATE` or
-  `CUSTOMER`, then symbol and path matches, then graph neighbours of the best matches: callers of
-  the named symbols and files that import or are imported by them) — or uses the Context Builder
-  selection — plus their direct dependencies if selected.
-- **Explain with AI** (Impact, for a symbol) and **Explain this change with AI** (Git › Change
-  Impact) start an *investigation*: the prompt carries RepoMind's own analysis — the impact table
-  with confidences and blind spots, or the change-impact report plus a numbered diff — and the
-  changed and affected files, strongest first. The model is told to present medium and low
-  confidence items as possible, not certain. The prompt is built and shown; nothing is sent until
-  you click **Ask AI**.
-- The context holds a repository overview, a **repository map** (every file with its top-level
-  symbols, so the model knows what exists), **analyzer findings** you have run, and the source with
-  **line numbers**, all within a token budget (8k–128k). Files that do not fit are cut or listed as
-  left out. The **Context** panel shows each file and why it was included.
-- Lines that look like credentials are **masked** before anything leaves the browser.
-- The model is instructed to answer only from the context and cite `path:line`. After it answers,
-  a **Grounding check** verifies every cited file and line against the index and flags references
-  to files that do not exist, lines past the end of a file, or code that was not sent.
-- **Copy Prompt** / **Export** include the same instructions, for use with any assistant.
+---
 
-To call a provider, open **AI Settings** and enter the provider, a **model ID** (required; RepoMind does not guess one) and an API key.
+# 🧭 Product structure
 
-- Provider, model and endpoint are remembered in `localStorage`. The **API key is kept only in `sessionStorage`** and is forgotten when the tab closes.
-- External AI calls happen only when you click **Ask AI**; indexing never sends source to a provider.
-- The production Content Security Policy allows direct calls to `api.openai.com`, `api.anthropic.com` and `generativelanguage.googleapis.com`. An OpenAI-compatible endpoint on another host must be added to `connect-src` in `frontend/vite.config.js`.
-- Provider availability also depends on each provider's browser/CORS policy.
+RepoMind has two primary workflows.
 
-## Context Builder
+## Workspace
 
-Context Builder creates the same grounded context (overview, repository map, analyzer findings,
-numbered and redacted source) from the files you select, within a token budget.
+The Workspace is for navigating and understanding the repository.
 
-**Saved contexts** store the question, file list and options — never the source. Loading one rebuilds
-the context from the files as they are now. (Saved contexts from earlier versions held the full source
-in `localStorage`; it is removed the first time the list is read.)
+| Feature       | Purpose                                                      |
+| ------------- | ------------------------------------------------------------ |
+| **Dashboard** | Starting point for indexing and investigating the repository |
+| **Codebase**  | Main code intelligence workspace                             |
+| **Explorer**  | Browse project files                                         |
+| **Search**    | Search symbols, paths and source                             |
+| **Editor**    | Inspect and edit supported files                             |
 
-Typical workflow:
+## Analyze
 
-1. Build the Codebase index.
-2. Select relevant files.
-3. Optionally include direct dependencies/importers.
-4. Review the estimated token size.
-5. Generate context.
-6. Copy or download it.
-7. Use it for review, documentation or an external AI workflow.
+Analyze is for deeper investigation and producing reusable artifacts.
 
-## Documentation and reports
+| Feature            | Purpose                                          |
+| ------------------ | ------------------------------------------------ |
+| **Ingest**         | Generate repository summaries and source context |
+| **Quick Analysis** | Fast JS/TS structural analysis                   |
+| **Transform**      | Combine, split and export project content        |
+| **Compare**        | Compare two files                                |
+| **Markdown**       | Render Markdown and Mermaid documentation        |
 
-Reports convert local intelligence into reusable Markdown.
+---
+
+# 🧠 Codebase workspace
+
+The **Codebase** workspace is the center of RepoMind.
+
+It contains:
+
+```text
+Overview
+Symbols
+Dependencies
+Impact
+Health
+Analyzers
+Git
+Diagram
+Reports
+Context Builder
+AI
+```
+
+These are not independent utilities.
+
+They are different views over the same underlying **codebase intelligence model**.
+
+```text
+                    LOCAL REPOSITORY
+                           │
+                           ▼
+                        INDEX
+                           │
+            ┌──────────────┼──────────────┐
+            ▼              ▼              ▼
+         Symbols      References      Files
+            │              │              │
+            └──────────────┼──────────────┘
+                           ▼
+                     Dependencies
+                           │
+              ┌────────────┼────────────┐
+              ▼            ▼            ▼
+           Impact        Health      Analyzers
+              │            │            │
+              └────────────┼────────────┘
+                           ▼
+                  Diagrams + Reports
+                           │
+                           ▼
+                    Context Builder
+                           │
+                           ▼
+                           AI
+```
+
+---
+
+# 📊 Architecture visualization
+
+RepoMind generates dependency diagrams using Mermaid.
+
+Diagrams can be:
+
+* generated
+* re-rendered
+* copied
+* downloaded
+
+Mermaid is bundled with RepoMind and loaded when visualization is requested.
+
+Example:
+
+```mermaid
+graph TD
+    A[Controller] --> B[Service]
+    B --> C[Repository]
+    C --> D[(Database)]
+```
+
+---
+
+# 🌿 Git intelligence
+
+RepoMind reads Git information directly from the local `.git` directory.
+
+It can expose:
+
+* current branch
+* HEAD
+* remote information
+* working-tree signals
+* recent reflog activity
+* commit history
+* changed files
+* commit impact
+
+Git data is not added to the code index.
+
+### Change Impact
+
+RepoMind can investigate:
+
+```text
+Changed files
+      ↓
+Changed symbols
+      ↓
+References
+      ↓
+Affected files
+      ↓
+Potential impact
+```
+
+Change-impact reports can be copied or downloaded as Markdown for reviews and pull requests.
+
+Historical analysis explicitly reports blind spots when the required source is unavailable.
+
+---
+
+# 📝 Reports
+
+Reports convert repository intelligence into reusable documentation.
 
 ### Project Report
 
-Includes, when available:
+Can contain:
 
-- project technology profile,
-- files and languages,
-- symbols and references,
-- imports/exports,
-- dependency relationships,
-- external dependencies,
-- circular dependencies,
-- unresolved imports/references,
-- parser errors,
-- API surface,
-- security findings,
-- dependency hotspots,
-- review recommendations,
-- limitations.
+* technology profile
+* files and languages
+* symbols
+* references
+* imports and exports
+* dependencies
+* external dependencies
+* circular dependencies
+* unresolved imports
+* unresolved references
+* parser errors
+* API surface
+* security findings
+* dependency hotspots
+* review recommendations
+* analysis limitations
 
 ### Module Report
 
-A focused report for a selected file containing:
+Provides focused information for a selected file:
 
-- language,
-- lines,
-- estimated tokens,
-- symbols,
-- imports,
-- exports,
-- resolved dependencies.
+* language
+* lines
+* estimated tokens
+* symbols
+* imports
+* exports
+* resolved dependencies
 
-Reports can be edited, copied and downloaded from the Reports workspace.
+Reports can be edited, copied and downloaded.
 
-## Local cache
+---
 
-RepoMind caches the index metadata in IndexedDB to make reopening a folder faster.
+# 🧩 Context Builder
 
-The cache:
+Context Builder answers:
 
-- is keyed by the project name plus every file's path, size and modification time, so any change invalidates it,
-- keeps the latest snapshot per repository name: when files change, the next build reuses the unchanged files' analysis from it, and the superseded snapshot is deleted,
-- stores analysis metadata rather than repository source,
-- excludes file handles,
-- stores symbol/reference relationships as keys and positions and rehydrates them on restore,
-- can be cleared from the Codebase workspace.
+> **“What information from this repository should be used for this task?”**
 
-A fresh **Build / Refresh Index** remains available whenever you want to regenerate the analysis.
+Instead of sending an entire repository to an AI, you can select relevant files and optionally expand the context through dependencies/importers.
 
-## Privacy model
+Typical workflow:
 
-For the normal local workflow:
-
-`Local Folder → Browser → Local Index → Local UI`
-
-- RepoMind has no backend. All scripts, including Mermaid and JSZip, are bundled and served from the RepoMind site; no third-party CDN is contacted.
-- Production builds ship a Content Security Policy: scripts only from the site itself, network access only to the site and the supported AI providers.
-- Security-scan findings mask the matched secret value, so reports never repeat a credential.
-- The only outbound requests are AI provider calls that you explicitly trigger.
-- Git data (including file contents at earlier commits, for change impact) is read from `.git` on your device and never uploaded.
-
-## Current feature map
-
-- [x] Local folder access
-- [x] Project explorer
-- [x] Project-wide search
-- [x] Browser editor
-- [x] Code ingest
-- [x] Transform / combine / split
-- [x] Diff / Compare
-- [x] Markdown viewer
-- [x] AST codebase indexing
-- [x] Symbol definitions and references
-- [x] Dependency and architecture analysis
-- [x] Impact analysis (transitive, with confidence and blind spots)
-- [x] Reference confidence and analysis coverage
-- [x] Git change impact (uncommitted work or any commit) with Markdown report
-- [x] API discovery
-- [x] Security heuristics
-- [x] Framework analyzers
-- [x] Architecture health
-- [x] Git metadata intelligence
-- [x] AI (Codebase view)
-- [x] Context Builder
-- [x] IndexedDB index cache
-- [x] Architecture diagrams
-- [x] Documentation reports
-- [x] In-app Help workspace
-
-## Architecture
-
-```
-frontend/
-├── index.html
-├── vite.config.js            # base path, production CSP, test config
-├── eslint.config.js / .prettierrc.json
-├── playwright.config.js      # E2E against the production build
-├── public/tools/             # sandboxed standalone tools + repomind-bridge.js
-├── tests/e2e/                # Playwright suite
-└── src/
-    ├── main.jsx
-    ├── App.jsx               # shell: navigation, folder access, editor state, lazy workspaces
-    ├── components/           # ErrorBoundary, VirtualList
-    ├── lib/                  # files/gitignore, diff, find/replace, transform, zip, markdown, text
-    ├── features/
-    │   ├── dashboard/  explorer/  search/  editor/  markdown/
-    │   ├── ingest/  analysis/  transform/  compare/  tools/  help/
-    │   └── codebase/CodebasePanel.jsx
-    └── services/
-        ├── repository.js     # AST indexing (Babel), references, dependencies
-        ├── indexClient.js    # runs indexing in a Web Worker (indexWorker.worker.js)
-        ├── analyzers.js      # analyzer contract, registry, runner and built-in analyzers
-        ├── coverage.js       # per-language analysis coverage
-        ├── impact.js         # transitive file and symbol impact, blind spots
-        ├── changeImpact.js   # changed symbols → merged impact, broken references, report
-        ├── gitObjects.js     # reads commits, trees and blobs from .git (loose and packed)
-        ├── gitChanges.js     # changed files: working tree vs HEAD, commit vs parent
-        ├── graphAccuracy.js  # scores the graph against graphFixtures.js
-        ├── aiContext.js      # grounded AI context, file ranking, citation check
-        ├── savedContexts.js  # saved context recipes (no source)
-        ├── search.js  frameworks.js  health.js  documentation.js  diagram.js
-        ├── git.js            # .git metadata, reflog and index (v2–v4) reader
-        ├── indexCache.js     # IndexedDB cache
-        └── ai.js             # provider adapters
+```text
+Build Index
+    ↓
+Select files
+    ↓
+Include relevant dependencies
+    ↓
+Review token estimate
+    ↓
+Generate context
+    ↓
+Review
+    ↓
+Copy / Export
+    ↓
+Use with AI or documentation
 ```
 
-There is no backend; the former FastAPI service was removed because the product runs entirely in the browser.
+Saved contexts store the **recipe** — question, selected files and options — rather than repository source.
 
-## Development
+---
 
-Requires Node.js 22.
+# 🤖 AI
+
+RepoMind provides a provider-neutral, browser-side AI workflow.
+
+Supported providers include:
+
+* OpenAI
+* OpenAI-compatible endpoints
+* Anthropic
+* Google Gemini
+
+The AI workflow is grounded in RepoMind's local codebase intelligence.
+
+A typical request is:
+
+```text
+Repository
+     ↓
+Index
+     ↓
+Relevant files
+     ↓
+Symbols / dependencies
+     ↓
+Analyzer findings
+     ↓
+Context Builder
+     ↓
+AI
+```
+
+RepoMind can provide the model with:
+
+* repository overview
+* repository map
+* selected source files
+* line numbers
+* analyzer findings
+* dependency context
+* impact information
+
+Credentials-looking values are masked before external AI requests.
+
+AI calls only happen after the user explicitly chooses **Ask AI**.
+
+RepoMind also performs a grounding check on citations returned by the model.
+
+---
+
+# 🔒 Local-first architecture
+
+The core workflow runs in the browser:
+
+```text
+Local Folder
+     ↓
+Browser File System Access API
+     ↓
+Web Worker
+     ↓
+Local Codebase Index
+     ↓
+RepoMind
+```
+
+The application has **no backend for the core repository workflow**.
+
+The local index is cached using IndexedDB.
+
+The normal architecture is:
+
+```text
+Local Repository
+       ↓
+     Browser
+       ↓
+    Local Index
+       ↓
+   RepoMind UI
+```
+
+External network requests are only required when the user explicitly invokes supported external functionality such as AI providers.
+
+---
+
+# 🚀 Getting started
+
+RepoMind is available at:
+
+**https://zainknoman.github.io/RepoMind/**
+
+### Browser requirements
+
+| Browser                         | Support                   |
+| ------------------------------- | ------------------------- |
+| Chrome / Chromium desktop       | ✅                         |
+| Microsoft Edge desktop          | ✅                         |
+| Other Chromium desktop browsers | ✅                         |
+| Firefox                         | Folder access unavailable |
+| Safari                          | Folder access unavailable |
+| Mobile browsers                 | Folder access unavailable |
+
+For the complete local repository workflow, use a supported Chromium-based desktop browser.
+
+### Open a repository
+
+1. Open RepoMind.
+2. Select **Open Folder**.
+3. Choose your project directory.
+4. Build the project index.
+5. Review the Dashboard.
+6. Open **Codebase** to investigate the project.
+
+---
+
+# 🛠️ Development
+
+Requires **Node.js 22**.
 
 ```powershell
 cd frontend
 npm ci
-npm run dev          # http://localhost:5173
+npm run dev
 ```
 
-| Script | Purpose |
-|---|---|
-| `npm run build` | Production build (base `/RepoMind/`, with CSP) |
-| `npm run preview` | Serve the production build at `http://127.0.0.1:4173/RepoMind/` |
-| `npm run lint` | ESLint |
-| `npm run format` / `format:check` | Prettier |
-| `npm test` | Vitest unit tests for the services and shared libraries |
-| `npm run test:e2e` | Build, then run Playwright against the production build |
-| `npm run check` | Format check, lint, unit tests and build |
-| `npm run bench:index` | Indexer benchmark on synthetic small/medium/large repositories (`-- --dir <folder>` for a real one) |
+Available commands:
 
-## Testing
+| Command                | Purpose                       |
+| ---------------------- | ----------------------------- |
+| `npm run dev`          | Development server            |
+| `npm run build`        | Production build              |
+| `npm run preview`      | Preview production build      |
+| `npm run lint`         | ESLint                        |
+| `npm run format`       | Format with Prettier          |
+| `npm run format:check` | Check formatting              |
+| `npm test`             | Vitest unit tests             |
+| `npm run test:e2e`     | Playwright E2E tests          |
+| `npm run bench:index`  | Indexer benchmark             |
+| `npm run check`        | Format + lint + tests + build |
 
-- **Unit tests (Vitest)** cover `.gitignore` matching, folder walking, the line diff, find/replace, Transform bundles, AI request shapes, the IndexedDB cache (via `fake-indexeddb`), the repository indexer and incremental reuse, unified search, security redaction, the Git index parser (checked against indexes written by the `git` CLI), the Git object reader and change detection (checked against `git cat-file`, `git status` and `git diff` on repositories built with the `git` CLI), graph accuracy fixtures (exact expected dependency edges and reference links), transitive impact and change impact.
-- **End-to-end tests (Playwright)** run against the production bundle served under `/RepoMind/`, so base-path, code-splitting and CSP problems are caught. An in-browser File System Access fixture stands in for the folder picker.
+---
 
-Run E2E locally:
+# 🧪 Testing
 
-```powershell
-cd frontend
-npx playwright install chromium
-npm run test:e2e
+RepoMind uses:
+
+* **Vitest** for unit and service tests
+* **Playwright** for browser E2E testing
+* **ESLint** for static analysis
+* **Prettier** for formatting
+* **Vite** for production builds
+
+The E2E suite runs against the production build so that deployment, base-path, code-splitting and CSP problems are detected before release.
+
+---
+
+# 🏗️ Architecture
+
+```text
+frontend/
+├── src/
+│   ├── components/
+│   ├── features/
+│   │   ├── dashboard/
+│   │   ├── explorer/
+│   │   ├── search/
+│   │   ├── editor/
+│   │   ├── ingest/
+│   │   ├── analysis/
+│   │   ├── transform/
+│   │   ├── compare/
+│   │   ├── markdown/
+│   │   ├── help/
+│   │   └── codebase/
+│   ├── lib/
+│   └── services/
+│       ├── repository.js
+│       ├── indexClient.js
+│       ├── analyzers.js
+│       ├── impact.js
+│       ├── changeImpact.js
+│       ├── gitObjects.js
+│       ├── aiContext.js
+│       ├── indexCache.js
+│       ├── diagram.js
+│       └── ai.js
+└── tests/
+    └── e2e/
 ```
 
-The E2E suite (`npm run test:e2e` reports the current count) covers every workspace in the header (with heading assertions), the two-level header grouping, the Dashboard first-run workflow and its links into Codebase views, each Codebase view, Compare, Quick Analysis, Explorer, Search, Editor find/replace and the unsaved-changes guard, Ingest, Transform, Markdown + Mermaid rendering and sanitisation, index caching, dark mode, AI settings validation and the unsupported-browser notice. Browser-side AI calls are never made during tests.
+The application is intentionally browser-based. The former backend is no longer part of the core product.
 
-## CI and deployment
+---
 
-- **CI** (`.github/workflows/CI.yml`) runs on pushes and pull requests to `main`: format check, lint, unit tests and build, then the E2E suite against that build. The Playwright HTML report is uploaded as an artifact. A newer push cancels the superseded run.
-- **Deployment** (`.github/workflows/deploy-pages.yml`) publishes to GitHub Pages only after CI succeeds for a push to `main`, and builds exactly the commit CI verified. It can also be run manually.
-- Protect `main` in the repository settings by requiring the **CI** checks to pass before merging.
+# 🔐 Privacy
 
-## Security
+RepoMind follows a local-first model:
 
-See [SECURITY.md](SECURITY.md) for the threat model and how to report a vulnerability.
+* Repository files are processed locally.
+* The core application has no backend.
+* Git data is read locally.
+* The code index is cached in IndexedDB.
+* Security findings mask detected credential values.
+* AI requests only occur after explicit user action.
+* AI context is generated locally before transmission.
+* Saved Context Builder entries store selections/options rather than source content.
 
-## Contributing
+For security details, see [`SECURITY.md`](SECURITY.md).
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Release notes are in [CHANGELOG.md](CHANGELOG.md).
+---
 
-## Upgrade journey
+# 📚 Documentation
 
-See **[docs/UPGRADE_JOURNEY.md](docs/UPGRADE_JOURNEY.md)** for the milestone history and architectural evolution, and **[docs/PROJECT_AUDIT.md](docs/PROJECT_AUDIT.md)** for the production-readiness audit and its resolution status.
+| Document                                                 | Purpose                                         |
+| -------------------------------------------------------- | ----------------------------------------------- |
+| [`docs/CONCEPTS.md`](docs/CONCEPTS.md)                   | RepoMind terminology and product concepts       |
+| [`docs/ANALYZERS.md`](docs/ANALYZERS.md)                 | Analyzer architecture and analyzer capabilities |
+| [`docs/INDEXER_BENCHMARK.md`](docs/INDEXER_BENCHMARK.md) | Indexing performance                            |
+| [`docs/UPGRADE_JOURNEY.md`](docs/UPGRADE_JOURNEY.md)     | Product and architecture evolution              |
+| [`docs/PROJECT_AUDIT.md`](docs/PROJECT_AUDIT.md)         | Production-readiness audit                      |
+| [`SECURITY.md`](SECURITY.md)                             | Security model and reporting                    |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md)                     | Contribution guidelines                         |
+| [`CHANGELOG.md`](CHANGELOG.md)                           | Release history                                 |
 
-## Milestones
+---
 
-### Milestone 1 — Codebase Intelligence v1
-- [x] AST-backed indexing
-- [x] Symbol definitions
-- [x] Cross-file references
-- [x] Imported-by analysis
-- [x] Dependency graph
-- [x] Architecture hotspots
-- [x] Impact analysis
-- [x] Context expansion
+# 🧭 Product direction
 
-### Milestone 2 — Developer Intelligence v1
-- [x] Advanced indexed/full-text search
-- [x] API/route discovery
-- [x] Security/secret heuristics
-- [x] Framework/package detection
-- [x] Architecture and impact navigation
+RepoMind should remain focused on:
 
-### Milestone 3 — Git + AI Workspace v1
-- [x] Local Git metadata
-- [x] Branch/HEAD/remote signals
-- [x] Working-tree signals
-- [x] Recent reflog activity
-- [x] Ask RepoMind prompt builder
-- [x] Saved local context snapshots
-- [x] AI Workspace
+> **Codebase understanding + developer intelligence**
 
-### Milestone 4 — Production Hardening + Performance
-- [x] Cancellable indexing
-- [x] Progress reporting
-- [x] IndexedDB index cache
-- [x] Cache clearing and cached/fresh state
-- [x] Git → Impact navigation
-- [x] State hardening
+Future areas may include:
 
-### Milestone 5 — AI + Advanced Code Intelligence v1
-- [x] Direct browser-side provider adapters
-- [x] OpenAI/OpenAI-compatible support
-- [x] Anthropic support
-- [x] Gemini support
-- [x] Local AI settings
-- [x] Architecture health signals
+* more precise language-aware symbol resolution
+* deeper framework-specific analyzers
+* richer Git/change-impact analysis
+* additional architecture visualizations
+* language analyzer packs
+* domain-specific analyzer packs
+* stronger AI investigation workflows
 
-### Milestone 6 — Analyzer + Framework Intelligence v1
-- [x] Analyzer registry
-- [x] Framework structure analysis
-- [x] Route discovery analyzer
-- [x] Symbol resolution analysis
-- [x] Architecture hotspot analyzer
+The goal is not to become another general-purpose IDE.
 
-### Milestone 7 — Documentation + Reporting v1
-- [x] Project reports
-- [x] Module reports
-- [x] API/security findings in reports
-- [x] Dependency hotspot summaries
-- [x] Markdown copy/download
+The goal is to make **existing software easier to understand, investigate and evolve**.
 
-### Milestone 8 — Visualization + Cache Hardening v1
-- [x] Circular cache serialization fix
-- [x] Cached graph relationship rehydration
-- [x] Lazy Mermaid renderer
-- [x] SVG diagram preview
-- [x] Diagram loading/error/re-render controls
-
-### Milestone 9 — Production Readiness v1
-- [x] Build repaired and deployment gated on CI
-- [x] Compare and Project Analysis fixed
-- [x] Modular source with Prettier, ESLint and Vitest
-- [x] Lazy workspaces, Web Worker indexing, virtualised lists
-- [x] Sandboxed embedded tools, bundled dependencies, production CSP
-- [x] Dark mode, accessibility and error boundaries
-- [x] E2E against the production build
-- [x] Product navigation consolidated into Workspace + Analyze; unrelated legacy utilities removed
-- [x] Proprietary LICENSE, SECURITY.md, CONTRIBUTING.md and CHANGELOG.md
-
-### Help Workspace
-- [x] Top-right Help entry
-- [x] Feature catalogue
-- [x] Detailed feature explanations
-- [x] How-to guidance
-- [x] Practical examples
-
-## Product direction
-
-RepoMind should remain focused on **codebase understanding and developer intelligence**.
-
-Potential future areas:
-
-- More precise language-aware symbol/reference resolution
-- Better framework-specific analyzers
-- Git diff/change-impact analysis
-- More architecture visualization options
-- Language and domain analyzer packs (e.g. Temenos) on the analyzer contract
+---
 
 ## License
 
-Copyright (c) 2026 Zainknoman Software Services. All rights reserved. See [LICENSE](LICENSE).
+Copyright (c) 2026 Zainknoman Software Services. All rights reserved.
+
+See [`LICENSE`](LICENSE).
