@@ -60,7 +60,8 @@ const BASIC_MARKER =
   /^ *(?:\$(?:PACKAGE|INSERT|INCLUDE|USING) +\S|(?:SUBROUTINE|PROGRAM) +[A-Z][\w.$%]* *(?:\(|\r?$)|FUNCTION +[A-Z][\w.$%]* *\(|COM(?:MON)? *\/|EQU(?:ATE)? +[A-Z][\w.$%]* +TO )/m;
 export const looksLikeBasic = (text) => BASIC_MARKER.test((text || '').replace(/\t/g, ' '));
 
-export const read = async (f) => (await f.handle.getFile()).text();
+export const read = async (f) =>
+  typeof f?.content === 'string' ? f.content : (await f.handle.getFile()).text();
 
 /** Folders larger than this are truncated so the browser stays responsive. */
 export const MAX_FILES = 50_000;
