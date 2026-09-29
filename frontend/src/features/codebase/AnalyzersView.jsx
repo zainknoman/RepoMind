@@ -1,8 +1,5 @@
-import { useState } from 'react';
 import { SEVERITIES, countBySeverity } from '../../services/analyzers';
 import { PaginatedList } from '../../components/PaginatedList';
-
-const ROW_LIMIT = 100;
 
 // Every registered analyzer, with one findings table per analyzer (columns declared by the
 // analyzer). Clicking a file opens it in the Editor.
@@ -57,7 +54,6 @@ export function AnalyzersView({ catalog, results, summary, busy, onRun, onOpenFi
 }
 
 function AnalyzerPanel({ analyzer, result, running, disabled, onRun, onOpenFile }) {
-  const [showAll, setShowAll] = useState(false);
   const findings = result?.findings || [];
   const counts = countBySeverity(findings);
   const rows = showAll ? findings : findings.slice(0, ROW_LIMIT);
