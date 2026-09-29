@@ -38,7 +38,7 @@ function LoadState({ loading, error, empty, children }) {
   if (empty) return <p className="muted">No items found.</p>;
   return children;
 }
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 30;
 
 function Pager({ page, setPage, hasNext, children }) {
   return (
@@ -81,9 +81,7 @@ function useResource(loader, source, kind) {
   useEffect(() => {
     let active = true;
     setState({ loading: true });
-    loader(source, page, {
-      fetchImpl: (url, init) => fetch(url.replace('per_page=30', 'per_page=' + PAGE_SIZE), init),
-    })
+    loader(source, page)
       .then((data) => {
         if (active) {
           setItems(data);
