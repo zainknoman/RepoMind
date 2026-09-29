@@ -2,6 +2,19 @@
 
 All notable changes to RepoMind are recorded here.
 
+## Unreleased — GitHub intelligence (P1)
+
+### Added
+- **GitHub Intelligence.** Public GitHub imports now expose Repository, Branches, Commits, Pull Requests, Issues and Releases in Codebase › Git.
+- Repository metadata includes description, stars, forks, open issues, default branch, language, license, topics, size and timestamps.
+- Commits and pull requests link back to GitHub and can run **Change Impact** against the current RepoMind index.
+- GitHub change impact reuses the existing dependency graph and reports direct/transitive affected files plus blind spots when historical files are unavailable.
+- Paginated GitHub lists and explicit API error/rate-limit handling.
+
+### Changed
+- Codebase › Git now selects local Git Intelligence for folders and GitHub Intelligence for imported public repositories.
+- Frontend version bumped to 0.10.0.
+
 ## Unreleased — Import resolution (Phase C3)
 
 ### Added

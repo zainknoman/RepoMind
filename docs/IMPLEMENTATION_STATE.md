@@ -5,6 +5,8 @@ Update at the end of every phase.
 
 ## Current phase
 
+**P1 GitHub Intelligence implementation is complete after P0 public GitHub import. Private repositories/OAuth remain P2.**
+
 **Phases B1–B3 and C1–C3 done and on `main`.** Plans with per-task status and outcomes:
 `docs/superpowers/plans/2026-09-28-graph-trust.md` (B1), `…-transitive-impact.md` (B2),
 `…-git-change-impact.md` (B3), `…-member-calls.md` (C1), `…-ai-investigation.md` (C2),
@@ -29,6 +31,8 @@ Plans live in `docs/superpowers/plans/`.
 | C1 | Member calls (`this.m()`, `obj.m()`) in references and impact | Done |
 | C2 | AI investigation of impact and changes; graph-aware and T24 file ranking | Done |
 | C3 | Import resolution: tsconfig/jsconfig paths, Python, Java | Done |
+| P0 | Public GitHub import + production analysis parity | Done |
+| P1 | GitHub Intelligence: repository, branches, commits, PRs, issues, releases + impact integration | Done |
 
 ## Completed work (Phase 1)
 

@@ -547,6 +547,87 @@ test.describe('RepoMind Codebase Intelligence end-to-end', () => {
   });
 });
 
+test.describe('RepoMind GitHub Intelligence', () => {
+  test('imports a public repository and exposes GitHub intelligence resources', async ({ page }) => {
+    await page.route('https://api.github.com/**', async (route) => {
+      const url = new URL(route.request().url());
+      const path = url.pathname;
+      let body = {};
+      if (path.endsWith('/repos/zainknoman/Fixture')) {
+        body = {
+          name: 'Fixture',
+          full_name: 'zainknoman/Fixture',
+          description: 'Mock public repository',
+          default_branch: 'main',
+          stargazers_count: 3,
+          forks_count: 1,
+          open_issues_count: 1,
+          watchers_count: 2,
+          language: 'JavaScript',
+          visibility: 'public',
+          html_url: 'https://github.com/zainknoman/Fixture',
+          topics: ['demo'],
+        };
+      } else if (path.endsWith('/commits/main')) {
+        body = { sha: 'a'.repeat(40) };
+      } else if (path.endsWith('/git/trees/main')) {
+        body = {
+          truncated: false,
+          tree: [{ path: 'src/service.js', type: 'blob', size: 42 }],
+        };
+      } else if (path.endsWith('/branches')) {
+        body = [{ name: 'main', protected: false, commit: { sha: 'a'.repeat(40) } }];
+      } else if (path.endsWith('/commits')) {
+        body = [{
+          sha: 'a'.repeat(40),
+          html_url: 'https://github.com/zainknoman/Fixture/commit/' + 'a'.repeat(40),
+          commit: { message: 'Initial commit', author: { name: 'Test', date: '2026-09-29T00:00:00Z' } },
+        }];
+      } else if (path.endsWith('/pulls')) {
+        body = [{ id: 1, number: 7, title: 'Improve service', state: 'open', updated_at: '2026-09-29T00:00:00Z', html_url: 'https://github.com/zainknoman/Fixture/pull/7' }];
+      } else if (path.endsWith('/issues')) {
+        body = [{ id: 2, number: 8, title: 'Track service', state: 'open', updated_at: '2026-09-29T00:00:00Z', html_url: 'https://github.com/zainknoman/Fixture/issues/8' }];
+      } else if (path.endsWith('/releases')) {
+        body = [{ id: 3, tag_name: 'v1.0.0', name: 'First release', draft: false, prerelease: false, published_at: '2026-09-29T00:00:00Z', html_url: 'https://github.com/zainknoman/Fixture/releases/tag/v1.0.0' }];
+      } else if (path.includes('/commits/') && !path.endsWith('/commits/main')) {
+        body = { files: [{ filename: 'src/service.js', status: 'modified', additions: 1, deletions: 0, changes: 1 }] };
+      } else if (path.endsWith('/pulls/7/files')) {
+        body = [{ filename: 'src/service.js', status: 'modified', additions: 1, deletions: 0, changes: 1 }];
+      } else {
+        body = {};
+      }
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+    });
+    await page.route('https://raw.githubusercontent.com/**', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'text/plain', body: 'export function service() { return 1; }\n' });
+    });
+    await page.getByRole('button', { name: '🔗 GitHub Repository' }).click();
+    await page.getByLabel('GitHub repository URL').fill('github.com/zainknoman/Fixture');
+    await page.getByRole('button', { name: 'Import Repository' }).click();
+    await expect(page.getByText(/Imported 1 supported files from GitHub/)).toBeVisible();
+    await page.getByRole('button', { name: 'Build Project Index' }).click();
+    await expect(page.getByText(/Fresh index/)).toBeVisible({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Codebase', exact: true }).click();
+    await page.getByRole('button', { name: 'Git', exact: true }).click();
+    await expect(page.getByText('🐙 GitHub Intelligence')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Repository', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Branches', exact: true }).click();
+    await expect(page.getByText('main', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Commits', exact: true }).click();
+    await expect(page.getByText('Initial commit', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Impact', exact: true }).click();
+    await expect(page.getByText('GitHub Change Impact')).toBeVisible();
+    await page.getByRole('button', { name: /Analyse change impact/ }).click();
+    await expect(page.getByText('1 changed files')).toBeVisible();
+    await page.getByRole('button', { name: 'Pull Requests', exact: true }).click();
+    await expect(page.getByText('Improve service', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Issues', exact: true }).click();
+    await expect(page.getByText('Track service', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Releases', exact: true }).click();
+    await expect(page.getByText('First release', { exact: true })).toBeVisible();
+  });
+});
+
 test.describe('RepoMind Analyze workspaces', () => {
   test.beforeEach(async ({ page }) => {
     await openFixture(page);

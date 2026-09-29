@@ -3,6 +3,7 @@ import { commitChanges, workingTreeChanges } from '../../services/gitChanges';
 import { changeImpact, changeImpactMarkdown } from '../../services/changeImpact';
 import { changeBriefing, changeFiles, changeTask } from '../../services/aiInvestigation';
 import { cp, dl } from '../../lib/text';
+import { GitHubView } from './GitHubView';
 
 const ROW_LIMIT = 200;
 
@@ -149,6 +150,7 @@ function ChangeImpact({ state, onOpenFile, projectName, onExplain }) {
 }
 
 export function GitView({ git, busy, onRefresh, onSelect, project, index, onOpenFile, onExplain }) {
+  if (project?.source?.type === 'github') return <GitHubView project={project} index={index} />;
   const [impact, setImpact] = useState(null);
 
   async function analyse(title, load, note) {

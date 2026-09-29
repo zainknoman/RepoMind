@@ -8,7 +8,7 @@ It turns a selected local repository into a browser-based workspace for:
 
 RepoMind is designed to help developers understand an unfamiliar codebase, trace dependencies, inspect symbols, review changes, generate context and documentation, and work with common developer utilities without uploading the repository.
 
-**Current version:** 0.9.0 (see [CHANGELOG.md](CHANGELOG.md)) · **Live:** https://zainknoman.github.io/RepoMind/
+**Current version:** 0.10.0 (see [CHANGELOG.md](CHANGELOG.md)) · **Live:** https://zainknoman.github.io/RepoMind/
 
 ## Core principles
 
@@ -75,7 +75,7 @@ The header groups follow one workflow: **Understand → Explore → Analyze**, w
 
 The **Engineering** utilities (sandboxed) are intentionally not in the header. They open only from `?tool=eng`.
 
-## Codebase Intelligence
+## GitHub Intelligence\n\nWhen a repository is imported from the **GitHub Repository** control, Codebase › Git becomes a read-only GitHub workspace for public repositories. It exposes repository metadata, branches, commits, pull requests, issues and releases. Commits and pull requests can be traced through the current local index with **Change Impact**, using RepoMind's existing dependency graph. Historical source that is not present in the imported revision is reported as a blind spot rather than treated as analysed.\n\n## Codebase Intelligence
 
 Codebase is the main RepoMind workspace. After **Build / Refresh Index**, its views are:
 
