@@ -969,7 +969,7 @@ export async function buildRepositoryIndex(project, options = {}) {
     externalDependencies: [],
     unresolvedImports: [],
     languages: {},
-    project: frameworkSignals(files),
+    project: { ...frameworkSignals(files), source: project.source },
     stats: {
       files: files.length,
       lines: 0,
