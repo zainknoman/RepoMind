@@ -66,7 +66,9 @@ function ContextSummary({ context }) {
         renderItem={(f) => (
           <div className="index-row context-file" key={f.path}>
             <b title={f.path}>{f.path}</b>
-            <span>{f.truncated ? `lines 1–${f.shownLines} of ${f.lines}` : `${f.lines} lines`}</span>
+            <span>
+              {f.truncated ? `lines 1–${f.shownLines} of ${f.lines}` : `${f.lines} lines`}
+            </span>
             <small>{f.reason}</small>
           </div>
         )}

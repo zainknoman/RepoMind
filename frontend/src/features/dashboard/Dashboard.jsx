@@ -259,7 +259,9 @@ export function Dashboard({
                   <div className="dashboard-folder-row" key={x.name}>
                     <span>📁 {x.name}</span>
                     <i>
-                      <b style={{ width: Math.max(4, Math.round((x.count / maxDir) * 100)) + '%' }} />
+                      <b
+                        style={{ width: Math.max(4, Math.round((x.count / maxDir) * 100)) + '%' }}
+                      />
                     </i>
                     <strong>{x.count}</strong>
                   </div>

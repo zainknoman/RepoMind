@@ -91,10 +91,10 @@ export function SearchPanel({
               className="list"
               items={res.symbols}
               searchPlaceholder="Search symbol results"
-              getSearchText={(s) => [s.name, s.kind, s.path].filter(Boolean).join(" ")}
+              getSearchText={(s) => [s.name, s.kind, s.path].filter(Boolean).join(' ')}
               renderItem={(s) => (
                 <button
-                  key={s.path + "|" + s.name + "|" + s.kind + "|" + s.line}
+                  key={s.path + '|' + s.name + '|' + s.kind + '|' + s.line}
                   onClick={() => openPath(s.path)}
                 >
                   <b>
@@ -115,7 +115,7 @@ export function SearchPanel({
               className="list"
               items={res.files}
               searchPlaceholder="Search file results"
-              getSearchText={(f) => [f.path, f.language].filter(Boolean).join(" ")}
+              getSearchText={(f) => [f.path, f.language].filter(Boolean).join(' ')}
               renderItem={(f) => (
                 <button key={f.path} onClick={() => openPath(f.path)}>
                   <b>{f.path}</b>
@@ -138,7 +138,7 @@ export function SearchPanel({
               className="list"
               items={res.text}
               searchPlaceholder="Search text results"
-              getSearchText={(r) => [r.path, r.line, r.text].filter(Boolean).join(" ")}
+              getSearchText={(r) => [r.path, r.line, r.text].filter(Boolean).join(' ')}
               renderItem={(r, i) => (
                 <button key={r.path + '-' + r.line + '-' + i} onClick={() => openPath(r.path)}>
                   <b>

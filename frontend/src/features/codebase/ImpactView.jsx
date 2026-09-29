@@ -177,7 +177,9 @@ export function ImpactView({
             <PaginatedList
               items={symbol.affected}
               searchPlaceholder="Search affected symbols"
-              getSearchText={(a) => [a.name, a.path, a.confidence, a.via?.name, a.via?.path].filter(Boolean).join(' ')}
+              getSearchText={(a) =>
+                [a.name, a.path, a.confidence, a.via?.name, a.via?.path].filter(Boolean).join(' ')
+              }
               renderItem={(a) => (
                 <button
                   className="impact-row clickable"

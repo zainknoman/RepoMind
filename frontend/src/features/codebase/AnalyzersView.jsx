@@ -99,7 +99,10 @@ function AnalyzerPanel({ analyzer, result, running, disabled, onRun, onOpenFile 
             items={findings}
             searchPlaceholder={'Search ' + analyzer.name + ' findings'}
             getSearchText={(finding) =>
-              analyzer.columns.map(([key]) => finding[key]).filter(Boolean).join(' ')
+              analyzer.columns
+                .map(([key]) => finding[key])
+                .filter(Boolean)
+                .join(' ')
             }
             renderItem={(finding, i) => (
               <div className="index-row analyzer-row" role="row" style={cols} key={i}>

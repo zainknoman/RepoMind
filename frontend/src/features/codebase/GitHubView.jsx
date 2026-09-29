@@ -70,8 +70,17 @@ function searchItem(kind, item, query) {
           ? [item.number, item.title, item.state]
           : kind === 'issues'
             ? [item.number, item.title, item.state]
-            : [item.tag_name, item.name, item.draft ? 'draft' : '', item.prerelease ? 'pre-release' : 'published'];
-  return values.some((value) => String(value ?? '').toLowerCase().includes(q));
+            : [
+                item.tag_name,
+                item.name,
+                item.draft ? 'draft' : '',
+                item.prerelease ? 'pre-release' : 'published',
+              ];
+  return values.some((value) =>
+    String(value ?? '')
+      .toLowerCase()
+      .includes(q),
+  );
 }
 
 function useResource(loader, source, kind) {
@@ -204,86 +213,86 @@ function ListView({ kind, source, onImpact }) {
       </div>
       <LoadState {...state} empty={!items.length && !query}>
         <Pager page={page} setPage={setPage} hasNext={totalItems === PAGE_SIZE}>
-        {items.map((item) => {
-          if (kind === 'branches')
-            return (
-              <div className="index-row" key={item.name}>
-                <b>{item.name}</b>
-                <span>{item.commit?.sha?.slice(0, 12)}</span>
-                <small>{item.protected ? 'protected' : 'unprotected'}</small>
-              </div>
-            );
-          if (kind === 'commits')
-            return (
-              <div className="git-activity" key={item.sha}>
-                <code>{(item.sha || '').slice(0, 10)}</code>
-                <span>{(item.commit?.message || '').split(/\r?\n/)[0]}</span>
-                <small>
-                  {item.commit?.author?.name} · {date(item.commit?.author?.date)}
-                </small>
-                <Link href={item.html_url}>GitHub ↗</Link>
-                <button
-                  onClick={() =>
-                    onImpact({
-                      type: 'commit',
-                      id: item.sha,
-                      title:
-                        'Commit ' +
-                        item.sha.slice(0, 10) +
-                        ' · ' +
-                        (item.commit?.message?.split(/\r?\n/)[0] || ''),
-                    })
-                  }
-                >
-                  Impact
-                </button>
-              </div>
-            );
-          if (kind === 'pulls')
+          {items.map((item) => {
+            if (kind === 'branches')
+              return (
+                <div className="index-row" key={item.name}>
+                  <b>{item.name}</b>
+                  <span>{item.commit?.sha?.slice(0, 12)}</span>
+                  <small>{item.protected ? 'protected' : 'unprotected'}</small>
+                </div>
+              );
+            if (kind === 'commits')
+              return (
+                <div className="git-activity" key={item.sha}>
+                  <code>{(item.sha || '').slice(0, 10)}</code>
+                  <span>{(item.commit?.message || '').split(/\r?\n/)[0]}</span>
+                  <small>
+                    {item.commit?.author?.name} · {date(item.commit?.author?.date)}
+                  </small>
+                  <Link href={item.html_url}>GitHub ↗</Link>
+                  <button
+                    onClick={() =>
+                      onImpact({
+                        type: 'commit',
+                        id: item.sha,
+                        title:
+                          'Commit ' +
+                          item.sha.slice(0, 10) +
+                          ' · ' +
+                          (item.commit?.message?.split(/\r?\n/)[0] || ''),
+                      })
+                    }
+                  >
+                    Impact
+                  </button>
+                </div>
+              );
+            if (kind === 'pulls')
+              return (
+                <div className="git-activity" key={item.id}>
+                  <b>#{item.number}</b>
+                  <span>{item.title}</span>
+                  <small>
+                    {item.state} · updated {date(item.updated_at)}
+                  </small>
+                  <Link href={item.html_url}>GitHub ↗</Link>
+                  <button
+                    onClick={() =>
+                      onImpact({
+                        type: 'pull',
+                        id: item.number,
+                        title: 'PR #' + item.number + ' · ' + item.title,
+                      })
+                    }
+                  >
+                    Impact
+                  </button>
+                </div>
+              );
+            if (kind === 'issues')
+              return (
+                <div className="git-activity" key={item.id}>
+                  <b>#{item.number}</b>
+                  <span>{item.title}</span>
+                  <small>
+                    {item.state} · updated {date(item.updated_at)}
+                  </small>
+                  <Link href={item.html_url}>GitHub ↗</Link>
+                </div>
+              );
             return (
               <div className="git-activity" key={item.id}>
-                <b>#{item.number}</b>
-                <span>{item.title}</span>
+                <b>{item.tag_name}</b>
+                <span>{item.name || 'Untitled release'}</span>
                 <small>
-                  {item.state} · updated {date(item.updated_at)}
-                </small>
-                <Link href={item.html_url}>GitHub ↗</Link>
-                <button
-                  onClick={() =>
-                    onImpact({
-                      type: 'pull',
-                      id: item.number,
-                      title: 'PR #' + item.number + ' · ' + item.title,
-                    })
-                  }
-                >
-                  Impact
-                </button>
-              </div>
-            );
-          if (kind === 'issues')
-            return (
-              <div className="git-activity" key={item.id}>
-                <b>#{item.number}</b>
-                <span>{item.title}</span>
-                <small>
-                  {item.state} · updated {date(item.updated_at)}
+                  {item.draft ? 'draft' : item.prerelease ? 'pre-release' : 'published'} ·{' '}
+                  {date(item.published_at || item.created_at)}
                 </small>
                 <Link href={item.html_url}>GitHub ↗</Link>
               </div>
             );
-          return (
-            <div className="git-activity" key={item.id}>
-              <b>{item.tag_name}</b>
-              <span>{item.name || 'Untitled release'}</span>
-              <small>
-                {item.draft ? 'draft' : item.prerelease ? 'pre-release' : 'published'} ·{' '}
-                {date(item.published_at || item.created_at)}
-              </small>
-              <Link href={item.html_url}>GitHub ↗</Link>
-            </div>
-          );
-        })}
+          })}
         </Pager>
       </LoadState>
       {!state.loading && !state.error && query && !items.length && (

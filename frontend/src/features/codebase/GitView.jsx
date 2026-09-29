@@ -140,7 +140,11 @@ function ChangeImpact({ state, onOpenFile, projectName, onExplain }) {
                 searchPlaceholder="Search broken references"
                 getSearchText={(b) => [b.path, b.line, b.reason].filter(Boolean).join(' ')}
                 renderItem={(b, i) => (
-                  <button className="mini-row clickable" key={b.path + ':' + b.line + ':' + i} onClick={() => onOpenFile(b.path)}>
+                  <button
+                    className="mini-row clickable"
+                    key={b.path + ':' + b.line + ':' + i}
+                    onClick={() => onOpenFile(b.path)}
+                  >
                     {b.path}:{b.line} — {b.reason}
                   </button>
                 )}

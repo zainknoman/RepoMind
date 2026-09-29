@@ -603,7 +603,9 @@ function SymbolDetails({ details, onClose, onImpact }) {
           <PaginatedList
             items={byConfidence(details.references)}
             searchPlaceholder="Search references"
-            getSearchText={(r) => [r.from, r.receiver, r.confidence, r.resolution].filter(Boolean).join(' ')}
+            getSearchText={(r) =>
+              [r.from, r.receiver, r.confidence, r.resolution].filter(Boolean).join(' ')
+            }
             renderItem={(r, i) => (
               <div className="mini-row" key={r.from + ':' + r.line + ':' + i}>
                 {r.from}:{r.line}:{r.column}

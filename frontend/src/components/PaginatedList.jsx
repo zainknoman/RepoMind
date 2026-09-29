@@ -18,7 +18,11 @@ export function PaginatedList({
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return items;
-    return items.filter((item) => String(getSearchText(item) ?? '').toLowerCase().includes(q));
+    return items.filter((item) =>
+      String(getSearchText(item) ?? '')
+        .toLowerCase()
+        .includes(q),
+    );
   }, [items, query, getSearchText]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
@@ -46,23 +50,38 @@ export function PaginatedList({
             {filtered.length
               ? start + 1 === Math.min(start + pageSize, filtered.length)
                 ? start + 1 + ' of ' + filtered.length + ' files'
-                : start + 1 + '–' + Math.min(start + pageSize, filtered.length) + ' of ' + filtered.length
+                : start +
+                  1 +
+                  '–' +
+                  Math.min(start + pageSize, filtered.length) +
+                  ' of ' +
+                  filtered.length
               : '0 records'}
           </span>
         </div>
       )}
 
-      {visible.length ? visible.map((item, index) => renderItem(item, start + index)) : <p className="muted">{emptyText}</p>}
+      {visible.length ? (
+        visible.map((item, index) => renderItem(item, start + index))
+      ) : (
+        <p className="muted">{emptyText}</p>
+      )}
 
       {filtered.length > pageSize && (
         <div className="transform-toolbar" aria-label="Pagination">
-          <button onClick={() => setPage((value) => Math.max(1, value - 1))} disabled={safePage === 1}>
+          <button
+            onClick={() => setPage((value) => Math.max(1, value - 1))}
+            disabled={safePage === 1}
+          >
             ← Previous
           </button>
           <span className="muted">
             Page {safePage} of {pageCount}
           </span>
-          <button onClick={() => setPage((value) => Math.min(pageCount, value + 1))} disabled={safePage === pageCount}>
+          <button
+            onClick={() => setPage((value) => Math.min(pageCount, value + 1))}
+            disabled={safePage === pageCount}
+          >
             Next →
           </button>
         </div>

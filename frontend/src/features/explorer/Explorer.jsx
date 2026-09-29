@@ -14,20 +14,20 @@ export function Explorer({ p, open }) {
         <>
           <PaginatedList
             className="list"
-          items={p.files || []}
-          searchPlaceholder="Filter files"
-          getSearchText={(f) => [f.path, f.ext].filter(Boolean).join(' ')}
-          renderItem={(f) => (
-            <button
-              onClick={() => open(f)}
-              disabled={!f.text}
-              title={f.text ? f.path : 'Binary, too large or sensitive file'}
-            >
-              <span>📄 {f.path}</span>
-              <small>{f.ext}</small>
-            </button>
-          )}
-        />
+            items={p.files || []}
+            searchPlaceholder="Filter files"
+            getSearchText={(f) => [f.path, f.ext].filter(Boolean).join(' ')}
+            renderItem={(f) => (
+              <button
+                onClick={() => open(f)}
+                disabled={!f.text}
+                title={f.text ? f.path : 'Binary, too large or sensitive file'}
+              >
+                <span>📄 {f.path}</span>
+                <small>{f.ext}</small>
+              </button>
+            )}
+          />
         </>
       )}
     </section>
