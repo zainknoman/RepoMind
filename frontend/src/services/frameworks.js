@@ -20,7 +20,10 @@ export const PACKAGE_FRAMEWORKS = new Map([
   ['django', 'Django'],
 ]);
 
-const readText = async (file) => (file?.handle ? (await file.handle.getFile()).text() : '');
+const readText = async (file) => {
+  if (typeof file?.content === 'string') return file.content;
+  return file?.handle ? (await file.handle.getFile()).text() : '';
+};
 
 /** Dependencies declared in the root-most package.json, each tagged with its framework if known. */
 export async function detectProjectPackages(index) {

@@ -11,7 +11,7 @@ export const CONTENT_SECURITY_POLICY = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self' data:",
-  "connect-src 'self' https://api.openai.com https://api.anthropic.com https://generativelanguage.googleapis.com",
+  "connect-src 'self' https://api.openai.com https://api.anthropic.com https://generativelanguage.googleapis.com https://api.github.com https://raw.githubusercontent.com",
   "frame-src 'self'",
   "worker-src 'self' blob:",
   "object-src 'none'",

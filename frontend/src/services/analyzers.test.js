@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { attachFileHandles, buildRepositoryIndex } from './repository';
 import { toWorkerProject } from './indexProject';
+import { detectProjectPackages } from './frameworks';
 import {
   analyzerSummary,
   defineAnalyzer,
@@ -97,6 +98,57 @@ describe('analyzer contract', () => {
       { analyzer: 'plugin-good', title: '42', severity: 'info', file: 'src/a.js', line: null },
     ]);
     expect(onResult).toHaveBeenCalledTimes(2);
+  });
+
+  it('runs source analyzers from imported GitHub content without local file handles', async () => {
+    const files = [
+      {
+        path: 'package.json',
+        name: 'package.json',
+        ext: '.json',
+        content: JSON.stringify({ dependencies: { '@nestjs/core': '^11.0.0' } }),
+      },
+      {
+        path: 'src/users.controller.ts',
+        name: 'users.controller.ts',
+        ext: '.ts',
+        content: "@Controller('/users')\nexport class UsersController {}\n",
+      },
+      {
+        path: 'src/app.ts',
+        name: 'app.ts',
+        ext: '.ts',
+        content: "app.get('/health', health);\n",
+      },
+    ];
+    const project = {
+      name: 'github-demo',
+      source: { type: 'github', owner: 'acme', repo: 'demo', commit: 'abc123' },
+      files: files.map((file) => ({ ...file, text: true })),
+    };
+    const index = attachFileHandles(
+      await buildRepositoryIndex(toWorkerProject(project.name, files)),
+      project,
+    );
+    index.project.packages = await detectProjectPackages(index);
+    const results = await runAnalyzers(index, ['routes', 'framework-structure']);
+    expect(results.routes.findings).toEqual([
+      expect.objectContaining({
+        method: 'GET',
+        path: '/health',
+        framework: 'Express',
+        file: 'src/app.ts',
+        line: 1,
+      }),
+    ]);
+    expect(results['framework-structure'].findings).toEqual([
+      expect.objectContaining({
+        framework: 'NestJS',
+        kind: 'controller',
+        file: 'src/users.controller.ts',
+        line: 1,
+      }),
+    ]);
   });
 
   it('reads each file once per run, however many analyzers use it', async () => {

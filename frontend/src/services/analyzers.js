@@ -72,16 +72,19 @@ export function lineLocator(text) {
   };
 }
 
-/** A cached reader over the index's file handles; missing files read as ''. */
+/** A cached reader shared by local-folder and imported-source indexes. */
 export function createSourceReader(index) {
   const cache = new Map();
   return (path) => {
     if (!cache.has(path)) {
       const file = index?._fileHandles?.get(path);
-      cache.set(
-        path,
-        file?.handle ? file.handle.getFile().then((f) => f.text()) : Promise.resolve(''),
-      );
+      const content =
+        typeof file?.content === 'string'
+          ? Promise.resolve(file.content)
+          : file?.handle
+            ? file.handle.getFile().then((f) => f.text())
+            : Promise.resolve('');
+      cache.set(path, content);
     }
     return cache.get(path);
   };

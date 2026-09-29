@@ -3,13 +3,17 @@ import { importGithubRepository } from './githubImport';
 import { parseGithubUrl } from './githubImport';
 
 describe('parseGithubUrl', () => {
-  it('parses a repository URL', () => {
-    expect(parseGithubUrl('https://github.com/zainknoman/RepoMind/')).toEqual({
+  it('parses canonical, www and scheme-less repository URLs', () => {
+    const expected = {
       owner: 'zainknoman',
       repo: 'RepoMind',
       branch: null,
       url: 'https://github.com/zainknoman/RepoMind',
-    });
+    };
+    expect(parseGithubUrl('https://github.com/zainknoman/RepoMind/')).toEqual(expected);
+    expect(parseGithubUrl('https://www.github.com/zainknoman/RepoMind/')).toEqual(expected);
+    expect(parseGithubUrl('github.com/zainknoman/RepoMind')).toEqual(expected);
+    expect(parseGithubUrl('www.github.com/zainknoman/RepoMind.git')).toEqual(expected);
   });
 
   it('parses a .git URL and branch URL', () => {

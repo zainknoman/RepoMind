@@ -8,7 +8,7 @@ import {
   gitignoreMatcher,
 } from '../lib/files';
 
-const GITHUB_HOST = 'github.com';
+const GITHUB_HOSTS = new Set(['github.com', 'www.github.com']);
 const MAX_TEXT_BYTES = 2 * 1024 * 1024;
 const FETCH_CONCURRENCY = 8;
 
@@ -16,14 +16,16 @@ export function parseGithubUrl(value) {
   const raw = String(value || '').trim();
   if (!raw) throw new Error('Enter a GitHub repository URL');
 
+  const candidate = /^[a-z][a-z\d+.-]*:\/\//i.test(raw) ? raw : `https://${raw}`;
+
   let url;
   try {
-    url = new URL(raw);
+    url = new URL(candidate);
   } catch {
     throw new Error('Enter a valid GitHub repository URL');
   }
 
-  if (url.protocol !== 'https:' || url.hostname.toLowerCase() !== GITHUB_HOST)
+  if (url.protocol !== 'https:' || !GITHUB_HOSTS.has(url.hostname.toLowerCase()))
     throw new Error('Only https://github.com repository URLs are supported');
 
   const parts = url.pathname
