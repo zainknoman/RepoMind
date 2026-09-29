@@ -52,8 +52,7 @@ export default function CodebasePanel({
   onOpenFile,
 }) {
   const { index, indexing, progress, source: indexSource, cycles, health } = codebase;
-  const [query, setQuery] = useState(''),
-    [selectedSymbol, setSelectedSymbol] = useState(null),
+  const [selectedSymbol, setSelectedSymbol] = useState(null),
     [impactSymbol, setImpactSymbol] = useState(null),
     [error, setError] = useState('');
   const [diagram, setDiagram] = useState(''),
