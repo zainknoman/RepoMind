@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { PaginatedList } from '../../components/PaginatedList';
 import {
   fetchGithubBranches,
   fetchGithubCommit,
@@ -339,23 +340,33 @@ function Impact({ source, index, selected }) {
             </span>
           </div>
           <h3>Changed files</h3>
-          {state.files.map((f) => (
-            <div className="index-row" key={f.path}>
-              <b>{f.path}</b>
-              <span>{f.status}</span>
-              <small>
-                +{f.additions} −{f.deletions}
-              </small>
-            </div>
-          ))}
+          <PaginatedList
+            items={state.files}
+            searchPlaceholder="Search changed files"
+            getSearchText={(f) => [f.path, f.status].filter(Boolean).join(' ')}
+            renderItem={(f) => (
+              <div className="index-row" key={f.path}>
+                <b>{f.path}</b>
+                <span>{f.status}</span>
+                <small>
+                  +{f.additions} −{f.deletions}
+                </small>
+              </div>
+            )}
+          />
           <h3>Affected files</h3>
-          {state.affected.map((f) => (
-            <div className="index-row" key={f.path}>
-              <b>{f.path}</b>
-              <span>level {f.depth}</span>
-              <small>via {f.via}</small>
-            </div>
-          ))}
+          <PaginatedList
+            items={state.affected}
+            searchPlaceholder="Search affected files"
+            getSearchText={(f) => [f.path, f.via].filter(Boolean).join(' ')}
+            renderItem={(f) => (
+              <div className="index-row" key={f.path}>
+                <b>{f.path}</b>
+                <span>level {f.depth}</span>
+                <small>via {f.via}</small>
+              </div>
+            )}
+          />
           {!state.affected.length && (
             <p className="muted">No dependent files were found in the current index.</p>
           )}
