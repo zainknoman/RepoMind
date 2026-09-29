@@ -38,11 +38,13 @@ function LoadState({ loading, error, empty, children }) {
   if (empty) return <p className="muted">No items found.</p>;
   return children;
 }
+const PAGE_SIZE = 20;
+
 function Pager({ page, setPage, hasNext, children }) {
   return (
     <>
       <>{children}</>
-      <div className="transform-toolbar">
+      <div className="transform-toolbar" aria-label="Pagination">
         <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
           ← Previous
         </button>
@@ -54,14 +56,39 @@ function Pager({ page, setPage, hasNext, children }) {
     </>
   );
 }
+
+function searchItem(kind, item, query) {
+  if (!query.trim()) return true;
+  const q = query.trim().toLowerCase();
+  const values =
+    kind === 'branches'
+      ? [item.name, item.commit?.sha, item.protected ? 'protected' : 'unprotected']
+      : kind === 'commits'
+        ? [item.sha, item.commit?.message, item.commit?.author?.name]
+        : kind === 'pulls'
+          ? [item.number, item.title, item.state]
+          : kind === 'issues'
+            ? [item.number, item.title, item.state]
+            : [
+                item.tag_name,
+                item.name,
+                item.draft ? 'draft' : '',
+                item.prerelease ? 'pre-release' : 'published',
+              ];
+  return values.some((value) => String(value ?? '').toLowerCase().includes(q));
+}
+
 function useResource(loader, source) {
   const [page, setPage] = useState(1);
+  const [query, setQuery] = useState('');
   const [items, setItems] = useState([]);
   const [state, setState] = useState({ loading: true });
   useEffect(() => {
     let active = true;
     setState({ loading: true });
-    loader(source, page)
+    loader(source, page, {
+      fetchImpl: (url, init) => fetch(url.replace('per_page=30', 'per_page=' + PAGE_SIZE), init),
+    })
       .then((data) => {
         if (active) {
           setItems(data);
@@ -73,7 +100,19 @@ function useResource(loader, source) {
       active = false;
     };
   }, [loader, source, page]);
-  return { page, setPage, items, state };
+  const filteredItems = items.filter((item) => searchItem(source.kind || '', item, query));
+  return {
+    page,
+    setPage,
+    query,
+    setQuery: (value) => {
+      setQuery(value);
+      setPage(1);
+    },
+    items: filteredItems,
+    totalItems: items.length,
+    state,
+  };
 }
 
 function Repository({ repo, source }) {
@@ -146,10 +185,30 @@ function Repository({ repo, source }) {
 
 function ListView({ kind, source, onImpact }) {
   const loader = LOADERS[kind];
-  const { page, setPage, items, state } = useResource(loader, source);
+  const resourceSource = { ...source, kind };
+  const { page, setPage, query, setQuery, items, totalItems, state } = useResource(
+    loader,
+    resourceSource,
+  );
   return (
     <LoadState {...state} empty={!items.length}>
-      <Pager page={page} setPage={setPage} hasNext={items.length === 30}>
+      <div className="search" aria-label={LABELS[kind] + ' search'}>
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={'Search ' + LABELS[kind].toLowerCase() + '…'}
+          aria-label={'Search ' + LABELS[kind]}
+        />
+        {query && (
+          <button onClick={() => setQuery('')} aria-label={'Clear ' + LABELS[kind] + ' search'}>
+            ✕ Clear
+          </button>
+        )}
+        <span className="muted">
+          {totalItems ? `${items.length} of ${totalItems} on this page` : '0 records'}
+        </span>
+      </div>
+      <Pager page={page} setPage={setPage} hasNext={totalItems === PAGE_SIZE}>
         {items.map((item) => {
           if (kind === 'branches')
             return (
