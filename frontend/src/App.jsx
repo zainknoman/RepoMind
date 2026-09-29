@@ -10,6 +10,7 @@ import { toast } from './lib/toast';
 import { TOOL_IDS } from './features/tools/runTool';
 import { NAV_GROUPS, PRIMARY_TAB, SECONDARY_GROUP } from './navigation';
 import { useCodebaseIndex } from './features/codebase/useCodebaseIndex';
+import { importGithubRepository } from './services/githubImport';
 
 // Workspaces are loaded on first use so the initial bundle only carries the shell and the dashboard.
 const named = (loader, name) => lazy(() => loader().then((m) => ({ default: m[name] })));
@@ -49,6 +50,10 @@ function App() {
   const initial = useMemo(initialState, []);
   const folderSupported = useMemo(supportsFolderAccess, []);
   const [includeSensitive, setIncludeSensitive] = useState(false),
+    [githubOpen, setGithubOpen] = useState(false),
+    [githubUrl, setGithubUrl] = useState(''),
+    [githubLoading, setGithubLoading] = useState(false),
+    [githubProgress, setGithubProgress] = useState(null),
     [p, setP] = useState(),
     [dashboardData, setDashboardData] = useState(null),
     [sel, setSel] = useState(),
@@ -77,6 +82,7 @@ function App() {
     [codebaseFile, setCodebaseFile] = useState('');
   // One index per opened folder, shared by the Dashboard and the Codebase workspace.
   const codebase = useCodebaseIndex(p);
+  const githubAbortRef = useRef(null);
 
   // Opens a Codebase view, optionally focused on one file (used by the Dashboard's investigation links).
   // Search is one workspace for the whole product, so a 'search' link opens it rather than a view.
@@ -109,6 +115,55 @@ function App() {
       !dirty ||
       window.confirm(`You have unsaved changes to ${sel?.path || 'the open file'}. Discard them?`)
     );
+  }
+
+  async function github() {
+    if (!confirmDiscard()) return;
+    const controller = new AbortController();
+    githubAbortRef.current = controller;
+    setGithubLoading(true);
+    setGithubProgress({ phase: 'start', current: 0, total: 1, path: null });
+    setErr('');
+    setNotice('');
+    try {
+      const project = await importGithubRepository(githubUrl, {
+        includeSensitive,
+        signal: controller.signal,
+        onProgress: setGithubProgress,
+      });
+      setP(project);
+      setCodebaseMounted(false);
+      setCodebaseView('overview');
+      setCodebaseFile('');
+      setSel(null);
+      setText('');
+      setDirty(false);
+      setSearchView(null);
+      setRes(null);
+      setDiff(null);
+      setTab('dashboard');
+      setGithubOpen(false);
+      setNotice(
+        project.truncated
+          ? `This repository has more than ${MAX_FILES.toLocaleString()} supported files. Only the first ${MAX_FILES.toLocaleString()} were loaded.`
+          : `Imported ${project.files.length.toLocaleString()} supported files from GitHub at ${project.source.branch}.`,
+      );
+      setDashboardData(null);
+      buildDashboardData(project.files)
+        .then(setDashboardData)
+        .catch(() => {});
+    } catch (e) {
+      if (e?.name === 'AbortError') setErr('GitHub import cancelled');
+      else setErr(e?.message || 'Unable to import GitHub repository');
+    } finally {
+      if (githubAbortRef.current === controller) githubAbortRef.current = null;
+      setGithubLoading(false);
+      setGithubProgress(null);
+    }
+  }
+
+  function cancelGithub() {
+    githubAbortRef.current?.abort();
   }
 
   async function folder() {
@@ -243,7 +298,10 @@ function App() {
             />{' '}
             Include sensitive files
           </label>
-          <button onClick={folder} disabled={!folderSupported}>
+          <button onClick={() => setGithubOpen((open) => !open)} disabled={githubLoading}>
+            <span aria-hidden="true">🔗</span> GitHub Repository
+          </button>
+          <button onClick={folder} disabled={!folderSupported || githubLoading}>
             <span aria-hidden="true">📂</span> Open Folder
           </button>
         </div>
@@ -255,12 +313,46 @@ function App() {
           and the Developer Tools still work here.
         </div>
       )}
+      {githubOpen && (
+        <div className="notice" role="region" aria-label="GitHub repository import">
+          <b>GitHub Repository</b>
+          <div className="search">
+            <input
+              aria-label="GitHub repository URL"
+              value={githubUrl}
+              onChange={(e) => setGithubUrl(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && !githubLoading && github()}
+              placeholder="https://github.com/owner/repository"
+              disabled={githubLoading}
+            />
+            <button onClick={github} disabled={githubLoading || !githubUrl.trim()}>
+              {githubLoading ? 'Importing…' : 'Import Repository'}
+            </button>
+            {githubLoading && <button onClick={cancelGithub}>Cancel</button>}
+          </div>
+          {githubLoading && githubProgress && (
+            <small>
+              {githubProgress.phase === 'metadata' && 'Reading repository metadata…'}
+              {githubProgress.phase === 'download' && 'Downloading repository archive…'}
+              {githubProgress.phase === 'extract' &&
+                `Extracting files ${githubProgress.current.toLocaleString()} / ${githubProgress.total.toLocaleString()}…`}
+            </small>
+          )}
+          <small className="muted">
+            Public repositories only in P0. GitHub imports are read-only and analyzed locally in your browser.
+          </small>
+        </div>
+      )}
       <div className="status" role="status">
         {p ? (
           <>
             <b>📁 {p.name}</b>
             <span>📄 {p.files.length.toLocaleString()} files</span>
-            <span>✓ Local only</span>
+            {p.source?.type === 'github' ? (
+              <span>🔗 GitHub · {p.source.branch}</span>
+            ) : (
+              <span>✓ Local only</span>
+            )}
           </>
         ) : (
           <span>{folderSupported ? 'Select a local folder to begin' : 'No folder open'}</span>
@@ -373,6 +465,7 @@ function App() {
                   }}
                   dirty={dirty}
                   save={save}
+                  readOnly={p?.source?.type === 'github'}
                 />
               )}
               {tab === 'mdviewer' && <MDViewer />}
