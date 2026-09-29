@@ -162,8 +162,8 @@ function ListView({ kind, source, onImpact }) {
           if (kind === 'commits')
             return (
               <div className="git-activity" key={item.sha}>
-                <code>{item.sha.slice(0, 10)}</code>
-                <span>{item.commit?.message?.split(/\r?\n/)[0]}</span>
+                <code>{(item.sha || '').slice(0, 10)}</code>
+                <span>{(item.commit?.message || '').split(/\r?\n/)[0]}</span>
                 <small>
                   {item.commit?.author?.name} · {date(item.commit?.author?.date)}
                 </small>
