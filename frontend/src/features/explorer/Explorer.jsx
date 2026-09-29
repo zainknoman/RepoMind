@@ -1,11 +1,6 @@
-import { useMemo } from 'react';
 import { PaginatedList } from '../../components/PaginatedList';
 
 export function Explorer({ p, open }) {
-  const visible = useMemo(
-    () => (p?.files || []).filter((f) => f.path.toLowerCase().includes(q.toLowerCase())),
-    [p, q],
-  );
   return (
     <section>
       <div className="head">
@@ -18,7 +13,7 @@ export function Explorer({ p, open }) {
       {p && (
         <>
           <PaginatedList
-          className="list"
+            className="list"
           items={p.files || []}
           searchPlaceholder="Filter files"
           getSearchText={(f) => [f.path, f.ext].filter(Boolean).join(' ')}

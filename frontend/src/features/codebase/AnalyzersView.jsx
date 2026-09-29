@@ -87,29 +87,29 @@ function AnalyzerPanel({ analyzer, result, running, disabled, onRun, onOpenFile 
       )}
       {result && !result.error && !findings.length && <p className="muted">No findings.</p>}
       {findings.length > 0 && (
-        <PaginatedList
-          items={findings}
-          searchPlaceholder={'Search ' + analyzer.name + ' findings'}
-          getSearchText={(finding) =>
-            analyzer.columns.map(([key]) => finding[key]).filter(Boolean).join(' ')
-          }
-          renderItem={(finding, i) => (
-            <div className="analyzer-table" role="table" key={i}>
-              <div className="analyzer-row analyzer-head" role="row" style={cols}>
-                {analyzer.columns.map(([key, label]) => (
-                  <span key={key} role="columnheader">
-                    {label}
-                  </span>
-                ))}
-              </div>
-              <div className="index-row analyzer-row" role="row" style={cols}>
+        <div className="analyzer-table" role="table">
+          <div className="analyzer-row analyzer-head" role="row" style={cols}>
+            {analyzer.columns.map(([key, label]) => (
+              <span key={key} role="columnheader">
+                {label}
+              </span>
+            ))}
+          </div>
+          <PaginatedList
+            items={findings}
+            searchPlaceholder={'Search ' + analyzer.name + ' findings'}
+            getSearchText={(finding) =>
+              analyzer.columns.map(([key]) => finding[key]).filter(Boolean).join(' ')
+            }
+            renderItem={(finding, i) => (
+              <div className="index-row analyzer-row" role="row" style={cols} key={i}>
                 {analyzer.columns.map(([key]) => (
                   <Cell key={key} name={key} finding={finding} onOpenFile={onOpenFile} />
                 ))}
               </div>
-            </div>
-          )}
-        />
+            )}
+          />
+        </div>
       )}
     </div>
   );
