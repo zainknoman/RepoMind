@@ -25,8 +25,26 @@ function openDb() {
 }
 
 async function projectKey(project) {
+  // Imported snapshots are immutable at a specific GitHub commit, so use the commit/ref as the
+  // identity instead of requiring local File System Access handles.
+  if (project?.source?.type === 'github') {
+    const identity = [
+      'github',
+      project.source.owner || '',
+      project.source.repo || project.name || '',
+      project.source.commit || project.source.ref || project.source.branch || '',
+    ].join(':');
+    let hash = 2166136261;
+    for (const value of [identity, ...(project.files || []).filter((f) => f.text).map((f) => f.path).sort()])
+      for (let i = 0; i < value.length; i++) {
+        hash ^= value.charCodeAt(i);
+        hash = Math.imul(hash, 16777619);
+      }
+    return (hash >>> 0).toString(16);
+  }
+
   // Runs on every folder open, so iterate the sorted files directly (no per-path lookup), reading
-  // metadata in parallel batches. The key format is unchanged.
+  // metadata in parallel batches. The local-folder key format is unchanged.
   const files = (project?.files || [])
     .filter((f) => f.text)
     .sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
