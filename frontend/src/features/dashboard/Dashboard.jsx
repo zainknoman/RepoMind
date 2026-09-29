@@ -347,7 +347,7 @@ export function Dashboard({
           <PaginatedList
             className="dashboard-file-list"
             items={filteredFiles}
-            searchPlaceholder="Search repository files"
+            searchPlaceholder="Filter files"
             getSearchText={(f) => [f.path, f.ext].filter(Boolean).join(' ')}
             renderItem={(f) => (
               <button key={f.path} onClick={() => open(f)}>
