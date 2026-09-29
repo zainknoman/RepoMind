@@ -43,7 +43,11 @@ export function PaginatedList({
           />
           {query && <button onClick={() => updateQuery('')}>✕ Clear</button>}
           <span className="muted">
-            {filtered.length ? start + 1 + '–' + Math.min(start + pageSize, filtered.length) + ' of ' + filtered.length : '0 records'}
+            {filtered.length
+              ? start + 1 === Math.min(start + pageSize, filtered.length)
+                ? start + 1 + ' of ' + filtered.length + ' files'
+                : start + 1 + '–' + Math.min(start + pageSize, filtered.length) + ' of ' + filtered.length
+              : '0 records'}
           </span>
         </div>
       )}
