@@ -93,7 +93,7 @@ export function Editor({ sel, text, setText, dirty, save, readOnly = false }) {
               onChange={(e) => setRep(e.target.value)}
               placeholder="Replace with"
             />
-            <button onClick={replaceCurrent} disabled={!matches.length}>
+            <button onClick={replaceCurrent} disabled={readOnly || !matches.length}>
               Replace
             </button>
             <button
