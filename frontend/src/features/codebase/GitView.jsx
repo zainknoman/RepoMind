@@ -98,11 +98,16 @@ function ChangeImpact({ state, onOpenFile, projectName, onExplain }) {
               </div>
             )}
           />
-          {[...result.skipped, ...result.nonCode].map((c) => (
-            <div className="mini-row muted" key={c.path}>
-              {c.path} <small>({c.status}, not analysed)</small>
-            </div>
-          ))}
+          <PaginatedList
+            items={[...result.skipped, ...result.nonCode]}
+            searchPlaceholder="Search skipped and non-code files"
+            getSearchText={(c) => [c.path, c.status].filter(Boolean).join(' ')}
+            renderItem={(c) => (
+              <div className="mini-row muted" key={c.path}>
+                {c.path} <small>({c.status}, not analysed)</small>
+              </div>
+            )}
+          />
         </div>
         <div>
           <h3>Affected</h3>
@@ -130,11 +135,16 @@ function ChangeImpact({ state, onOpenFile, projectName, onExplain }) {
           {!!result.broken.length && (
             <>
               <h3>Broken references</h3>
-              {result.broken.map((b, i) => (
-                <button className="mini-row clickable" key={i} onClick={() => onOpenFile(b.path)}>
-                  {b.path}:{b.line} — {b.reason}
-                </button>
-              ))}
+              <PaginatedList
+                items={result.broken}
+                searchPlaceholder="Search broken references"
+                getSearchText={(b) => [b.path, b.line, b.reason].filter(Boolean).join(' ')}
+                renderItem={(b, i) => (
+                  <button className="mini-row clickable" key={b.path + ':' + b.line + ':' + i} onClick={() => onOpenFile(b.path)}>
+                    {b.path}:{b.line} — {b.reason}
+                  </button>
+                )}
+              />
             </>
           )}
           {!!result.blindSpots.length && (
