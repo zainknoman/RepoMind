@@ -69,12 +69,7 @@ function searchItem(kind, item, query) {
           ? [item.number, item.title, item.state]
           : kind === 'issues'
             ? [item.number, item.title, item.state]
-            : [
-                item.tag_name,
-                item.name,
-                item.draft ? 'draft' : '',
-                item.prerelease ? 'pre-release' : 'published',
-              ];
+            : [item.tag_name, item.name, item.draft ? 'draft' : '', item.prerelease ? 'pre-release' : 'published'];
   return values.some((value) => String(value ?? '').toLowerCase().includes(q));
 }
 
@@ -205,27 +200,11 @@ function ListView({ kind, source, onImpact }) {
           </button>
         )}
         <span className="muted">
-          {totalItems ? `\${items.length} of \${totalItems} on this page` : '0 records'}
+          {totalItems ? items.length + ' of ' + totalItems + ' on this page' : '0 records'}
         </span>
       </div>
-      <LoadState {...state} empty={!items.length}>
-      <div className="search" aria-label={LABELS[kind] + ' search'}>
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder={'Search ' + LABELS[kind].toLowerCase() + '…'}
-          aria-label={'Search ' + LABELS[kind]}
-        />
-        {query && (
-          <button onClick={() => setQuery('')} aria-label={'Clear ' + LABELS[kind] + ' search'}>
-            ✕ Clear
-          </button>
-        )}
-        <span className="muted">
-          {totalItems ? `${items.length} of ${totalItems} on this page` : '0 records'}
-        </span>
-      </div>
-      <Pager page={page} setPage={setPage} hasNext={totalItems === PAGE_SIZE}>
+      <LoadState {...state} empty={!items.length && !query}>
+        <Pager page={page} setPage={setPage} hasNext={totalItems === PAGE_SIZE}>
         {items.map((item) => {
           if (kind === 'branches')
             return (
@@ -306,7 +285,7 @@ function ListView({ kind, source, onImpact }) {
             </div>
           );
         })}
-      </Pager>
+        </Pager>
       </LoadState>
       {!state.loading && !state.error && query && !items.length && (
         <p className="muted">No matches on this page.</p>
