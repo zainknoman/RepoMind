@@ -159,7 +159,7 @@ export async function importGithubRepository(value, options = {}) {
   const candidates = entries.filter((entry) => {
     const name = entry.path.split('/').pop();
     if (ignoredByGitignore(entry.path, ignoreMatcher)) return false;
-    if (IGN.has(entry.path.split('/')[0])) return false;
+    if (entry.path.split('/').some((part) => IGN.has(part))) return false;
     if (!isCandidate(name) && !basicCandidate(name)) return false;
     if (!includeSensitive && sensitiveName.test(entry.path)) return false;
     if (typeof entry.size === 'number' && entry.size > MAX_TEXT_BYTES) return false;
