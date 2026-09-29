@@ -1,10 +1,26 @@
 import { describe, expect, it } from 'vitest';
-import { fetchGithubBranches, fetchGithubCommits, fetchGithubIssues, fetchGithubPullRequests, fetchGithubReleases, githubFileImpact } from './githubIntelligence';
+import {
+  fetchGithubBranches,
+  fetchGithubCommits,
+  fetchGithubIssues,
+  fetchGithubPullRequests,
+  fetchGithubReleases,
+  githubFileImpact,
+} from './githubIntelligence';
 import { buildRepositoryIndex } from './repository';
 import { toWorkerProject } from './indexProject';
 
 const source = { owner: 'zainknoman', repo: 'RepoMind', branch: 'main' };
-const mockFetch = (payload) => { const calls = []; return { calls, fetchImpl: async (url) => { calls.push(url); return { ok: true, json: async () => payload }; } }; };
+const mockFetch = (payload) => {
+  const calls = [];
+  return {
+    calls,
+    fetchImpl: async (url) => {
+      calls.push(url);
+      return { ok: true, json: async () => payload };
+    },
+  };
+};
 
 describe('githubIntelligence', () => {
   it('builds public GitHub resource URLs and pagination', async () => {
@@ -23,14 +39,29 @@ describe('githubIntelligence', () => {
     ]);
   });
   it('filters pull requests out of issues', async () => {
-    const mock = mockFetch([{ number: 1, title: 'issue' }, { number: 2, title: 'pull', pull_request: { url: 'x' } }]);
-    await expect(fetchGithubIssues(source, 1, { fetchImpl: mock.fetchImpl })).resolves.toEqual([{ number: 1, title: 'issue' }]);
+    const mock = mockFetch([
+      { number: 1, title: 'issue' },
+      { number: 2, title: 'pull', pull_request: { url: 'x' } },
+    ]);
+    await expect(fetchGithubIssues(source, 1, { fetchImpl: mock.fetchImpl })).resolves.toEqual([
+      { number: 1, title: 'issue' },
+    ]);
   });
   it('uses the existing file-impact graph for GitHub changes', async () => {
     const project = toWorkerProject('fixture', [
       { path: 'core.js', name: 'core.js', ext: '.js', content: 'export function core() {}\n' },
-      { path: 'mid.js', name: 'mid.js', ext: '.js', content: "import { core } from './core';\nexport function mid() { return core(); }\n" },
-      { path: 'top.js', name: 'top.js', ext: '.js', content: "import { mid } from './mid';\nexport function top() { return mid(); }\n" },
+      {
+        path: 'mid.js',
+        name: 'mid.js',
+        ext: '.js',
+        content: "import { core } from './core';\nexport function mid() { return core(); }\n",
+      },
+      {
+        path: 'top.js',
+        name: 'top.js',
+        ext: '.js',
+        content: "import { mid } from './mid';\nexport function top() { return mid(); }\n",
+      },
     ]);
     const index = await buildRepositoryIndex(project);
     const result = githubFileImpact(index, [{ filename: 'core.js', status: 'modified' }]);

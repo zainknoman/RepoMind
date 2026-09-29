@@ -548,7 +548,22 @@ test.describe('RepoMind Codebase Intelligence end-to-end', () => {
 });
 
 test.describe('RepoMind GitHub Intelligence', () => {
-  test('imports a public repository and exposes GitHub intelligence resources', async ({ page }) => {
+  test('imports a public repository and exposes GitHub intelligence resources', async ({
+    page,
+  }) => {
+    page.on('console', (msg) => {
+      console.log(`[browser:${msg.type()}] ${msg.text()}`);
+    });
+
+    page.on('pageerror', (error) => {
+      console.log(`[PAGE ERROR] ${error.stack || error.message}`);
+    });
+
+    page.on('requestfailed', (request) => {
+      console.log(
+        `[REQUEST FAILED] ${request.url()} :: ${request.failure()?.errorText || 'unknown'}`,
+      );
+    });
     await page.route('https://api.github.com/**', async (route) => {
       const url = new URL(route.request().url());
       const path = url.pathname;
@@ -578,30 +593,94 @@ test.describe('RepoMind GitHub Intelligence', () => {
       } else if (path.endsWith('/branches')) {
         body = [{ name: 'main', protected: false, commit: { sha: 'a'.repeat(40) } }];
       } else if (path.endsWith('/commits')) {
-        body = [{
-          sha: 'a'.repeat(40),
-          html_url: 'https://github.com/zainknoman/Fixture/commit/' + 'a'.repeat(40),
-          commit: { message: 'Initial commit', author: { name: 'Test', date: '2026-09-29T00:00:00Z' } },
-        }];
+        body = [
+          {
+            sha: 'a'.repeat(40),
+            html_url: 'https://github.com/zainknoman/Fixture/commit/' + 'a'.repeat(40),
+            commit: {
+              message: 'Initial commit',
+              author: { name: 'Test', date: '2026-09-29T00:00:00Z' },
+            },
+          },
+        ];
       } else if (path.endsWith('/pulls')) {
-        body = [{ id: 1, number: 7, title: 'Improve service', state: 'open', updated_at: '2026-09-29T00:00:00Z', html_url: 'https://github.com/zainknoman/Fixture/pull/7' }];
+        body = [
+          {
+            id: 1,
+            number: 7,
+            title: 'Improve service',
+            state: 'open',
+            updated_at: '2026-09-29T00:00:00Z',
+            html_url: 'https://github.com/zainknoman/Fixture/pull/7',
+          },
+        ];
       } else if (path.endsWith('/issues')) {
-        body = [{ id: 2, number: 8, title: 'Track service', state: 'open', updated_at: '2026-09-29T00:00:00Z', html_url: 'https://github.com/zainknoman/Fixture/issues/8' }];
+        body = [
+          {
+            id: 2,
+            number: 8,
+            title: 'Track service',
+            state: 'open',
+            updated_at: '2026-09-29T00:00:00Z',
+            html_url: 'https://github.com/zainknoman/Fixture/issues/8',
+          },
+        ];
       } else if (path.endsWith('/releases')) {
-        body = [{ id: 3, tag_name: 'v1.0.0', name: 'First release', draft: false, prerelease: false, published_at: '2026-09-29T00:00:00Z', html_url: 'https://github.com/zainknoman/Fixture/releases/tag/v1.0.0' }];
+        body = [
+          {
+            id: 3,
+            tag_name: 'v1.0.0',
+            name: 'First release',
+            draft: false,
+            prerelease: false,
+            published_at: '2026-09-29T00:00:00Z',
+            html_url: 'https://github.com/zainknoman/Fixture/releases/tag/v1.0.0',
+          },
+        ];
       } else if (path.includes('/commits/') && !path.endsWith('/commits/main')) {
-        body = { files: [{ filename: 'src/service.js', status: 'modified', additions: 1, deletions: 0, changes: 1 }] };
+        body = {
+          files: [
+            {
+              filename: 'src/service.js',
+              status: 'modified',
+              additions: 1,
+              deletions: 0,
+              changes: 1,
+            },
+          ],
+        };
       } else if (path.endsWith('/pulls/7/files')) {
-        body = [{ filename: 'src/service.js', status: 'modified', additions: 1, deletions: 0, changes: 1 }];
+        body = [
+          {
+            filename: 'src/service.js',
+            status: 'modified',
+            additions: 1,
+            deletions: 0,
+            changes: 1,
+          },
+        ];
       } else {
         body = {};
       }
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(body),
+      });
     });
     await page.route('https://raw.githubusercontent.com/**', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'text/plain', body: 'export function service() { return 1; }\n' });
+      await route.fulfill({
+        status: 200,
+        contentType: 'text/plain',
+        body: 'export function service() { return 1; }\n',
+      });
     });
-    await page.getByRole('button', { name: '🔗 GitHub Repository' }).click();
+    console.log('[TEST] Current URL:', page.url());
+    console.log('[TEST] Page title:', await page.title());
+    console.log('[TEST] Body text:', await page.locator('body').innerText());
+    console.log('[TEST] HTML length:', (await page.content()).length);
+
+    await page.getByRole('button', { name: 'GitHub Repository', exact: true }).click();
     await page.getByLabel('GitHub repository URL').fill('github.com/zainknoman/Fixture');
     await page.getByRole('button', { name: 'Import Repository' }).click();
     await expect(page.getByText(/Imported 1 supported files from GitHub/)).toBeVisible();

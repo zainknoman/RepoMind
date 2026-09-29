@@ -150,8 +150,8 @@ function ChangeImpact({ state, onOpenFile, projectName, onExplain }) {
 }
 
 export function GitView({ git, busy, onRefresh, onSelect, project, index, onOpenFile, onExplain }) {
-  if (project?.source?.type === 'github') return <GitHubView project={project} index={index} />;
   const [impact, setImpact] = useState(null);
+  if (project?.source?.type === 'github') return <GitHubView project={project} index={index} />;
 
   async function analyse(title, load, note) {
     setImpact({ title, loading: true });
