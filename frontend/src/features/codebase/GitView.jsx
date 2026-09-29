@@ -6,8 +6,6 @@ import { cp, dl } from '../../lib/text';
 import { GitHubView } from './GitHubView';
 import { PaginatedList } from '../../components/PaginatedList';
 
-const ROW_LIMIT = 200;
-
 // What uncommitted work or one commit could affect: changed symbols, affected code with
 // confidence, broken references and blind spots. Everything is read locally from .git.
 function ChangeImpact({ state, onOpenFile, projectName, onExplain }) {
@@ -81,20 +79,25 @@ function ChangeImpact({ state, onOpenFile, projectName, onExplain }) {
           {!result.files.length && !result.skipped.length && !result.nonCode.length && (
             <p className="muted">No changes.</p>
           )}
-          {result.files.map((f) => (
-            <div className="changed-file" key={f.path}>
-              <button className="mini-row clickable" onClick={() => onOpenFile(f.path)}>
-                {f.path} <small>({f.status})</small>
-              </button>
-              {f.symbols.map((s) => (
-                <div className="changed-symbol" key={`${s.kind}|${s.parent}|${s.name}`}>
-                  <code>{s.name}</code> <small>{s.kind}</small>
-                  <span className={'change-tag change-' + s.change}>{s.change}</span>
-                </div>
-              ))}
-              {f.moduleLevel && <div className="changed-symbol muted">module-level code</div>}
-            </div>
-          ))}
+          <PaginatedList
+            items={result.files}
+            searchPlaceholder="Search changed files"
+            getSearchText={(f) => [f.path, f.status].filter(Boolean).join(' ')}
+            renderItem={(f) => (
+              <div className="changed-file" key={f.path}>
+                <button className="mini-row clickable" onClick={() => onOpenFile(f.path)}>
+                  {f.path} <small>({f.status})</small>
+                </button>
+                {f.symbols.map((s) => (
+                  <div className="changed-symbol" key={s.kind + '|' + s.parent + '|' + s.name}>
+                    <code>{s.name}</code> <small>{s.kind}</small>
+                    <span className={'change-tag change-' + s.change}>{s.change}</span>
+                  </div>
+                ))}
+                {f.moduleLevel && <div className="changed-symbol muted">module-level code</div>}
+              </div>
+            )}
+          />
           {[...result.skipped, ...result.nonCode].map((c) => (
             <div className="mini-row muted" key={c.path}>
               {c.path} <small>({c.status}, not analysed)</small>
@@ -103,26 +106,26 @@ function ChangeImpact({ state, onOpenFile, projectName, onExplain }) {
         </div>
         <div>
           <h3>Affected</h3>
-          {result.affected.slice(0, ROW_LIMIT).map((a) => (
-            <button
-              className="impact-row clickable"
-              key={a.key || 'file:' + a.path}
-              onClick={() => onOpenFile(a.path)}
-              title={`Because of: ${a.because.join(', ')}`}
-            >
-              <b>{a.name || '(module)'}</b>
-              <span>{a.path}</span>
-              <small>level {a.depth}</small>
-              <span className={'confidence conf-' + a.confidence}>{a.confidence}</span>
-            </button>
-          ))}
+          <PaginatedList
+            items={result.affected}
+            searchPlaceholder="Search affected files"
+            getSearchText={(a) => [a.name, a.path, a.confidence].filter(Boolean).join(' ')}
+            renderItem={(a) => (
+              <button
+                className="impact-row clickable"
+                key={a.key || 'file:' + a.path}
+                onClick={() => onOpenFile(a.path)}
+                title={'Because of: ' + a.because.join(', ')}
+              >
+                <b>{a.name || '(module)'}</b>
+                <span>{a.path}</span>
+                <small>level {a.depth}</small>
+                <span className={'confidence conf-' + a.confidence}>{a.confidence}</span>
+              </button>
+            )}
+          />
           {!result.affected.length && (
             <p className="muted">Nothing in the index depends on the changed code.</p>
-          )}
-          {result.affected.length > ROW_LIMIT && (
-            <p className="muted">
-              Showing {ROW_LIMIT} of {result.affected.length}; the report lists all.
-            </p>
           )}
           {!!result.broken.length && (
             <>
