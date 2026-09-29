@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { cp, dl } from '../../lib/text';
 import { findMatches, replaceAll, replaceAt } from '../../lib/findReplace';
 
-export function Editor({ sel, text, setText, dirty, save }) {
+export function Editor({ sel, text, setText, dirty, save, readOnly = false }) {
   const [find, setFind] = useState(''),
     [rep, setRep] = useState(''),
     [caseSensitive, setCaseSensitive] = useState(false),
@@ -41,7 +41,7 @@ export function Editor({ sel, text, setText, dirty, save }) {
           <h1>
             {sel?.path || 'Editor'} {dirty && <em>● modified</em>}
           </h1>
-          <small>Local editor with Find, Replace and Replace All.</small>
+          <small>{readOnly ? 'Read-only imported repository file.' : 'Local editor with Find, Replace and Replace All.'}</small>
         </div>
         <div className="toolbar-actions">
           <button onClick={() => ref.current?.focus()} disabled={!sel}>
@@ -53,7 +53,7 @@ export function Editor({ sel, text, setText, dirty, save }) {
           <button onClick={() => sel && dl(sel.name, text)} disabled={!sel}>
             ⬇ Download
           </button>
-          <button onClick={save} disabled={!dirty}>
+          <button onClick={save} disabled={readOnly || !dirty}>
             💾 Save
           </button>
         </div>
@@ -98,7 +98,7 @@ export function Editor({ sel, text, setText, dirty, save }) {
             </button>
             <button
               onClick={() => setText(replaceAll(text, find, rep, caseSensitive))}
-              disabled={!matches.length}
+              disabled={readOnly || !matches.length}
             >
               Replace All
             </button>
@@ -115,6 +115,7 @@ export function Editor({ sel, text, setText, dirty, save }) {
               spellCheck="false"
               value={text}
               onChange={(e) => setText(e.target.value)}
+              readOnly={readOnly}
             />
           </div>
         </>
