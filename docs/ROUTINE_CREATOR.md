@@ -1,34 +1,47 @@
-# Routine Creator Domain Layer
+# Routine Creator Phase 1
 
-Phase 1 adds a pure JavaScript Routine Creator model/generator to RepoMind. It is independent of React, DOM APIs and the original Java Swing UI.
+Phase 1 is a native JavaScript/Vite domain layer. It does not import or port Swing UI code.
 
 ## RoutineSpec
 
 `generateRoutine(spec)` accepts `routineName`, `developer`, `purpose`, optional `header`, ordered `tables`, ordered `functions`, ordered `fields`, `concat`, and `separator`.
 
-A field can be a string or `{ name, table, position }`.
+A field may be a string or `{ name, table, position }`. When a position is supplied it is emitted as a numeric dynamic-array position; otherwise the selected field name is retained as the field expression.
 
-## Catalogs
+## Application catalog
 
-`routineCatalog.js` contains the 16 requested applications and the exact table suffixes ``, `$HIS`, `$NAU`. Matching is exact. Each entry owns its alias, field prefix, record variable and layout-insert flag.
+The catalog contains the 16 applications requested by Phase 1, exact matching only, and the suffixes `""`, `$HIS`, `$NAU`. Each application owns `name`, `alias`, `fieldPrefix`, `recordVar`, and `hasLayoutInsert`.
 
-`routineSnippets.js` exposes the 14 stable IDs: `ReadSeq`, `Readlist`, `Fread`, `Fwrite`, `WriteFile`, `Locate`, `GetLocalRef`, `FindStr`, `CallCDD`, `CallCDT`, `SubString`, `Trim`, `Convert`, `Change`.
+The aliases/record variables are normalized so the same record variable is used by F.READ/F.WRITE and extraction. This intentionally corrects the legacy inconsistencies for DRAWINGS, USER, LD.LOANS.AND.DEPOSITS and other table handling.
 
-`routineTemplates.js` exposes four data presets: `standard-routine`, `ofs-routine`, `ofs-opm`, and `fwrite-routine`.
+## Snippet catalog
+
+All 14 useful snippets from `Functions.java` are represented with stable IDs and readable metadata. The useful legacy snippet text is preserved; contextual Fread/Fwrite expansion is handled by the generator.
+
+## Template catalog
+
+The four presets are recovered from `TempleateCode.java`, `OFS_rtn.java`, `OFS_OPM.java`, and `FWrite.java`. They are stored as data only. No Swing classes are imported.
 
 ## Generator API
 
-- `generateRoutine(spec)` — emits header, common/equate/layout inserts, commented enquiry common, INIT/PROCESS flow, reads, field extraction, optional concatenation, clearing, RETURN and END.
-- `generatePreset(id, routineName)` — expands a preset without UI dependencies.
-- `generateEvalQuery(table, fields, separator)` — emits `SELECT FBNK.<TABLE> SAVING EVAL ...` with exact prefix stripping.
-- `insertSnippet(text, offset, snippetId)` — inserts using JavaScript string offsets and returns `{ text, inserted, error }` rather than throwing for invalid offsets.
+- `generateRoutine(spec)` — deterministic header/common/equate/layout/enquiry/INIT/PROCESS/read/extraction/concat/clear/RETURN/END output.
+- `generatePreset(id, routineName)` — returns a recovered template with the routine name substituted.
+- `generateEvalQuery(table, fields, separator)` — emits `SELECT FBNK.<TABLE> SAVING EVAL ...` with exact, application-specific prefix stripping.
+- `insertSnippet(text, offset, snippetId)` — uses JavaScript offsets and returns a structured result for invalid offsets.
 
-## Corrected legacy defects
+## Intentionally corrected legacy defects
 
-The domain layer intentionally corrects the specified record-variable mismatch, substring-based application matching, `$HIS/$NAU` ambiguity, USER prefix handling, LD.LOANS.AND.DEPOSITS handling, metadata leakage between tables, duplicate handling and unsafe cursor insertion.
+- exact application matching instead of substring matching;
+- one deterministic application metadata source instead of a mutable alias variable leaking between tables;
+- consistent record variables across F.READ/F.WRITE and extraction;
+- deterministic `$HIS` / `$NAU` handling;
+- USER uses the `EB.USE.` prefix and `R.USR` record variable;
+- LD.LOANS.AND.DEPOSITS uses `LD.` and `R.LND`;
+- DRAWINGS uses `TF.DR.` and `R.DRA` rather than the legacy incorrect teller record;
+- STMT.ENTRY.DETAIL and STMT.PRINTED do not receive nonexistent I_F inserts;
+- duplicate tables/fields are normalized deterministically;
+- invalid snippet offsets do not throw unexpectedly.
 
-No analyzer behavior, navigation, OFS Generator, T24 Log Analyzer or Swing code is changed.
+## Source verification
 
-## Source-parity limitation
-
-The requested local source of truth at `D:\Zain\Projects\RoutineCreator\JADX-OUTPUT` was not mounted into this execution environment. The implementation therefore follows the functional specification supplied in the task and existing RepoMind Temenos conventions. Exact byte-for-byte parity of the legacy snippets/templates should be reconciled against the local JADX report before a future UI phase treats those strings as canonical.
+The source repository now contains the JADX sources used for this reconciliation. The four recovered template payloads and the 14 snippet definitions were checked directly against the uploaded `JADX-OUTPUT/sources/defpackage` files. MainWindow was inspected only to recover pure generation behavior; no Swing code is copied into RepoMind.

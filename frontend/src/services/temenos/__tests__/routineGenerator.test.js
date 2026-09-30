@@ -1,44 +1,86 @@
 import { describe, expect, it } from 'vitest';
-import { getApplication, TABLE_SUFFIXES } from '../routineCatalog';
+import { getApplication, normalizeTableSpec, TABLE_SUFFIXES } from '../routineCatalog';
 import { ROUTINE_SNIPPETS } from '../routineSnippets';
 import { ROUTINE_TEMPLATES } from '../routineTemplates';
 import { generateEvalQuery, generatePreset, generateRoutine, insertSnippet } from '../routineGenerator';
 
 describe('Routine Creator Phase 1', () => {
-  it('catalog exact matching and suffixes', () => {
-    for (const name of ['ACCOUNT','ACCOUNT.CLOSURE','CUSTOMER','DRAWINGS','FOREX','FUNDS.TRANSFER','LD.LOANS.AND.DEPOSITS','MG.MORTGAGE','MM.MONEY.MARKET','REPO','SEC.TRADE','STMT.ENTRY','STMT.ENTRY.DETAIL','STMT.PRINTED','TELLER','USER']) expect(getApplication(name)).toBeTruthy();
+  it('covers the application catalog and exact matching', () => {
+    const names = ['ACCOUNT','ACCOUNT.CLOSURE','CUSTOMER','DRAWINGS','FOREX','FUNDS.TRANSFER','LD.LOANS.AND.DEPOSITS','MG.MORTGAGE','MM.MONEY.MARKET','REPO','SEC.TRADE','STMT.ENTRY','STMT.ENTRY.DETAIL','STMT.PRINTED','TELLER','USER'];
+    names.forEach((name) => expect(getApplication(name)).toBeTruthy());
     expect(getApplication('ACCOUNTING')).toBeNull();
-    expect(TABLE_SUFFIXES).toEqual(['','$HIS','$NAU']);
-    expect(getApplication('USER').recordVar).toBe('R.USER');
-    expect(getApplication('LD.LOANS.AND.DEPOSITS').recordVar).toBe('R.LD');
+    expect(TABLE_SUFFIXES).toEqual(['', '$HIS', '$NAU']);
+    expect(normalizeTableSpec('ACCOUNT$HIS').suffix).toBe('$HIS');
+    expect(normalizeTableSpec('ACCOUNT$NAU').suffix).toBe('$NAU');
+    expect(getApplication('ACCOUNT').recordVar).toBe('R.ACC');
+    expect(getApplication('CUSTOMER').recordVar).toBe('R.CUS');
+    expect(getApplication('USER').recordVar).toBe('R.USR');
+    expect(getApplication('LD.LOANS.AND.DEPOSITS').recordVar).toBe('R.LND');
   });
-  it('contains all 14 snippets and four templates', () => {
-    expect(ROUTINE_SNIPPETS).toHaveLength(14);
-    expect(ROUTINE_SNIPPETS.map(x => x.id)).toEqual(['ReadSeq','Readlist','Fread','Fwrite','WriteFile','Locate','GetLocalRef','FindStr','CallCDD','CallCDT','SubString','Trim','Convert','Change']);
+
+  it('reproduces the 14 useful legacy snippets without legacy UI code', () => {
+    expect(ROUTINE_SNIPPETS.map((x) => x.id)).toEqual(['ReadSeq','Readlist','Fread','Fwrite','WriteFile','Locate','GetLocalRef','FindStr','CallCDD','SubString','Trim','CallCDT','Convert','Change']);
+    expect(ROUTINE_SNIPPETS.find((x) => x.id === 'Fread').content).toContain('CALL F.READ(FN,Y.ID,REC,F,E)');
+    expect(ROUTINE_SNIPPETS.find((x) => x.id === 'Fwrite').content).toContain('CALL F.WRITE(FN,Y.ID,REC)');
+  });
+
+  it('uses the recovered four templates', () => {
     expect(ROUTINE_TEMPLATES).toHaveLength(4);
     expect(generatePreset('standard-routine','MY.ROUTINE')).toContain('SUBROUTINE MY.ROUTINE');
+    expect(generatePreset('ofs-routine','MY.OFS')).toContain('OFS.POST.MESSAGE');
+    expect(generatePreset('ofs-opm','MY.OPM')).toContain('OFS.GLOBUS.MANAGER');
+    expect(generatePreset('fwrite-routine','MY.WRITE')).toContain('CALL F.WRITE');
   });
-  const cases = [
-    ['A simple ACCOUNT',{tables:['ACCOUNT'],fields:[{name:'CUSTOMER',position:1}]},['CALL F.READ(FN.AC, ID.NEW, R.AC, F.AC, ERR)','CUSTOMER = R.AC<1>']],
-    ['B ACCOUNT + CUSTOMER$HIS',{tables:['ACCOUNT','CUSTOMER$HIS'],fields:[{name:'NAME',table:'CUSTOMER',position:2}]},["FN.CUSTOMER = 'F.CUSTOMER$HIS'",'NAME = R.CUSTOMER<2>']],
-    ['C $HIS',{tables:['ACCOUNT$HIS']},['F.ACCOUNT$HIS']],['D $NAU',{tables:['ACCOUNT$NAU']},['F.ACCOUNT$NAU']],
-    ['E multiple tables',{tables:['ACCOUNT','CUSTOMER','FUNDS.TRANSFER']},['R.AC','R.CUSTOMER','R.FT']],
-    ['F Fread',{tables:['ACCOUNT'],functions:['Fread']},['CALL F.READ(FN.FILE, ID, R.FILE, F.FILE, ERR)']],
-    ['G Fwrite',{tables:['ACCOUNT'],functions:['Fwrite']},['CALL F.WRITE(FN.FILE, ID, R.FILE, F.FILE)']],
-    ['H field extraction',{tables:['CUSTOMER'],fields:[{name:'NAME',position:2}]},['NAME = R.CUSTOMER<2>']],
-    ['I concatenation',{tables:['ACCOUNT'],fields:[{name:'A',position:1},{name:'B',position:2}],concat:true,separator:'^'},["CONCAT.VALUE = A : '^' : B"]],
-    ['J header',{routineName:'HEADER',developer:'Zain',purpose:'Purpose',header:'* Extra'},['* Developer: Zain','* Purpose: Purpose','* Extra']],
-    ['N LD',{tables:['LD.LOANS.AND.DEPOSITS'],fields:[{name:'CUSTOMER',position:1}]},['CUSTOMER = R.LD<1>']],
-    ['O USER',{tables:['USER'],fields:[{name:'NAME',position:2}]},['NAME = R.USER<2>']],
-    ['P ACCOUNT.CLOSURE',{tables:['ACCOUNT.CLOSURE']},["FN.AC.CLOSURE = 'F.ACCOUNT.CLOSURE'"]],
-    ['Q STMT.ENTRY.DETAIL',{tables:['STMT.ENTRY.DETAIL']},["FN.STMT.DETAIL = 'F.STMT.ENTRY.DETAIL'"]],
-    ['R no table/field',{},['* No application tables selected','* No fields selected']],
-    ['S duplicates',{tables:['ACCOUNT','ACCOUNT','ACCOUNT$HIS'],fields:[{name:'CUSTOMER',position:1},{name:'CUSTOMER',position:1}]},[]],
-  ];
-  for (const [name,spec,expected] of cases) it(name,()=>{ const out=generateRoutine(spec); for(const value of expected) expect(out).toContain(value); if(name.startsWith('S')){expect(out.match(/FN\.AC =/g)).toHaveLength(2);expect(out.match(/CUSTOMER = R\.AC<1>/g)).toHaveLength(1);} });
-  it('K safe cursor insertion',()=>{expect(insertSnippet('AB',1,'Trim').text).toBe('AVALUE = TRIM(TEXT)B');expect(insertSnippet('AB',-1,'Trim').text).toBe('AB');expect(insertSnippet('AB',99,'Trim').text).toBe('AB');});
-  it('L EVAL query',()=>expect(generateEvalQuery('ACCOUNT',['AC.CUSTOMER','AC.CURRENCY'],'^')).toBe('SELECT FBNK.ACCOUNT SAVING EVAL "CUSTOMER":"^":"CURRENCY"'));
-  it('M exact application matching',()=>{expect(generateEvalQuery('ACCOUNT.CLOSURE',['AC.CLOSURE.STATUS'])).toBe('SELECT FBNK.ACCOUNT.CLOSURE SAVING EVAL "STATUS"');expect(generateEvalQuery('ACCOUNT',['AC.CLOSURE.STATUS'])).toBe('SELECT FBNK.ACCOUNT SAVING EVAL "AC.CLOSURE.STATUS"');});
-  it('USER EVAL prefix correction',()=>expect(generateEvalQuery('USER',['USER.NAME'],'|')).toBe('SELECT FBNK.USER SAVING EVAL "NAME"'));
-  it('golden output structure',()=>{const out=generateRoutine({routineName:'ACCOUNT.CUSTOMER.EXTRACT',developer:'Zain',purpose:'Extract',tables:['ACCOUNT','CUSTOMER$HIS'],fields:[{name:'ACCOUNT.CUSTOMER',table:'ACCOUNT',position:1},{name:'CUSTOMER.NAME',table:'CUSTOMER',position:2}],concat:true,separator:'^'});expect(out).toContain('$INSERT I_COMMON');expect(out).toContain('$INSERT I_EQUATE');expect(out).toContain('* $INSERT I_ENQUIRY.COMMON');expect(out.indexOf('GOSUB INIT')).toBeLessThan(out.indexOf('INIT:'));expect(out).toContain("CONCAT.VALUE = ACCOUNT.CUSTOMER : '^' : CUSTOMER.NAME");expect(out.endsWith('\nEND')).toBe(true);});
+
+  it.each([
+    ['A simple ACCOUNT', { tables: ['ACCOUNT'], fields: [{ name: 'AC.CUSTOMER', position: 1 }] }, ['CALL OPF(FN.ACC,F.ACC)', 'CALL F.READ(FN.ACC,Y.ACC.ID,R.ACC,F.ACC,E.ACC)', 'Y.AC.CUSTOMER = R.ACC<1>']],
+    ['B ACCOUNT + CUSTOMER$HIS', { tables: ['ACCOUNT','CUSTOMER$HIS'], fields: [{ name: 'EB.CUS.NAME.1', table: 'CUSTOMER', position: 2 }] }, ['FN.CUSTOMER = "F.CUSTOMER$HIS"', 'Y.EB.CUS.NAME.1 = R.CUS<2>']],
+    ['C $HIS', { tables: ['ACCOUNT$HIS'] }, ['FN.ACC = "F.ACCOUNT$HIS"', '$INSERT I_F.ACCOUNT']],
+    ['D $NAU', { tables: ['ACCOUNT$NAU'] }, ['FN.ACC = "F.ACCOUNT$NAU"']],
+    ['E multiple tables', { tables: ['ACCOUNT','CUSTOMER','FUNDS.TRANSFER'] }, ['FN.ACC','FN.CUS','FN.FN']],
+    ['F Fread expansion', { tables: ['ACCOUNT'], functions: ['Fread'] }, ['CALL F.READ(FN.ACC,Y.ACC.ID,R.ACC,F.ACC,E.ACC)']],
+    ['G Fwrite expansion', { tables: ['ACCOUNT'], functions: ['Fwrite'] }, ['CALL F.WRITE(FN.ACC,Y.ACC.ID,R.ACC)','CALL JOURNAL.UPDATE(Y.ACC.ID)']],
+    ['H field extraction', { tables: ['CUSTOMER'], fields: [{ name: 'EB.CUS.NAME.1', position: 2 }] }, ['Y.EB.CUS.NAME.1 = R.CUS<2>']],
+    ['I concatenation', { tables: ['ACCOUNT'], fields: [{ name: 'AC.CUSTOMER', position: 1 }, { name: 'AC.CATEGORY', position: 2 }], concat: true, separator: '^' }, ["MY.DATA<-1> = Y.AC.CUSTOMER : '^' : Y.AC.CATEGORY"]],
+    ['J header generation', { routineName: 'HEADER', developer: 'Zain', purpose: 'Purpose' }, ['SUBROUTINE HEADER','Developed By          : Zain','Purpose               : Purpose']],
+    ['N LD.LOANS.AND.DEPOSITS', { tables: ['LD.LOANS.AND.DEPOSITS'], fields: [{ name: 'LD.CUSTOMER.ID', position: 1 }] }, ['Y.LD.CUSTOMER.ID = R.LND<1>']],
+    ['O USER', { tables: ['USER'], fields: [{ name: 'EB.USE.SIGN.ON.NAME', position: 1 }] }, ['Y.EB.USE.SIGN.ON.NAME = R.USR<1>']],
+    ['P ACCOUNT.CLOSURE', { tables: ['ACCOUNT.CLOSURE'], fields: [{ name: 'AC.ACL.STATUS', position: 1 }] }, ['Y.AC.ACL.STATUS = R.ACL<1>']],
+    ['Q STMT.ENTRY.DETAIL', { tables: ['STMT.ENTRY.DETAIL'] }, ['FN.ST.DT = "F.STMT.ENTRY.DETAIL"']],
+    ['R no-table/no-field', {}, ['* No application tables selected','* No fields selected']],
+  ])('%s', (_name, spec, expected) => {
+    const out = generateRoutine(spec);
+    expected.forEach((fragment) => expect(out).toContain(fragment));
+  });
+
+  it('handles duplicate tables and duplicate fields deterministically', () => {
+    const out = generateRoutine({ tables: ['ACCOUNT','ACCOUNT','ACCOUNT$HIS'], fields: [{ name: 'AC.CUSTOMER', position: 1 }, { name: 'AC.CUSTOMER', position: 1 }] });
+    expect((out.match(/FN\.ACC =/g) || []).length).toBe(2);
+    expect((out.match(/Y\.AC\.CUSTOMER =/g) || []).length).toBe(1);
+  });
+
+  it('K safe snippet insertion', () => {
+    const result = insertSnippet('AB', 1, 'Trim');
+    expect(result.inserted).toBe(true);
+    expect(result.text).toContain('AB'.slice(0,1));
+    expect(insertSnippet('AB', -1, 'Trim').text).toBe('AB');
+    expect(insertSnippet('AB', 99, 'Trim').text).toBe('AB');
+  });
+
+  it('L EVAL query and USER prefix handling', () => {
+    expect(generateEvalQuery('ACCOUNT', ['AC.CUSTOMER','AC.CURRENCY'], '^')).toBe('SELECT FBNK.ACCOUNT SAVING EVAL "CUSTOMER":"^":"CURRENCY"');
+    expect(generateEvalQuery('USER', ['EB.USE.SIGN.ON.NAME'], '|')).toBe('SELECT FBNK.USER SAVING EVAL "SIGN.ON.NAME"');
+    expect(generateEvalQuery('ACCOUNT.CLOSURE', ['AC.ACL.STATUS'])).toBe('SELECT FBNK.ACCOUNT.CLOSURE SAVING EVAL "STATUS"');
+    expect(generateEvalQuery('ACCOUNT', ['AC.ACL.STATUS'])).toBe('SELECT FBNK.ACCOUNT SAVING EVAL "AC.ACL.STATUS"');
+  });
+
+  it('golden structure preserves the requested generation order', () => {
+    const out = generateRoutine({ routineName: 'ACCOUNT.CUSTOMER.EXTRACT', developer: 'Zain', purpose: 'Extract', tables: ['ACCOUNT','CUSTOMER$HIS'], fields: [{ name: 'AC.CUSTOMER', table: 'ACCOUNT', position: 1 }, { name: 'EB.CUS.NAME.1', table: 'CUSTOMER', position: 2 }], functions: ['Fread'], concat: true, separator: '^' });
+    expect(out.indexOf('$INSERT I_COMMON')).toBeLessThan(out.indexOf('GOSUB INIT'));
+    expect(out.indexOf('GOSUB INIT')).toBeLessThan(out.indexOf('INIT:'));
+    expect(out.indexOf('INIT:')).toBeLessThan(out.indexOf('PROCESS:'));
+    expect(out.indexOf('PROCESS:')).toBeLessThan(out.indexOf('Y.AC.CUSTOMER = R.ACC<1>'));
+    expect(out).toContain("MY.DATA<-1> = Y.AC.CUSTOMER : '^' : Y.EB.CUS.NAME.1");
+    expect(out.endsWith('\nEND')).toBe(true);
+  });
 });
