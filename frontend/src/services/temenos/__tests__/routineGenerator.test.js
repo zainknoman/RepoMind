@@ -13,6 +13,10 @@ describe('Routine Creator Phase 1', () => {
     expect(normalizeTableSpec('ACCOUNT$HIS').suffix).toBe('$HIS');
     expect(normalizeTableSpec('ACCOUNT$NAU').suffix).toBe('$NAU');
     expect(getApplication('ACCOUNT').recordVar).toBe('R.ACC');
+    expect(getApplication('ACCOUNT').fileNameVariable).toBe('FN.ACC');
+    expect(getApplication('ACCOUNT').fileVariable).toBe('F.ACC');
+    expect(getApplication('CUSTOMER').fileNameVariable).toBe('FN.CUSTOMER');
+    expect(getApplication('CUSTOMER').recordVar).toBe('R.CUS');
     expect(getApplication('CUSTOMER').recordVar).toBe('R.CUS');
     expect(getApplication('USER').recordVar).toBe('R.USR');
     expect(getApplication('LD.LOANS.AND.DEPOSITS').recordVar).toBe('R.LND');
@@ -51,6 +55,22 @@ describe('Routine Creator Phase 1', () => {
   ])('%s', (_name, spec, expected) => {
     const out = generateRoutine(spec);
     expected.forEach((fragment) => expect(out).toContain(fragment));
+  });
+
+  it('does not generate unverified field access or implicit field clearing', () => {
+    const out = generateRoutine({ tables: ['ACCOUNT'], fields: [{ name: 'AC.CUSTOMER' }] });
+    expect(out).toContain(
+      '* Field position not verified: AC.CUSTOMER. Verify the application schema before generating field access.',
+    );
+    expect(out).not.toContain('R.ACC<AC.CUSTOMER>');
+    expect(out).not.toContain("Y.AC.CUSTOMER = ''");
+
+    const cleared = generateRoutine({
+      tables: ['ACCOUNT'],
+      fields: [{ name: 'AC.CUSTOMER', position: 1 }],
+      clearFields: true,
+    });
+    expect(cleared).toContain("Y.AC.CUSTOMER = ''");
   });
 
   it('handles duplicate tables and duplicate fields deterministically', () => {
