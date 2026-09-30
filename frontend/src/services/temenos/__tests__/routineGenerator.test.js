@@ -26,7 +26,7 @@ describe('Routine Creator Phase 1', () => {
 
   it('uses the recovered four templates', () => {
     expect(ROUTINE_TEMPLATES).toHaveLength(4);
-    expect(generatePreset('standard-routine','MY.ROUTINE')).toContain('SUBROUTINE MY.ROUTINE');
+    expect(generatePreset('standard-routine', 'MY.ROUTINE')).toContain('SUBROUTINE MY.ROUTINE');
     expect(generatePreset('ofs-routine','MY.OFS')).toContain('OFS.POST.MESSAGE');
     expect(generatePreset('ofs-opm','MY.OPM')).toContain('OFS.GLOBUS.MANAGER');
     expect(generatePreset('fwrite-routine','MY.WRITE')).toContain('CALL F.WRITE');
