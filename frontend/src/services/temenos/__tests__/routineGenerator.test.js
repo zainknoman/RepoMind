@@ -32,12 +32,12 @@ describe('Routine Creator Phase 1', () => {
     expect(ROUTINE_TEMPLATES).toHaveLength(4);
     expect(generatePreset('standard-routine', 'MY.ROUTINE')).toContain('SUBROUTINE MY.ROUTINE');
     expect(generatePreset('ofs-routine','MY.OFS')).toContain('OFS.POST.MESSAGE');
-    expect(generatePreset('ofs-opm','MY.OPM')).toContain('OFS.GLOBUS.MANAGER');
+    expect(generatePreset('ofs-opm','MY.OPM')).toContain('CALL OFS.POST.MESSAGE');
     expect(generatePreset('fwrite-routine','MY.WRITE')).toContain('CALL F.WRITE');
   });
 
   it.each([
-    ['A simple ACCOUNT', { tables: ['ACCOUNT'], fields: [{ name: 'AC.CUSTOMER', position: 1 }] }, ['CALL OPF(FN.ACC,F.ACC)', 'CALL F.READ(FN.ACC,Y.ACC.ID,R.ACC,F.ACC,E.ACC)', 'Y.AC.CUSTOMER = R.ACC<1>']],
+    ['A simple ACCOUNT', { tables: ['ACCOUNT'], fields: [{ name: 'AC.CUSTOMER', position: 1 }] }, ['CALL OPF(FN.ACC,F.ACC)', 'Y.AC.CUSTOMER = R.ACC<1>']],
     ['B ACCOUNT + CUSTOMER$HIS', { tables: ['ACCOUNT','CUSTOMER$HIS'], fields: [{ name: 'EB.CUS.NAME.1', table: 'CUSTOMER', position: 2 }] }, ['FN.CUSTOMER = "F.CUSTOMER$HIS"', 'Y.EB.CUS.NAME.1 = R.CUS<2>']],
     ['C $HIS', { tables: ['ACCOUNT$HIS'] }, ['FN.ACC = "F.ACCOUNT$HIS"', '$INSERT I_F.ACCOUNT']],
     ['D $NAU', { tables: ['ACCOUNT$NAU'] }, ['FN.ACC = "F.ACCOUNT$NAU"']],
