@@ -64,9 +64,9 @@ export function validateRoutineState(state) {
   if (unverified.length) {
     warnings.push(
       unverified.length === 1
-        ? '1 field has no verified position and will be emitted as a verification comment.'
+        ? '1 field is unverified and will be emitted as a verification comment.'
         : unverified.length +
-            ' fields have no verified positions and will be emitted as verification comments.',
+            ' fields are unverified and will be emitted as verification comments.',
     );
   }
 
