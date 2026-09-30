@@ -19,6 +19,7 @@ export const NAV_GROUPS = [
       ['analyze', 'Quick Analysis'],
       ['transform', 'Transform'],
       ['diff', 'Compare'],
+      ['routineCreator', 'Routine Creator'],
       ['mdviewer', 'Markdown'],
     ],
   ],

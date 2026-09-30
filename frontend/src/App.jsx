@@ -23,6 +23,7 @@ const Analyze = named(() => import('./features/analysis/Analyze'), 'Analyze');
 const Transform = named(() => import('./features/transform/Transform'), 'Transform');
 const Diff = named(() => import('./features/compare/Diff'), 'Diff');
 const HelpPage = named(() => import('./features/help/HelpPage'), 'HelpPage');
+const RoutineCreator = named(() => import('./features/routineCreator/RoutineCreator'), 'RoutineCreator');
 
 const MAX_SEARCH_RESULTS = 2000;
 
@@ -57,12 +58,9 @@ function App() {
     [codebaseMounted, setCodebaseMounted] = useState(false),
     [codebaseView, setCodebaseView] = useState('overview'),
     [codebaseFile, setCodebaseFile] = useState('');
-  // One index per opened folder, shared by the Dashboard and the Codebase workspace.
   const codebase = useCodebaseIndex(p);
   const githubAbortRef = useRef(null);
 
-  // Opens a Codebase view, optionally focused on one file (used by the Dashboard's investigation links).
-  // Search is one workspace for the whole product, so a 'search' link opens it rather than a view.
   const investigate = useCallback((view, file) => {
     if (view === 'search') return setTab('search');
     setCodebaseView(view);
@@ -70,13 +68,10 @@ function App() {
     setTab('codebase');
   }, []);
 
-  // The Codebase panel is mounted on first visit and then kept alive (hidden) so its index survives
-  // tab switches. Opening another folder remounts it via its key.
   useEffect(() => {
     if (tab === 'codebase') setCodebaseMounted(true);
   }, [tab]);
 
-  // Warn before closing the tab with unsaved editor changes.
   useEffect(() => {
     if (!dirty) return;
     const onBeforeUnload = (e) => {
@@ -181,8 +176,8 @@ function App() {
     if (!f?.text) return setErr('Binary, sensitive or unsupported file');
     if (sel?.path !== f.path && !confirmDiscard()) return;
     try {
-      const c = await read(f),
-        x = { ...f, content: c };
+      const c = await read(f);
+      const x = { ...f, content: c };
       setSel(x);
       setText(c);
       setDirty(false);
@@ -199,7 +194,6 @@ function App() {
     }
   }
 
-  // Stable callback for the memoized Codebase panel; always calls the latest `open`.
   const openRef = useRef(open);
   openRef.current = open;
   const openFromCodebase = useCallback((f) => openRef.current(f), []);
@@ -449,6 +443,7 @@ function App() {
               {tab === 'mdviewer' && <MDViewer />}
               {tab === 'ingest' && <CodeIngest p={p} />}
               {tab === 'analyze' && <Analyze p={p} onOpenCodebase={() => setTab('codebase')} />}
+              {tab === 'routineCreator' && <RoutineCreator />}
               {tab === 'transform' && (
                 <Transform
                   p={p}
