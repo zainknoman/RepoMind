@@ -24,8 +24,12 @@ function normalizeTables(tables) {
 function inferApplication(fieldName, tables) {
   const name = valueOf(fieldName);
   const matches = tables
-    .filter(({ application }) => application.fieldPrefix && name.startsWith(application.fieldPrefix))
-    .sort((left, right) => right.application.fieldPrefix.length - left.application.fieldPrefix.length);
+    .filter(
+      ({ application }) => application.fieldPrefix && name.startsWith(application.fieldPrefix),
+    )
+    .sort(
+      (left, right) => right.application.fieldPrefix.length - left.application.fieldPrefix.length,
+    );
 
   return matches[0]?.application || null;
 }
@@ -36,7 +40,12 @@ function normalizeFields(fields, tables) {
       .map((field) => {
         if (typeof field === 'string') {
           const inferred = inferApplication(field, tables) || tables[0]?.application;
-          return { name: valueOf(field), table: inferred?.name || '', position: null, verified: false };
+          return {
+            name: valueOf(field),
+            table: inferred?.name || '',
+            position: null,
+            verified: false,
+          };
         }
 
         if (!field) return null;
@@ -119,12 +128,30 @@ function initLines(tables) {
 }
 
 function contextualFread(application) {
-  return '    CALL F.READ(' + application.fileNameVariable + ',' + application.idVariable + ',' + application.recordVar + ',' + application.fileVariable + ',' + application.errorVariable + ')';
+  return (
+    '    CALL F.READ(' +
+    application.fileNameVariable +
+    ',' +
+    application.idVariable +
+    ',' +
+    application.recordVar +
+    ',' +
+    application.fileVariable +
+    ',' +
+    application.errorVariable +
+    ')'
+  );
 }
 
 function contextualFwrite(application) {
   return [
-    '    CALL F.WRITE(' + application.fileNameVariable + ',' + application.idVariable + ',' + application.recordVar + ')',
+    '    CALL F.WRITE(' +
+      application.fileNameVariable +
+      ',' +
+      application.idVariable +
+      ',' +
+      application.recordVar +
+      ')',
     '    CALL JOURNAL.UPDATE(' + application.idVariable + ')',
   ];
 }
@@ -164,7 +191,9 @@ function fieldLines(fields, tables) {
       ];
     }
 
-    return ['    ' + fieldVariable(field) + ' = ' + (application?.recordVar || 'R.FILE') + expression];
+    return [
+      '    ' + fieldVariable(field) + ' = ' + (application?.recordVar || 'R.FILE') + expression,
+    ];
   });
 }
 
@@ -190,10 +219,7 @@ function clearLines(fields, enabled) {
 
 function replaceRoutineDeclaration(content, routineName) {
   const name = valueOf(routineName) || 'NEW.ROUTINE';
-  return content.replace(
-    /^([ \t]*SUBROUTINE)(?:[ \t]+[^\r\n]*)?[ \t]*$/gim,
-    '$1 ' + name,
-  );
+  return content.replace(/^([ \t]*SUBROUTINE)(?:[ \t]+[^\r\n]*)?[ \t]*$/gim, '$1 ' + name);
 }
 
 export function generateRoutine(spec = {}) {
