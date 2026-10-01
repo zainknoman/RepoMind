@@ -261,6 +261,7 @@ export function HelpPage() {
         'Analysis coverage per language (Overview): what the index could and could not extract',
         'Route discovery and secret scans',
         'Temenos T24 / Transact analyzers when the folder contains BASIC routines',
+        'Temenos configuration records (VERSION, ENQUIRY, EB.API, PGM.FILE, BATCH) linked to the routines they run, with the event',
         'Run All, severity per finding, and one click from a finding to the file',
       ],
       how: 'Build the index and open Health or Analyzers. Run the available analyzers and inspect their findings. These are signals, not formal security or compiler diagnostics.',

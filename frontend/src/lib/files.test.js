@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { basicCandidate, gitignoreMatcher, walk, sensitiveName } from './files';
+import { basicCandidate, gitignoreMatcher, looksLikeBasic, walk, sensitiveName } from './files';
 
 describe('gitignoreMatcher', () => {
   const ignored = gitignoreMatcher(
@@ -135,5 +135,26 @@ describe('basicCandidate', () => {
     const byPath = Object.fromEntries(files.map((f) => [f.path, f]));
     expect(byPath['BP/account.validate']).toMatchObject({ ext: '.b', text: true });
     expect(byPath['docs/notes'].text).toBe(false);
+  });
+});
+
+describe('BASIC detection on real T24 names and sources', () => {
+  it.each([
+    ['ALL.OLD.R09/COB.IS.LD.ASSET.CLASS', true],
+    ['ALL.OLD.R09/AB.TAX.A', true],
+    ['ALL.OLD.R09/A.CTR.UPDATE_prev', true],
+    ['ALL.OLD.R09/A.CTR.UPDATE_old_20160127', true],
+    ['lib/Helper.class', false],
+    ['out/native.so', false],
+    ['ALL.OLD.R09/BD.Soc.component', false],
+    ['ALL.OLD.R09/convertSEAT', false],
+  ])('%s → %s', (path, expected) => {
+    expect(basicCandidate(path)).toBe(expected);
+  });
+
+  it('recognises inserts with lower-case equates and unnamed common blocks', () => {
+    expect(looksLikeBasic('* insert\n    EQU dasEbFileUploadEqStatus TO 1\n')).toBe(true);
+    expect(looksLikeBasic('    COM TRACE.DATA.COMMON,TRACE.START.TIME\n')).toBe(true);
+    expect(looksLikeBasic('A COMPANY OF HEROES\nCOM is short for commercial')).toBe(false);
   });
 });

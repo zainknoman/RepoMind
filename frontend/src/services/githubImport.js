@@ -6,6 +6,9 @@ import {
   looksLikeBasic,
   sensitiveName,
   gitignoreMatcher,
+  dlPackageDirs,
+  isT24Record,
+  T24_RECORD_EXT,
 } from '../lib/files';
 
 const GITHUB_HOSTS = new Set(['github.com', 'www.github.com']);
@@ -148,11 +151,13 @@ export async function importGithubRepository(value, options = {}) {
     ignoreMatcher = gitignoreMatcher(rootIgnoreContent);
   }
 
+  const dlDirs = dlPackageDirs(entries.map((entry) => entry.path));
   const candidates = entries.filter((entry) => {
     const name = entry.path.split('/').pop();
     if (ignoredByGitignore(entry.path, ignoreMatcher)) return false;
     if (entry.path.split('/').some((part) => IGN.has(part))) return false;
-    if (!isCandidate(name) && !basicCandidate(entry.path)) return false;
+    if (!isCandidate(name) && !basicCandidate(entry.path) && !isT24Record(entry.path, dlDirs))
+      return false;
     if (!includeSensitive && sensitiveName.test(entry.path)) return false;
     if (typeof entry.size === 'number' && entry.size > MAX_TEXT_BYTES) return false;
     return true;
@@ -177,7 +182,8 @@ export async function importGithubRepository(value, options = {}) {
       let ext = extensionOf(name);
       let text = content.length <= MAX_TEXT_BYTES;
 
-      if (text && !isCandidate(name) && basicCandidate(entry.path)) {
+      if (isT24Record(entry.path, dlDirs)) ext = T24_RECORD_EXT;
+      else if (text && !isCandidate(name) && basicCandidate(entry.path)) {
         if (looksLikeBasic(content.slice(0, 4096))) ext = '.b';
         else text = false;
       }

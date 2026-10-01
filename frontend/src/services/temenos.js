@@ -281,7 +281,11 @@ const javaAnalyzer = defineAnalyzer({
 });
 
 // Statement rules match from the start of a line, so commented-out code (* ... / ! ...) is skipped.
-const NOT_COMMENT = '^(?![ \\t]*(?:\\*|!|REM\\b))[^\\n]*?';
+// A line that is not a comment, up to (never past) an inline `;*` / `;!` comment.
+const NOT_COMMENT = '^(?![ \\t]*(?:\\*|!|REM\\b))(?:(?!;[ \\t]*[*!])[^\\n])*?';
+// A keyword used as a statement: not the start of a longer name (CRT.MSG, ABORT.FLAG, a label
+// such as PERFORM.ACCOUNTING:) and not assigned to.
+const STATEMENT_END = '(?![\\w.$%:])(?![ \\t]*=)';
 const practicesAnalyzer = definePatternAnalyzer({
   id: 'temenos-practices',
   name: 'Temenos Coding Practices',
@@ -304,12 +308,12 @@ const practicesAnalyzer = definePatternAnalyzer({
       title: 'Direct READ/WRITE bypasses F.READ/F.WRITE caching and transaction handling',
     },
     {
-      pattern: /^[ \t]*(?:EXECUTE|PERFORM)\b/m,
+      pattern: new RegExp('^[ \\t]*(?:EXECUTE|PERFORM)' + STATEMENT_END, 'm'),
       severity: 'medium',
       title: 'EXECUTE/PERFORM runs a jBASE or shell command',
     },
     {
-      pattern: /^[ \t]*(?:STOP|ABORT)\b/m,
+      pattern: new RegExp('^[ \\t]*(?:STOP|ABORT)' + STATEMENT_END, 'm'),
       severity: 'medium',
       title: 'STOP/ABORT in a subroutine ends the whole session; use RETURN',
       applies: (file) => file.temenos?.type === 'subroutine',
@@ -320,7 +324,7 @@ const practicesAnalyzer = definePatternAnalyzer({
       title: 'GOTO; prefer GOSUB with labelled paragraphs',
     },
     {
-      pattern: /^[ \t]*CRT\b/m,
+      pattern: new RegExp('^[ \\t]*CRT' + STATEMENT_END, 'm'),
       severity: 'low',
       title: 'CRT writes to the terminal; not visible in browser or service sessions',
     },
@@ -335,12 +339,66 @@ const practicesAnalyzer = definePatternAnalyzer({
   })),
 });
 
+const hasConfiguration = (index) => Boolean(index?.temenosConfig?.records?.length);
+
+const configurationAnalyzer = defineAnalyzer({
+  id: 'temenos-config',
+  name: 'Temenos Configuration',
+  category: 'Temenos',
+  description:
+    'Configuration records in the repository (VERSION, ENQUIRY, EB.API, PGM.FILE, BATCH, TSA.SERVICE from DL.DEFINE packages or named-field exports) and the routines they run, with the event: validation, input, authorisation, enquiry build, batch job…',
+  scope: 'index',
+  appliesTo: (index) => hasTemenos(index) || hasConfiguration(index),
+  columns: [
+    ['record', 'Record'],
+    ['event', 'Event'],
+    ['routine', 'Routine'],
+    ['field', 'Field'],
+    ['status', 'Status'],
+    ['file', 'File'],
+  ],
+  run({ index }) {
+    const { records = [], layouts = {} } = index?.temenosConfig || {};
+    return records.flatMap((record) => {
+      const name = `${record.application} ${record.id}`;
+      if (!record.links.length)
+        return [
+          {
+            severity: 'info',
+            title: name,
+            record: name,
+            event: '—',
+            routine: '—',
+            field: '',
+            status: 'names no routine',
+            file: record.path,
+          },
+        ];
+      return record.links.map((link) => ({
+        // A routine named by a record but not found is core code or a missing local routine.
+        severity: link.path ? 'info' : 'low',
+        title: `${name} → ${link.routine}`,
+        record: name,
+        event: link.role,
+        routine: link.routine,
+        field: link.position ? `${link.field} (${link.position})` : link.field,
+        status: link.path
+          ? 'in repository'
+          : `not in repository · layout: ${layouts[record.application] || 'unknown'}`,
+        file: link.path || record.path,
+        line: link.path ? undefined : link.position || undefined,
+      }));
+    });
+  },
+});
+
 export const TEMENOS_ANALYZERS = [
   routinesAnalyzer,
   applicationsAnalyzer,
   servicesAnalyzer,
   callsAnalyzer,
   javaAnalyzer,
+  configurationAnalyzer,
   practicesAnalyzer,
 ];
 

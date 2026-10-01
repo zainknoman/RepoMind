@@ -28,7 +28,7 @@ describe('index cache', () => {
     expect(await saveCachedIndex(p, { files: [{ path: 'a.js' }], symbols: [] })).toBe(true);
     const restored = await loadCachedIndex(project('cache-a', [{ path: 'a.js' }]));
     expect(restored.files).toEqual([{ path: 'a.js' }]);
-    expect(restored.cacheVersion).toBe(9);
+    expect(restored.cacheVersion).toBe(10);
     expect(restored.cachedAt).toEqual(expect.any(String));
   });
   it('misses when a file changed since the index was saved', async () => {
@@ -132,7 +132,7 @@ describe('cache written and linked off the main thread', () => {
     const index = await buildRepositoryIndex(toWorkerProject('linked', records()));
     expect(await writeSnapshot('key-linked', 'linked', index)).toBe(true);
     const raw = await readSnapshot('key-linked');
-    expect(raw.cacheVersion).toBe(9);
+    expect(raw.cacheVersion).toBe(10);
     const linked = linkIndex(raw);
     expect(linked.linked).toBe(true);
     const b = linked.symbols.find((s) => s.name === 'b');

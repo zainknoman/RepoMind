@@ -75,6 +75,16 @@ function splitLine(line) {
 }
 
 /** Parses a BASIC source into the index's per-file shape plus a `temenos` summary. */
+/** `{ FIELD.NAME: position }` from an I_F insert's `EQU A TO 1, B TO 2` lines. */
+function insertLayout(content) {
+  const layout = {};
+  for (const line of content.split('\n')) {
+    if (/^\s*[*!]/.test(line)) continue;
+    for (const m of line.matchAll(/([A-Za-z][\w.$%]*)\s+TO\s+(\d+)/g)) layout[m[1]] = Number(m[2]);
+  }
+  return layout;
+}
+
 export function parseBasic(file, content) {
   const raw = content.split('\n');
   const starts = [];
@@ -245,6 +255,8 @@ export function parseBasic(file, content) {
       ),
       javaCalls,
       dynamicCalls,
+      // An application's field layout (EQU EB.VER.VALIDATION.RTN TO 59, …) from its I_F insert.
+      ...(/^I_F\./.test(base) ? { layout: insertLayout(content) } : {}),
     },
   };
 }

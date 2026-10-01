@@ -277,3 +277,28 @@ describe('lower-case routine names', () => {
     );
   });
 });
+
+describe('Coding Practices on real T24 code', () => {
+  it('flags statements, not variables, labels or comments with the same words', async () => {
+    const index = await indexOf({
+      'BP/REAL.CHECKS': [
+        '    SUBROUTINE REAL.CHECKS',
+        '    CRT.DIS.MESS = "NOW UPDATING"',
+        '    ABORT.FLAG = FALSE',
+        'PERFORM.ACCOUNTING:',
+        "    X = 1 ;* was GOTO DONE and 'US0010001'",
+        '    CRT "real"',
+        '    CRT"also real"',
+        '    ABORT',
+        '    PERFORM "COUNT F.ACCOUNT"',
+        '    Y.ID.COMPANY = "BD0010239"',
+        '    IF ERR THEN GOTO DONE',
+        'DONE:',
+        '    RETURN',
+      ].join('\n'),
+    });
+    const results = await runAnalyzers(index, ['temenos-practices']);
+    const lines = results['temenos-practices'].findings.map((f) => f.line).sort((a, b) => a - b);
+    expect(lines).toEqual([6, 7, 8, 9, 10, 11]);
+  });
+});

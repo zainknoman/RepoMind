@@ -7,7 +7,8 @@ const VERSION = 2;
 // Version 3 stores symbol back-links as positions instead of copies of every reference.
 // Version 4: Temenos BASIC sources are indexed; external imports exclude unresolved relative ones.
 // Version 9: package.json dependencies are part of the index (`manifest`).
-const CACHE_VERSION = 9;
+// Version 10: T24 configuration records (`t24record`, insert layouts).
+const CACHE_VERSION = 10;
 
 function openDb() {
   if (typeof indexedDB === 'undefined') return Promise.resolve(null);

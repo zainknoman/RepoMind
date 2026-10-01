@@ -7,11 +7,12 @@ Update at the end of every phase.
 
 **P1 GitHub Intelligence implementation is complete after P0 public GitHub import. Private repositories/OAuth remain P2.**
 
-**Phases B1–B3 and C1–C6 done and on `main`.** Plans with per-task status and outcomes:
+**Phases B1–B3 and C1–C7 done and on `main`.** Plans with per-task status and outcomes:
 `docs/superpowers/plans/2026-09-28-graph-trust.md` (B1), `…-transitive-impact.md` (B2),
 `…-git-change-impact.md` (B3), `…-member-calls.md` (C1), `…-ai-investigation.md` (C2),
 `…-import-resolution.md` (C3), `…-change-impact-followups.md` (C4),
-`2026-10-01-worker-cache-scopes.md` (C5), `2026-10-01-theme-toggle.md` (C6). Phase C7 follows.
+`2026-10-01-worker-cache-scopes.md` (C5), `2026-10-01-theme-toggle.md` (C6),
+`2026-10-01-temenos-config-validation.md` (C7).
 Plans live in `docs/superpowers/plans/`.
 
 ## Roadmap
@@ -35,6 +36,7 @@ Plans live in `docs/superpowers/plans/`.
 | C4 | Tests to run; exact Git status; commits traced against their own code | Done |
 | C5 | Cache save/restore in the worker; block scopes; lower-case T24 names | Done |
 | C6 | Header light/dark theme toggle | Done |
+| C7 | Temenos configuration records; validation on real T24 repositories | Done |
 | P0 | Public GitHub import + production analysis parity | Done |
 | P1 | GitHub Intelligence: repository, branches, commits, PRs, issues, releases + impact integration | Done |
 | P2 | Product cleanup: consolidate navigation, remove unrelated legacy utility surfaces | Done |
@@ -301,6 +303,19 @@ Plans live in `docs/superpowers/plans/`.
   `main.jsx` before rendering; header button in `App.jsx`; dark tokens keyed on `data-theme` and
   the OS preference. Tests: 240 unit, theme E2E.
 
+## Completed work (Phase C7 — Temenos configuration records and validation)
+
+- `services/temenosRecords.js`: `LAYOUTS` (with sources), `decodeFields`, `parseDlHeader`,
+  `parseNamedRecord`, `layoutFromInsert`, `recordValues`, `recordLinks`,
+  `analyzeRecordContent`, `buildConfiguration`. `parseBasic` keeps `temenos.layout` for
+  `I_F.*` inserts.
+- `lib/files.js`: `.t24r` record files (`isT24Record`, `dlPackageDirs`; walk, GitHub import,
+  commit snapshots); detection fixes. `repository.js`: record symbols (kind `record`), `config`
+  edges and references, `index.temenosConfig`. Impact containers include records.
+- Analyzer `temenos-config`; Coding Practices rules require statements (`STATEMENT_END`) and
+  stop at inline comments. Cache version 10.
+- Validated on Core_Routines_T24_BP and JBLR22NEW (see the plan's outcome). Tests: 258 unit.
+
 ## Architectural decisions
 
 - **No router introduced.** Tab ids remain App state keys; navigation is still App state rather than a routing library.
@@ -340,6 +355,9 @@ Plans live in `docs/superpowers/plans/`.
 - **Python and Java use purpose-built scanners, not full parsers** (no new dependencies): comments
   and literals are blanked, then declarations, imports and references are read by indentation
   (Python) or braces (Java). Java references exclude lower-case non-call names (locals, fields).
+- **T24 record layouts are evidence-checked defaults, overridden by the repository's own I_F
+  insert.** A link exists only where a record names a routine; the event comes from the layout,
+  and the layout's source is shown with every link to a routine that is not in the repository.
 - **Member calls are resolved from local evidence only** (enclosing class, `new`, type
   annotations, imports); there is no type inference across calls or returns. An unknown receiver
   is a low-confidence name guess, never a high-confidence link.
@@ -385,9 +403,10 @@ Carried forward:
 
 ## Next recommended task
 
-Phases in progress, in order (owner's list, 2026-09-28):
-- **C7** Temenos configuration records (VERSION, EB.API, PGM.FILE, BATCH / TSA.SERVICE) and
-  validation on real T24 sources, using the Temenos-Skills reference
-  (github.com/zainknoman/Temenos-Skills).
-
-Done from the earlier Phase 6 list: transitive impact (B2) and T24 ranking for AI (C2).
+The owner's C1–C7 list (2026-09-28) is done. Candidates, in order of value:
+1. Large repositories: store references once instead of raw + linked, to cut the structured clone
+   the main thread still pays when an index arrives (~4–6 s at 240k synthetic lines).
+2. Temenos: read BUILD.CONTROL exports and Design Studio / TAFJ `.component` definitions;
+   treat component calls (`CustomerService.getNameAddress`) as links to Java/component sources.
+3. Temenos: names like `EB.GET.KEY` still hit the sensitive-file rule (`.key`).
+4. Private GitHub repositories / OAuth (P2 from the GitHub Intelligence work).

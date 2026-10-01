@@ -2,6 +2,34 @@
 
 All notable changes to RepoMind are recorded here.
 
+## Unreleased — Temenos configuration records and validation (Phase C7)
+
+### Added
+- **Temenos configuration records.** VERSION, ENQUIRY, EB.API, PGM.FILE, BATCH and TSA.SERVICE
+  records in DL.DEFINE package exports (`DL.D_<package>` header + positional `REC000nn`
+  records) or written as named fields (`FIELD: value`, `FIELD = value`, OFS
+  `FIELD:1:1=value`) in a folder named after the application are indexed. Each record links to
+  the routines it names, with the event: validation, input, authorisation, before authorisation,
+  record id, check record, enquiry build, enquiry conversion (`@ ROUTINE`), API, batch job
+  (+ `.LOAD` / `.SELECT`). Impact on a routine lists the records that run it; the new
+  **Temenos Configuration** analyzer lists every link and the routines records name that are not in
+  the repository. Field positions come from the Temenos-Skills references (checked on real R21
+  records) or from the repository's own `I_F` insert when present.
+
+### Fixed (validated on two public T24 repositories: 2,669 core routines and a 4,846-file bank
+local-development repository)
+- Routines named like `COB.IS.LD.ASSET.CLASS` or `AB.TAX.A` were treated as binary files, and
+  backup copies such as `A.CTR.UPDATE_prev` were not recognised; inserts with lower-case equates
+  or an unnamed `COM` block failed the content check. 16 more routines are indexed in the bank
+  repository.
+- Coding Practices no longer flags variables or labels that start with a keyword
+  (`ABORT.FLAG = …`, `CRT.MSG = …`, `PERFORM.ACCOUNTING:`) or text in inline `;*` comments.
+  On the core routines, STOP/ABORT findings fell from 326 to 7, CRT from 127 to 112 and
+  EXECUTE/PERFORM from 198 to 178; the remaining findings are real statements.
+
+### Changed
+- The index cache version is 10; existing cached indexes are rebuilt once.
+
 ## Unreleased — Theme toggle (Phase C6)
 
 ### Added

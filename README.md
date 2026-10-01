@@ -214,6 +214,16 @@ Framework-aware analysis includes patterns for:
 * FastAPI
 * Flask
 
+For **Temenos T24 / Transact** folders, analyzers list routines, applications, services, core
+calls, Java links, coding practices and **configuration records**: VERSION, ENQUIRY, EB.API,
+PGM.FILE, BATCH and TSA.SERVICE records in DL.DEFINE package exports (`DL.D_<package>` +
+`REC000nn`) or as named-field records in a folder named after the application. Each record is
+linked to the routines it runs, with the event (validation, input, authorisation, before
+authorisation, record id, check record, enquiry build or conversion, API, batch job), so Impact on a
+routine shows the VERSIONs, ENQUIRYs and jobs that run it. Field positions follow the
+[Temenos-Skills](https://github.com/zainknoman/Temenos-Skills) layouts (checked on real R21
+records) unless the repository contains the application's `I_F` insert, which then decides.
+
 Analyzers use a common contract so additional language, framework or domain analyzers can be added without changing the main UI.
 
 See [`docs/ANALYZERS.md`](docs/ANALYZERS.md).

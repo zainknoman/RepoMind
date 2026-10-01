@@ -4,7 +4,16 @@
  */
 import { createObjectStore, flattenTree, parseCommit } from './gitObjects';
 import { parseIndex, readGitRepository } from './git';
-import { EXTS, IGN, basicCandidate, looksLikeBasic, sensitiveName } from '../lib/files';
+import {
+  EXTS,
+  IGN,
+  T24_RECORD_EXT,
+  basicCandidate,
+  dlPackageDirs,
+  isT24Record,
+  looksLikeBasic,
+  sensitiveName,
+} from '../lib/files';
 
 const MAX_BYTES = 1_000_000;
 const MAX_CHANGES = 500;
@@ -223,13 +232,15 @@ export async function commitSnapshot(root, sha, { signal } = {}) {
   const { commit, files: tree } = await treeFiles(store, sha);
   if (!commit) return null;
   const files = [];
+  const dlDirs = dlPackageDirs([...tree.keys()]);
   for (const [path, blob] of tree) {
     if (signal?.aborted) throw new DOMException('Indexing cancelled', 'AbortError');
     const parts = path.split('/');
     const name = parts[parts.length - 1];
     if (parts.some((part) => IGN.has(part)) || sensitiveName.test(path)) continue;
-    const basic = !isTextName(name) && basicCandidate(path, name);
-    if (!isTextName(name) && !basic) continue;
+    const record = isT24Record(path, dlDirs);
+    const basic = !record && !isTextName(name) && basicCandidate(path, name);
+    if (!record && !isTextName(name) && !basic) continue;
     const bytes = (await store.read(blob))?.bytes;
     if (!bytes || bytes.length > MAX_SNAPSHOT_BYTES || isBinary(bytes)) continue;
     const content = decoder.decode(bytes);
@@ -237,7 +248,7 @@ export async function commitSnapshot(root, sha, { signal } = {}) {
     files.push({
       name,
       path,
-      ext: basic ? '.b' : extensionOf(name),
+      ext: record ? T24_RECORD_EXT : basic ? '.b' : extensionOf(name),
       text: true,
       content,
       size: bytes.length,

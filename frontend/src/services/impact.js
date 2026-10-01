@@ -14,6 +14,7 @@ const CONTAINER_KINDS = new Set([
   'subroutine',
   'program',
   'insert',
+  'record',
 ]);
 const RANK = { high: 0, medium: 1, low: 2 };
 const LEVELS = ['high', 'medium', 'low'];

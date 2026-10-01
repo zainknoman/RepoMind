@@ -35,11 +35,13 @@ export const languageFor = (ext) =>
     '.yaml': 'YAML',
     '.yml': 'YAML',
     '.b': 'Temenos BASIC',
+    '.t24r': 'T24 Record',
   })[ext] || 'Text';
 
 import { parse } from '@babel/parser';
 import { parseBasic, routineName } from './temenosBasic';
 import { parsePython } from './pythonParser';
+import { analyzeRecordContent, buildConfiguration } from './temenosRecords';
 import { parseJava } from './javaParser';
 import { analysisCoverage } from './coverage';
 import { manifestDependencies, packagesFromManifest } from './frameworks';
@@ -716,6 +718,18 @@ function fallbackAnalyzeSource(file, content) {
 
 export function analyzeSource(file, content) {
   if (file.ext === '.b') return { ...fileSummary(file, content), ...parseBasic(file, content) };
+  if (file.ext === '.t24r')
+    // A T24 configuration record: its links to routines are made at index time.
+    return {
+      ...fileSummary(file, content),
+      parser: 't24-record',
+      symbols: [],
+      imports: [],
+      exports: [],
+      references: [],
+      parseErrors: [],
+      t24record: analyzeRecordContent(file.path, content),
+    };
   if (file.ext === '.py') return { ...fileSummary(file, content), ...parsePython(file, content) };
   if (file.ext === '.java') return { ...fileSummary(file, content), ...parseJava(file, content) };
   if (file.path === 'package.json' || file.path.endsWith('/package.json')) {
@@ -1057,19 +1071,59 @@ export async function buildRepositoryIndex(project, options = {}) {
     for (const e of analysis.exports) index.exports.push({ ...e, path: file.path });
   }
 
+  // T24 configuration records: a symbol per record and a `config` edge and reference to each
+  // routine it names that is in the repository. Built here, never stored on the analyses, so a
+  // reused record file is joined again from scratch.
+  const configuration = buildConfiguration(index.files);
+  const configImports = new Map();
+  const configReferences = new Map();
+  const linesOf = new Map(index.files.map((f) => [f.path, f.lines || 1]));
+  for (const record of configuration.records) {
+    const lines = linesOf.get(record.path) || 1;
+    index.symbols.push({
+      name: `${record.application} ${record.id}`,
+      kind: 'record',
+      line: 1,
+      column: 1,
+      endLine: lines,
+      path: record.path,
+    });
+    record.links = record.links.flatMap(({ optional, ...link }) => {
+      const path = resolveNamed('call', link.routine);
+      return path || !optional ? [{ ...link, path }] : [];
+    });
+    const seen = new Set();
+    for (const link of record.links) {
+      if (!link.path || seen.has(link.routine)) continue;
+      seen.add(link.routine);
+      // Field N of a positional record is on line N.
+      const line = Math.min(Math.max(link.position, 1), lines);
+      if (!configImports.has(record.path)) configImports.set(record.path, []);
+      configImports.get(record.path).push({
+        module: link.routine,
+        kind: 'config',
+        line,
+        bindings: [{ local: link.routine, imported: link.routine, kind: 'call' }],
+      });
+      if (!configReferences.has(record.path)) configReferences.set(record.path, []);
+      configReferences.get(record.path).push({ name: link.routine, line, column: 1, kind: 'call' });
+    }
+  }
+  index.temenosConfig = configuration;
+
   // Imports are resolved once every file is analysed: tsconfig/jsconfig settings come from the
   // config files' own analyses.
   const modules = createModuleResolver(index.files, fileMap);
   for (const analysis of index.files) {
     const file = { path: analysis.path };
-    for (const item of analysis.imports) {
+    for (const item of [...analysis.imports, ...(configImports.get(analysis.path) || [])]) {
       const resolved =
         item.kind === 'import'
           ? modules.entries(file.path, item, analysis)
           : [
               {
                 module: item.module,
-                target: resolveNamed(item.kind, item.module),
+                target: resolveNamed(item.kind === 'config' ? 'call' : item.kind, item.module),
                 bindings: item.bindings,
               },
             ];
@@ -1299,7 +1353,7 @@ export async function buildRepositoryIndex(project, options = {}) {
     const bindingsByName = file.localBindings?.length
       ? groupBy(file.localBindings, (b) => b.name)
       : null;
-    for (const ref of file.references || []) {
+    for (const ref of [...(file.references || []), ...(configReferences.get(file.path) || [])]) {
       if (ref.kind === 'member') {
         const member = resolveMember(file.path, ref, bindingsByName);
         // A package or global object is already counted through its own identifier.
