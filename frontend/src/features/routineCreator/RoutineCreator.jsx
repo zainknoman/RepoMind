@@ -25,9 +25,7 @@ export function RoutineCreator() {
   const validation = useMemo(() => validateRoutineState(state), [state]);
   const output = useMemo(
     () =>
-      state.template
-        ? generatePreset(state.template, state.routineName)
-        : generateRoutine(spec),
+      state.template ? generatePreset(state.template, state.routineName) : generateRoutine(spec),
     [spec, state.routineName, state.template],
   );
   const evalQuery = useMemo(() => buildEvalQuery(state), [state]);
@@ -101,7 +99,9 @@ export function RoutineCreator() {
           className={validation.valid ? 'routine-validation valid' : 'routine-validation invalid'}
           role="status"
         >
-          <strong>{validation.valid ? '✓ Configuration valid' : 'Configuration needs attention'}</strong>
+          <strong>
+            {validation.valid ? '✓ Configuration valid' : 'Configuration needs attention'}
+          </strong>
           {validation.errors.map((message) => (
             <div key={message}>{message}</div>
           ))}
@@ -217,7 +217,9 @@ export function RoutineCreator() {
               <button onClick={addField}>+ Field</button>
             </div>
             {state.fields.length === 0 ? (
-              <p className="muted">No fields selected. Add fields when the record layout is known.</p>
+              <p className="muted">
+                No fields selected. Add fields when the record layout is known.
+              </p>
             ) : (
               <div className="routine-list">
                 {state.fields.map((field, index) => (

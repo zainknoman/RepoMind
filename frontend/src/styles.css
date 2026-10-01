@@ -2907,7 +2907,11 @@ textarea {
   border-radius: 0;
   background: #0b1220;
   color: #e2e8f0;
-  font: 12px/1.55 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+  font:
+    12px/1.55 'SFMono-Regular',
+    Consolas,
+    'Liberation Mono',
+    monospace;
   tab-size: 4;
 }
 .routine-preview-foot {

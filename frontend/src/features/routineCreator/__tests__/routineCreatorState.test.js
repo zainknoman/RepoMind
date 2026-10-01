@@ -67,9 +67,7 @@ describe('Routine Creator Phase 2 state', () => {
       { name: 'AC.CURRENCY', table: 'ACCOUNT', position: '2' },
     ];
 
-    expect(buildEvalQuery(state)).toBe(
-      'SELECT FBNK.ACCOUNT SAVING EVAL "CUSTOMER":"^":"CURRENCY"',
-    );
+    expect(buildEvalQuery(state)).toBe('SELECT FBNK.ACCOUNT SAVING EVAL "CUSTOMER":"^":"CURRENCY"');
   });
 
   it('allows legacy template mode without application tables', () => {
