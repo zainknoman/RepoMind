@@ -24,6 +24,7 @@ export function HelpPage() {
         'Largest files, tests, configuration and documentation counts',
         'TODO/FIXME markers and sensitive-filename signals',
         'Filterable file list that opens files in the Editor',
+        'Header theme button: System (follows the OS), Light or Dark, remembered per browser',
       ],
       how: 'Click Open Folder (Chrome or Edge on desktop), then Build Project Index in Investigate. Click any signal, hotspot or unresolved import to open it in Codebase. Use Refresh index after files change. Nothing is uploaded.',
       example:

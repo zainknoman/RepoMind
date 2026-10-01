@@ -885,6 +885,29 @@ test.describe('RepoMind workspaces', () => {
     );
     expect(background).toBe('rgb(11, 18, 32)');
   });
+
+  test('The header theme toggle overrides the system preference and is remembered', async ({
+    page,
+  }) => {
+    const background = () =>
+      page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor);
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await openFixture(page);
+    const toggle = page.getByRole('button', { name: /^Theme: / });
+    await expect(toggle).toHaveAccessibleName('Theme: System');
+    await toggle.click();
+    await expect(toggle).toHaveAccessibleName('Theme: Light');
+    expect(await background()).toBe('rgb(245, 247, 250)');
+
+    await page.emulateMedia({ colorScheme: 'light' });
+    await toggle.click();
+    await expect(toggle).toHaveAccessibleName('Theme: Dark');
+    expect(await background()).toBe('rgb(11, 18, 32)');
+
+    await page.reload();
+    await expect(page.getByRole('button', { name: 'Theme: Dark' })).toBeVisible();
+    expect(await background()).toBe('rgb(11, 18, 32)');
+  });
 });
 
 test.describe('RepoMind in unsupported browsers', () => {

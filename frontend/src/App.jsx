@@ -10,8 +10,12 @@ import { toast } from './lib/toast';
 import { NAV_GROUPS, PRIMARY_TAB, SECONDARY_GROUP } from './navigation';
 import { useCodebaseIndex } from './features/codebase/useCodebaseIndex';
 import { importGithubRepository } from './services/githubImport';
+import { applyTheme, loadTheme, nextTheme, saveTheme } from './lib/theme';
 
 // Workspaces are loaded on first use so the initial bundle only carries the shell and the dashboard.
+const THEME_LABELS = { system: 'System', light: 'Light', dark: 'Dark' };
+const THEME_ICONS = { system: '🖥', light: '☀', dark: '☾' };
+
 const named = (loader, name) => lazy(() => loader().then((m) => ({ default: m[name] })));
 const CodebasePanel = React.memo(lazy(() => import('./features/codebase/CodebasePanel')));
 const Explorer = named(() => import('./features/explorer/Explorer'), 'Explorer');
@@ -37,7 +41,8 @@ function initialState() {
 function App() {
   const initial = useMemo(initialState, []);
   const folderSupported = useMemo(supportsFolderAccess, []);
-  const [includeSensitive, setIncludeSensitive] = useState(false),
+  const [theme, setTheme] = useState(loadTheme),
+    [includeSensitive, setIncludeSensitive] = useState(false),
     [githubOpen, setGithubOpen] = useState(false),
     [githubUrl, setGithubUrl] = useState(''),
     [githubLoading, setGithubLoading] = useState(false),
@@ -261,6 +266,19 @@ function App() {
           </div>
         </div>
         <div className="header-actions">
+          <button
+            className="theme-toggle"
+            onClick={() => {
+              const next = nextTheme(theme);
+              setTheme(next);
+              saveTheme(next);
+              applyTheme(next);
+            }}
+            title={`Theme: ${THEME_LABELS[theme]} (click for ${THEME_LABELS[nextTheme(theme)]})`}
+            aria-label={`Theme: ${THEME_LABELS[theme]}`}
+          >
+            <span aria-hidden="true">{THEME_ICONS[theme]}</span> {THEME_LABELS[theme]}
+          </button>
           <button onClick={() => setTab('help')} aria-current={tab === 'help' ? 'page' : undefined}>
             <span aria-hidden="true">❔</span> Help
           </button>

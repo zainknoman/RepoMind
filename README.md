@@ -607,6 +607,9 @@ For the complete local repository workflow, use a supported Chromium-based deskt
 5. Review the Dashboard.
 6. Open **Codebase** to investigate the project.
 
+The header button **System / Light / Dark** chooses the colour theme (System follows the
+operating system). The choice is remembered in this browser.
+
 ---
 
 # 🛠️ Development

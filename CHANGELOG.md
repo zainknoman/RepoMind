@@ -2,6 +2,13 @@
 
 All notable changes to RepoMind are recorded here.
 
+## Unreleased — Theme toggle (Phase C6)
+
+### Added
+- **Light / dark theme toggle** in the header: System (follows the operating system, the
+  default), Light or Dark. The choice is remembered in this browser and applied before the page
+  renders, so the other theme never flashes.
+
 ## Unreleased — Worker cache, block scopes, lower-case T24 names (Phase C5)
 
 ### Changed

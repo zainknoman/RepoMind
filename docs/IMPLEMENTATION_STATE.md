@@ -7,11 +7,11 @@ Update at the end of every phase.
 
 **P1 GitHub Intelligence implementation is complete after P0 public GitHub import. Private repositories/OAuth remain P2.**
 
-**Phases B1–B3 and C1–C5 done and on `main`.** Plans with per-task status and outcomes:
+**Phases B1–B3 and C1–C6 done and on `main`.** Plans with per-task status and outcomes:
 `docs/superpowers/plans/2026-09-28-graph-trust.md` (B1), `…-transitive-impact.md` (B2),
 `…-git-change-impact.md` (B3), `…-member-calls.md` (C1), `…-ai-investigation.md` (C2),
 `…-import-resolution.md` (C3), `…-change-impact-followups.md` (C4),
-`2026-10-01-worker-cache-scopes.md` (C5). Phases C6–C7 follow.
+`2026-10-01-worker-cache-scopes.md` (C5), `2026-10-01-theme-toggle.md` (C6). Phase C7 follows.
 Plans live in `docs/superpowers/plans/`.
 
 ## Roadmap
@@ -34,6 +34,7 @@ Plans live in `docs/superpowers/plans/`.
 | C3 | Import resolution: tsconfig/jsconfig paths, Python, Java | Done |
 | C4 | Tests to run; exact Git status; commits traced against their own code | Done |
 | C5 | Cache save/restore in the worker; block scopes; lower-case T24 names | Done |
+| C6 | Header light/dark theme toggle | Done |
 | P0 | Public GitHub import + production analysis parity | Done |
 | P1 | GitHub Intelligence: repository, branches, commits, PRs, issues, releases + impact integration | Done |
 | P2 | Product cleanup: consolidate navigation, remove unrelated legacy utility surfaces | Done |
@@ -294,6 +295,12 @@ Plans live in `docs/superpowers/plans/`.
 - `lib/files.js`: `basicCandidate(path)` used by the walk, GitHub import and commit snapshots.
 - Cache version 9. Tests: 237 unit.
 
+## Completed work (Phase C6 — theme toggle)
+
+- `lib/theme.js` (System / Light / Dark in `localStorage`, `data-theme` on `<html>`), applied in
+  `main.jsx` before rendering; header button in `App.jsx`; dark tokens keyed on `data-theme` and
+  the OS preference. Tests: 240 unit, theme E2E.
+
 ## Architectural decisions
 
 - **No router introduced.** Tab ids remain App state keys; navigation is still App state rather than a routing library.
@@ -379,7 +386,6 @@ Carried forward:
 ## Next recommended task
 
 Phases in progress, in order (owner's list, 2026-09-28):
-- **C6** Header light/dark theme toggle.
 - **C7** Temenos configuration records (VERSION, EB.API, PGM.FILE, BATCH / TSA.SERVICE) and
   validation on real T24 sources, using the Temenos-Skills reference
   (github.com/zainknoman/Temenos-Skills).
