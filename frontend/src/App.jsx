@@ -27,10 +27,6 @@ const Analyze = named(() => import('./features/analysis/Analyze'), 'Analyze');
 const Transform = named(() => import('./features/transform/Transform'), 'Transform');
 const Diff = named(() => import('./features/compare/Diff'), 'Diff');
 const HelpPage = named(() => import('./features/help/HelpPage'), 'HelpPage');
-const RoutineCreator = named(
-  () => import('./features/routineCreator/RoutineCreator'),
-  'RoutineCreator',
-);
 
 const MAX_SEARCH_RESULTS = 2000;
 
@@ -464,7 +460,6 @@ function App() {
               {tab === 'mdviewer' && <MDViewer />}
               {tab === 'ingest' && <CodeIngest p={p} />}
               {tab === 'analyze' && <Analyze p={p} onOpenCodebase={() => setTab('codebase')} />}
-              {tab === 'routineCreator' && <RoutineCreator />}
               {tab === 'transform' && (
                 <Transform
                   p={p}

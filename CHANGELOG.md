@@ -2,6 +2,23 @@
 
 All notable changes to RepoMind are recorded here.
 
+## Unreleased — T24 tools moved to T24Tools (Phase C8)
+
+### Removed
+- **Routine Creator moved to [T24Tools](https://github.com/zainknoman/T24Tools)**, together with
+  the OFS Message Generator and the T24 Log Analyzer that 612ca49 had already removed. T24Tools is
+  a separate browser app with the three tools as header tabs, RepoMind's look and theme toggle,
+  and a new "Open existing routine" (edit an uploaded routine in the creator, or copy it under a
+  new name). Removed here: `features/routineCreator/`, `services/temenos/routine*.js` and their
+  tests, the Analyze → Routine Creator tab, its styles and `docs/ROUTINE_CREATOR.md`. RepoMind's
+  header has no T24 tool now.
+- OFS configurations and the theme saved by RepoMind carry over to T24Tools on its first visit
+  (both apps share the GitHub Pages origin).
+
+### Unchanged
+- Temenos / T24 code analysis: BASIC parsing, the Temenos analyzers, configuration records,
+  Impact on routines and T24-aware AI ranking.
+
 ## Unreleased — Temenos configuration records and validation (Phase C7)
 
 ### Added

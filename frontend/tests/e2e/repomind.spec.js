@@ -155,13 +155,15 @@ test.describe('RepoMind parent navigation', () => {
       'Quick Analysis',
       'Transform',
       'Compare',
-      'Routine Creator',
       'Markdown',
     ]);
     await expect(nav.getByRole('button', { name: 'Developer Tools', exact: true })).toHaveCount(0);
     await expect(nav.getByRole('button', { name: 'Temenos / OFS', exact: true })).toHaveCount(0);
     await expect(nav.getByRole('button', { name: 'Engineering', exact: true })).toHaveCount(0);
     await expect(nav.getByRole('button', { name: 'Project Analysis', exact: true })).toHaveCount(0);
+    // The T24 tools (Routine Creator, OFS Message Generator, T24 Log Analyzer) moved to T24Tools.
+    for (const moved of ['Routine Creator', 'OFS Message Generator', 'T24 Log Analyzer'])
+      await expect(nav.getByRole('button', { name: moved, exact: true })).toHaveCount(0);
   });
 
   for (const [button, heading] of tabs) {

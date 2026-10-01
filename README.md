@@ -303,6 +303,10 @@ Analyze is for deeper investigation and producing reusable artifacts.
 | **Compare**        | Compare two files                                |
 | **Markdown**       | Render Markdown and Mermaid documentation        |
 
+The T24 developer tools (Routine Creator, OFS Message Generator and T24 Log Analyzer) live in
+their own app, [T24Tools](https://github.com/zainknoman/T24Tools). RepoMind keeps analysing T24
+source code: see [Analyzers](#-analyzers).
+
 ---
 
 # 🧠 Codebase workspace

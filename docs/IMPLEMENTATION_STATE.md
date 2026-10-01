@@ -7,7 +7,9 @@ Update at the end of every phase.
 
 **P1 GitHub Intelligence implementation is complete after P0 public GitHub import. Private repositories/OAuth remain P2.**
 
-**Phases B1–B3 and C1–C7 done and on `main`.** Plans with per-task status and outcomes:
+**Phases B1–B3 and C1–C8 done and on `main`.** C8 moved the T24 tools to
+[T24Tools](https://github.com/zainknoman/T24Tools) (plan in that repository:
+`docs/superpowers/plans/2026-10-01-t24tools-migration.md`). Plans with per-task status and outcomes:
 `docs/superpowers/plans/2026-09-28-graph-trust.md` (B1), `…-transitive-impact.md` (B2),
 `…-git-change-impact.md` (B3), `…-member-calls.md` (C1), `…-ai-investigation.md` (C2),
 `…-import-resolution.md` (C3), `…-change-impact-followups.md` (C4),
@@ -315,6 +317,17 @@ Plans live in `docs/superpowers/plans/`.
 - Analyzer `temenos-config`; Coding Practices rules require statements (`STATEMENT_END`) and
   stop at inline comments. Cache version 10.
 - Validated on Core_Routines_T24_BP and JBLR22NEW (see the plan's outcome). Tests: 258 unit.
+
+## Completed work (Phase C8 — T24 tools moved to T24Tools)
+
+- Routine Creator removed: `features/routineCreator/`, `services/temenos/routine*.js` (the
+  `services/temenos/` folder held nothing else), their tests, the `routineCreator` nav entry and
+  App route, the `routine-*` / `.eyebrow` styles and `docs/ROUTINE_CREATOR.md`. The header E2E
+  asserts that no T24 tool is in the navigation.
+- The code now lives in T24Tools with the OFS Message Generator and T24 Log Analyzer restored
+  from `612ca49^`. Temenos analysis (`services/temenos.js`, `temenosBasic.js`,
+  `temenosRecords.js`, analyzers, AI ranking) is unchanged; its tests pass. Tests: 230 unit (the
+  28 Routine Creator tests moved with it).
 
 ## Architectural decisions
 
