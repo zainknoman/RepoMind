@@ -409,6 +409,14 @@ Potential impact
 
 Change-impact reports can be copied or downloaded as Markdown for reviews and pull requests.
 
+- **Tests to run:** test files (by naming convention: `*.test.*`, `__tests__/`, `test_*.py`,
+  `*Test.java`, `*_test.go`, …) that use a changed symbol, import a changed file, or changed
+  themselves. Symbol impact lists them too.
+- **Commits are traced against their own code:** Impact on an older commit indexes the
+  repository as it was at that commit (read from `.git`), so symbols renamed or removed since
+  are still followed. Untick the option to use today's index instead (faster).
+- The Git view's **Modified** count compares file content with the commit, not timestamps.
+
 Historical analysis explicitly reports blind spots when the required source is unavailable.
 
 ---

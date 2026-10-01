@@ -2,6 +2,21 @@
 
 All notable changes to RepoMind are recorded here.
 
+## Unreleased — Change impact follow-ups (Phase C4)
+
+### Added
+- **Tests to run.** Change Impact and Symbol Impact list the test files a change reaches: tests
+  that use a changed symbol (directly or transitively), tests that import a changed file, and
+  changed test files. The Markdown report has a "Tests to run" section.
+- **Commits traced against their own code.** Impact of a commit from Recent Git Activity indexes
+  the repository as it was at that commit (from `.git`, cached for the last three commits), so
+  callers of since-renamed or removed functions are still found. **Explain this change with AI**
+  then sends that commit's source. A checkbox switches back to today's index.
+
+### Changed
+- Git status (Modified) uses the index fast path (size and time, Git's racy rule) before hashing,
+  so refreshing the Git view no longer reads every tracked file.
+
 ## Unreleased — Product cleanup (P2)
 
 ### Changed

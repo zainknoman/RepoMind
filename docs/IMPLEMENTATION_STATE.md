@@ -7,10 +7,11 @@ Update at the end of every phase.
 
 **P1 GitHub Intelligence implementation is complete after P0 public GitHub import. Private repositories/OAuth remain P2.**
 
-**Phases B1–B3 and C1–C3 done and on `main`.** Plans with per-task status and outcomes:
+**Phases B1–B3 and C1–C4 done and on `main`.** Plans with per-task status and outcomes:
 `docs/superpowers/plans/2026-09-28-graph-trust.md` (B1), `…-transitive-impact.md` (B2),
 `…-git-change-impact.md` (B3), `…-member-calls.md` (C1), `…-ai-investigation.md` (C2),
-`…-import-resolution.md` (C3). Phases C4–C7 follow in that order.
+`…-import-resolution.md` (C3), `…-change-impact-followups.md` (C4). Phases C5–C7 follow in
+that order.
 Plans live in `docs/superpowers/plans/`.
 
 ## Roadmap
@@ -31,6 +32,7 @@ Plans live in `docs/superpowers/plans/`.
 | C1 | Member calls (`this.m()`, `obj.m()`) in references and impact | Done |
 | C2 | AI investigation of impact and changes; graph-aware and T24 file ranking | Done |
 | C3 | Import resolution: tsconfig/jsconfig paths, Python, Java | Done |
+| C4 | Tests to run; exact Git status; commits traced against their own code | Done |
 | P0 | Public GitHub import + production analysis parity | Done |
 | P1 | GitHub Intelligence: repository, branches, commits, PRs, issues, releases + impact integration | Done |
 | P2 | Product cleanup: consolidate navigation, remove unrelated legacy utility surfaces | Done |
@@ -271,6 +273,16 @@ Plans live in `docs/superpowers/plans/`.
 - Results on Flask, Spring PetClinic, shadcn taxonomy: see the plan's outcome.
 - Tests: 170 unit, 62 E2E.
 
+## Completed work (Phase C4 — change impact follow-ups)
+
+- `services/testFiles.js`: `isTestFile` (JS/TS, Python, Java/Kotlin, Go, T24 conventions),
+  `affectedTests`; `tests` on symbol and change impact; "Tests to run" in the report and views.
+- `gitChanges.js`: `workingTreeStatus` on `compareToHead`; `commitSnapshot(root, sha)` →
+  content-backed project of a commit's tree. `gitStatusSummary` has the index fast path.
+- GitView: commit impact traced at the commit (snapshot index, cached ×3, toggle); AI
+  investigations may carry their own `index`.
+- Tests: 219 unit.
+
 ## Architectural decisions
 
 - **No router introduced.** Tab ids remain App state keys; navigation is still App state rather than a routing library.
@@ -352,8 +364,6 @@ Carried forward:
 ## Next recommended task
 
 Phases in progress, in order (owner's list, 2026-09-28):
-- **C4** Change-impact follow-ups: affected test files; exact Git "Modified" detection; trace old
-  commits against their own code.
 - **C5** Cache save/restore in the worker; block scopes; lower-case extensionless T24 routines.
 - **C6** Header light/dark theme toggle.
 - **C7** Temenos configuration records (VERSION, EB.API, PGM.FILE, BATCH / TSA.SERVICE) and

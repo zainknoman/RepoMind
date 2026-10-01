@@ -46,32 +46,51 @@ the code as it was at that commit rather than today's index.
 
 ### Task 1: Exact working-tree status
 
-- [ ] Test (git CLI repo): commit a.js, b.js, c.js; modify a.js, rewrite b.js with identical
+- [x] Test (git CLI repo): commit a.js, b.js, c.js; modify a.js, rewrite b.js with identical
   content (touch), delete c.js, add new.js → `workingTreeStatus` = modified [a.js], deleted
   [c.js], added [new.js]; `gitStatusSummary` modified = [a.js] (was [a.js, b.js]).
-- [ ] Implement `workingTreeStatus`; refactor `workingTreeChanges` to use it; `gitStatusSummary`
+- [x] Implement `workingTreeStatus`; refactor `workingTreeChanges` to use it; `gitStatusSummary`
   uses it.
 
 ### Task 2: Affected test files
 
-- [ ] Tests: `isTestFile` table; change to `core.js` with `core.test.js` (calls core) and
+- [x] Tests: `isTestFile` table; change to `core.js` with `core.test.js` (calls core) and
   `mid.test.js` (imports mid, module level) → `tests` = both with `because`; `symbolImpact`
   `tests`; Markdown "Tests to run".
-- [ ] Implement `services/testFiles.js`; add `tests` to results; GitView and ImpactView list
+- [x] Implement `services/testFiles.js`; add `tests` to results; GitView and ImpactView list
   them (click opens the file).
 
 ### Task 3: Old commits against their own code
 
-- [ ] Test (git CLI repo): commit 1 `lib.js` exports `oldName`, `use.js` calls it; commit 2
+- [x] Test (git CLI repo): commit 1 `lib.js` exports `oldName`, `use.js` calls it; commit 2
   renames it to `newName` everywhere. Impact of commit 1 against the snapshot at commit 1 lists
   `use.js`; against the current index it finds nothing. Snapshot skips `node_modules/` and
   large blobs.
-- [ ] Implement `commitSnapshot`; GitView toggle and per-commit cache; `useAIContext` accepts
+- [x] Implement `commitSnapshot`; GitView toggle and per-commit cache; `useAIContext` accepts
   `investigation.index`.
-- [ ] CHANGELOG, README, IMPLEMENTATION_STATE, Help.
+- [x] CHANGELOG, README, IMPLEMENTATION_STATE, Help.
 
 ---
 
 ## Outcome
 
-(recorded after implementation)
+**Status: complete** — on `main`, 2026-10-01.
+
+The session that started C4 was interrupted after Task 1's first edits; that work reached `main`
+inside the owner's commit `6054373` ("Fix GitHub import and working tree change detection"),
+which also made `gitStatusSummary` content-exact (hashing each tracked file against its index
+entry). C4 was finished on top of it:
+
+- Task 1: `workingTreeStatus` reuses `compareToHead` (index fast path, racy rule, CRLF) instead
+  of a second, hash-everything loop; `gitStatusSummary` keeps its worktree-vs-index semantics
+  and gains the same fast path.
+- Task 2: `services/testFiles.js` (`isTestFile`, `affectedTests`); `tests` on `symbolImpact`
+  and `changeImpact` results. Change impact also counts tests that import a changed file
+  (directly or transitively) even when no changed symbol reaches them — a side-effect import is
+  enough reason to run a test. Shared `TestsToRun` component in Impact and Git.
+- Task 3: `commitSnapshot` returns a content-backed project (the same shape the GitHub importer
+  uses), indexed with the normal worker pipeline and `attachFileHandles`; GitView caches the
+  last three snapshot indexes; the AI investigation carries `index` so its source matches.
+
+Tests: 219 unit (`testFiles.test.js`, `workingTreeStatus`, `commitSnapshot` against git CLI
+repositories). E2E unchanged (the fixture has no Git objects).

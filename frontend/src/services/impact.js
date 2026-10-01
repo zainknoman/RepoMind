@@ -4,6 +4,7 @@
  * the blind spots that could hide further impact, so an empty result is never read as "safe".
  */
 import { coverageGaps } from './coverage';
+import { affectedTests } from './testFiles';
 
 const CONTAINER_KINDS = new Set([
   'function',
@@ -167,6 +168,7 @@ export function symbolImpact(index, root, { maxDepth = 8, limit = 2000 } = {}) {
       LEVELS.map((level) => [level, affected.filter((a) => a.confidence === level).length]),
     ),
     truncated,
+    tests: affectedTests(affected, { root: root.name }),
     blindSpots: blindSpots(index, root, affected),
   };
 }

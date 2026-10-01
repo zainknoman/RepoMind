@@ -12,7 +12,10 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { directoryHandle, fileHandle } from '../test-utils/nodeHandles';
-import { commitChanges, workingTreeChanges, workingTreeStatus } from './gitChanges';
+import { commitChanges, commitSnapshot, workingTreeChanges, workingTreeStatus } from './gitChanges';
+import { buildRepositoryIndex } from './repository';
+import { toWorkerProject } from './indexProject';
+import { changeImpact } from './changeImpact';
 import { gitStatusSummary } from './git';
 
 let gitAvailable = true;
@@ -162,5 +165,54 @@ describe.skipIf(!gitAvailable)('workingTreeStatus', { timeout: 60_000 }, () => {
     });
     const summary = await gitStatusSummary(root, files);
     expect(summary).toMatchObject({ modified: ['a.js'], deleted: ['c.js'], untracked: ['new.js'] });
+  });
+});
+
+describe.skipIf(!gitAvailable)('commitSnapshot', { timeout: 60_000 }, () => {
+  it('indexes a commit as it was, so its impact is traced against its own code', async () => {
+    const repo = makeRepo();
+    repo.write('lib.js', 'export function oldName() {\n  return 1;\n}\n');
+    repo.write('use.js', "import { oldName } from './lib';\noldName();\n");
+    repo.write('node_modules/dep/index.js', 'module.exports = 1;\n');
+    repo.write('big.js', 'x'.repeat(2 * 1024 * 1024 + 10));
+    repo.write('BP/ACCOUNT.CHECK', '    SUBROUTINE ACCOUNT.CHECK\n    RETURN\n');
+    repo.git('add', '-f', '.');
+    repo.git('commit', '-q', '-m', 'first');
+    const first = repo.git('rev-parse', 'HEAD');
+    repo.write('lib.js', 'export function oldName() {\n  return 2;\n}\n');
+    repo.git('commit', '-qam', 'change body');
+    const second = repo.git('rev-parse', 'HEAD');
+    // Later, the function is renamed everywhere.
+    repo.write('lib.js', 'export function newName() {\n  return 2;\n}\n');
+    repo.write('use.js', "import { newName } from './lib';\nnewName();\n");
+    repo.git('commit', '-qam', 'rename');
+    const root = directoryHandle(repo.dir);
+
+    const snapshot = await commitSnapshot(root, second);
+    expect(snapshot.files.map((f) => `${f.path}:${f.ext}`).sort()).toEqual([
+      'BP/ACCOUNT.CHECK:.b',
+      'lib.js:.js',
+      'use.js:.js',
+    ]);
+    expect(snapshot.files.find((f) => f.path === 'lib.js').content).toContain('return 2');
+    expect(snapshot.source).toMatchObject({ type: 'commit', commit: second });
+
+    const changes = (await commitChanges(root, second)).changes;
+    const then = await buildRepositoryIndex(toWorkerProject(snapshot.name, snapshot.files));
+    expect(changeImpact(then, changes).affected.map((a) => a.path)).toEqual(['use.js']);
+    // Today's code no longer has oldName, so the current index cannot trace that commit.
+    const now = await buildRepositoryIndex(
+      toWorkerProject('now', [
+        { path: 'lib.js', name: 'lib.js', ext: '.js', content: 'export function newName() {}\n' },
+        {
+          path: 'use.js',
+          name: 'use.js',
+          ext: '.js',
+          content: "import { newName } from './lib';\nnewName();\n",
+        },
+      ]),
+    );
+    expect(changeImpact(now, changes).affected).toEqual([]);
+    expect(first).not.toBe(second);
   });
 });

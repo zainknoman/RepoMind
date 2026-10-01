@@ -4,6 +4,7 @@ import { coverageFor } from '../../services/coverage';
 import { fileImpact, symbolImpact } from '../../services/impact';
 import { impactBriefing, impactFiles, impactTask } from '../../services/aiInvestigation';
 import { PaginatedList } from '../../components/PaginatedList';
+import { TestsToRun } from './TestsToRun';
 
 function BlindSpots({ spots }) {
   if (!spots?.length) return null;
@@ -197,7 +198,7 @@ export function ImpactView({
               )}
             />
             {!symbol.affected.length && <p className="muted">Nothing uses this symbol.</p>}
-
+            <TestsToRun tests={symbol.tests} onOpenFile={onOpenFile} />
             <BlindSpots spots={symbol.blindSpots} />
           </>
         )}

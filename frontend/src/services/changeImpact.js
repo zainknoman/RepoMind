@@ -6,6 +6,7 @@ import { lineDiff } from '../lib/diff';
 import { analyzeSource, languageFor } from './repository';
 import { CODE_LANGUAGES } from './coverage';
 import { fileImpact, symbolImpact } from './impact';
+import { affectedTests } from './testFiles';
 
 const UNIT_KINDS = new Set([
   'function',
@@ -230,6 +231,19 @@ export function changeImpact(index, changes, options = {}) {
   return {
     files,
     affected: list,
+    // A test that imports a changed file, even only for its side effects, should run too.
+    tests: affectedTests(
+      [
+        ...list,
+        ...files.flatMap((f) =>
+          fileImpact(index, f.path, options).affected.map((a) => ({
+            path: a.path,
+            because: [`imports ${f.path}`],
+          })),
+        ),
+      ],
+      { changed: changes.map((c) => c.path) },
+    ),
     broken,
     skipped,
     nonCode,
@@ -263,6 +277,10 @@ export function changeImpactMarkdown(result, title) {
   }
   for (const c of [...result.skipped, ...result.nonCode])
     out.push(`- ${c.path} (${c.status}, not analysed)`);
+  if (result.tests?.length) {
+    out.push('', '## Tests to run', '');
+    for (const t of result.tests) out.push(`- ${t.path} (${t.because.join(', ')})`);
+  }
   out.push('', '## Affected', '');
   if (result.affected.length) {
     out.push('| Symbol | File | Level | Confidence | Because |', '|---|---|---|---|---|');

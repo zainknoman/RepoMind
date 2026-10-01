@@ -4,6 +4,7 @@
  */
 import { createObjectStore, flattenTree, parseCommit } from './gitObjects';
 import { parseIndex, readGitRepository } from './git';
+import { EXTS, IGN, looksLikeBasic, maybeBasicName, sensitiveName } from '../lib/files';
 
 const MAX_BYTES = 1_000_000;
 const MAX_CHANGES = 500;
@@ -143,53 +144,11 @@ async function compareToHead(root, gitDir, files, onChange) {
 export async function workingTreeStatus(root, files) {
   const gitDir = await directory(root, '.git');
   if (!gitDir) return { available: false };
-
-  const store = createObjectStore(gitDir);
-  const { head } = await readGitRepository(root);
-  const { files: headFiles } = await treeFiles(store, head);
-
-  const status = {
-    available: true,
-    modified: [],
-    added: [],
-    deleted: [],
-  };
-
-  const present = new Set(files.map((f) => f.path));
-
-  for (const f of files) {
-    if (!f.text) continue;
-
-    let file;
-    try {
-      file = await f.handle.getFile();
-    } catch {
-      continue;
-    }
-
-    const oldSha = headFiles.get(f.path);
-    const bytes = new Uint8Array(await file.arrayBuffer());
-
-    if (!oldSha) {
-      status.added.push(f.path);
-      continue;
-    }
-
-    if ((await blobSha(bytes)) === oldSha) continue;
-
-    // core.autocrlf: CRLF working copy vs LF committed blob.
-    if (bytes.includes(13) && (await blobSha(withoutCarriageReturns(bytes))) === oldSha) continue;
-
-    status.modified.push(f.path);
-  }
-
-  for (const [path] of headFiles) {
-    if (present.has(path) || (await exists(root, path))) continue;
-    status.deleted.push(path);
-  }
-
+  const status = { available: true, modified: [], added: [], deleted: [] };
+  await compareToHead(root, gitDir, files, (kind, path) => {
+    status[kind].push(path);
+  });
   for (const list of [status.modified, status.added, status.deleted]) list.sort();
-
   return status;
 }
 
@@ -242,5 +201,53 @@ export async function commitChanges(root, sha) {
     commit: { sha, ...commit },
     changes,
     truncated: changes.length >= MAX_CHANGES,
+  };
+}
+
+const MAX_SNAPSHOT_BYTES = 2 * 1024 * 1024;
+const extensionOf = (name) =>
+  name.includes('.') ? name.slice(name.lastIndexOf('.')).toLowerCase() : '';
+const isTextName = (name) =>
+  EXTS.has(extensionOf(name)) || ['Dockerfile', 'Makefile', '.gitignore'].includes(name);
+
+/**
+ * The repository as it was at commit `sha`, as a project whose files carry their content: the
+ * same files the folder walk would index (text extensions, ignored folders and sensitive names
+ * skipped, files over 2 MB left out, extensionless upper-case names kept only if they read as
+ * BASIC). Index it to trace that commit against its own code.
+ */
+export async function commitSnapshot(root, sha, { signal } = {}) {
+  const gitDir = await directory(root, '.git');
+  if (!gitDir) return null;
+  const store = createObjectStore(gitDir);
+  const { commit, files: tree } = await treeFiles(store, sha);
+  if (!commit) return null;
+  const files = [];
+  for (const [path, blob] of tree) {
+    if (signal?.aborted) throw new DOMException('Indexing cancelled', 'AbortError');
+    const parts = path.split('/');
+    const name = parts[parts.length - 1];
+    if (parts.some((part) => IGN.has(part)) || sensitiveName.test(path)) continue;
+    const basic = !isTextName(name) && maybeBasicName(name);
+    if (!isTextName(name) && !basic) continue;
+    const bytes = (await store.read(blob))?.bytes;
+    if (!bytes || bytes.length > MAX_SNAPSHOT_BYTES || isBinary(bytes)) continue;
+    const content = decoder.decode(bytes);
+    if (basic && !looksLikeBasic(content.slice(0, 4096))) continue;
+    files.push({
+      name,
+      path,
+      ext: basic ? '.b' : extensionOf(name),
+      text: true,
+      content,
+      size: bytes.length,
+      lastModified: 0,
+    });
+  }
+  const repository = root.name || 'repository';
+  return {
+    name: repository,
+    files,
+    source: { type: 'commit', commit: sha, message: commit.message },
   };
 }

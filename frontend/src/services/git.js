@@ -102,8 +102,10 @@ export async function gitStatusSummary(root, files = []) {
   if (!g) return { available: false };
 
   try {
-    const indexFile = await file(g, 'index');
-    const entries = parseIndex(await (await indexFile.getFile()).arrayBuffer());
+    const indexFile = await (await file(g, 'index')).getFile();
+    const entries = parseIndex(await indexFile.arrayBuffer());
+    // As in Git, an entry whose file time is not older than the index is "racy": compare content.
+    const indexWritten = Math.floor(indexFile.lastModified / 1000);
 
     const current = new Map(files.map((f) => [f.path, f]));
     const tracked = new Set(entries.map((x) => x.path));
@@ -118,7 +120,11 @@ export async function gitStatusSummary(root, files = []) {
       if (!entry || !f.text) continue;
 
       try {
-        const bytes = new Uint8Array(await f.handle.getFile().then((x) => x.arrayBuffer()));
+        const onDisk = await f.handle.getFile();
+        const mtime = Math.floor(onDisk.lastModified / 1000);
+        // Fast path: size and time match the index entry, so the content is what was staged.
+        if (entry.size === onDisk.size && entry.mtime === mtime && mtime < indexWritten) continue;
+        const bytes = new Uint8Array(await onDisk.arrayBuffer());
 
         if ((await blobSha(bytes)) === entry.sha) continue;
 

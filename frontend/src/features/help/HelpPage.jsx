@@ -46,6 +46,7 @@ export function HelpPage() {
         'Dependencies and references for Python and Java, and tsconfig/jsconfig path aliases in JavaScript/TypeScript',
         'Context building',
         'Git change impact: what uncommitted work or a commit could affect, as a Markdown report',
+        'Tests to run for a change or a symbol; older commits traced against their own code',
         'Git and AI workspace integration',
         'GitHub Intelligence for public imports: repository metadata, branches, commits, pull requests, issues and releases',
         'Change Impact for GitHub commits and pull requests using the current dependency graph',

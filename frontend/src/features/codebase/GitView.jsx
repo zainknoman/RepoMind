@@ -1,8 +1,11 @@
-import { useState } from 'react';
-import { commitChanges, workingTreeChanges } from '../../services/gitChanges';
+import { useRef, useState } from 'react';
+import { commitChanges, commitSnapshot, workingTreeChanges } from '../../services/gitChanges';
+import { buildIndex } from '../../services/indexClient';
+import { attachFileHandles } from '../../services/repository';
 import { changeImpact, changeImpactMarkdown } from '../../services/changeImpact';
 import { changeBriefing, changeFiles, changeTask } from '../../services/aiInvestigation';
 import { cp, dl } from '../../lib/text';
+import { TestsToRun } from './TestsToRun';
 import { GitHubView } from './GitHubView';
 import { PaginatedList } from '../../components/PaginatedList';
 
@@ -14,7 +17,11 @@ function ChangeImpact({ state, onOpenFile, projectName, onExplain }) {
     return (
       <div className="analytics-panel">
         <h2>Change Impact</h2>
-        <p className="muted">Reading {state.title.toLowerCase()}…</p>
+        <p className="muted">
+          {state.snapshot
+            ? 'Indexing the code at this commit…'
+            : `Reading ${state.title.toLowerCase()}…`}
+        </p>
       </div>
     );
   if (state.error)
@@ -42,6 +49,8 @@ function ChangeImpact({ state, onOpenFile, projectName, onExplain }) {
                 title,
                 task: changeTask(title),
                 files: changeFiles(result),
+                // A commit traced at its own code is explained from that code.
+                index: state.index,
                 sections: (budget) =>
                   changeBriefing(result, state.changes, title, {
                     reportTokens: Math.round(budget * 0.1),
@@ -132,6 +141,7 @@ function ChangeImpact({ state, onOpenFile, projectName, onExplain }) {
           {!result.affected.length && (
             <p className="muted">Nothing in the index depends on the changed code.</p>
           )}
+          <TestsToRun tests={result.tests} onOpenFile={onOpenFile} />
           {!!result.broken.length && (
             <>
               <h3>Broken references</h3>
@@ -169,19 +179,36 @@ function ChangeImpact({ state, onOpenFile, projectName, onExplain }) {
 
 export function GitView({ git, busy, onRefresh, onSelect, project, index, onOpenFile, onExplain }) {
   const [impact, setImpact] = useState(null);
+  // Trace a commit against the code as it was at that commit (an index of its tree), or against
+  // today's index. Snapshot indexes are kept for the last few commits.
+  const [atCommit, setAtCommit] = useState(true);
+  const snapshots = useRef(new Map());
   if (project?.source?.type === 'github') return <GitHubView project={project} index={index} />;
 
-  async function analyse(title, load, note) {
+  async function snapshotIndex(sha) {
+    if (snapshots.current.has(sha)) return snapshots.current.get(sha);
+    const snapshot = await commitSnapshot(project.rootHandle, sha);
+    if (!snapshot) throw new Error(`Commit ${sha} not found`);
+    const built = attachFileHandles(await buildIndex(snapshot), snapshot);
+    snapshots.current.set(sha, built);
+    if (snapshots.current.size > 3) snapshots.current.delete(snapshots.current.keys().next().value);
+    return built;
+  }
+
+  async function analyse(title, load, note, sha = null) {
     setImpact({ title, loading: true });
     try {
       const changes = await load();
       if (!changes.available) throw new Error('No .git directory found.');
       if (changes.error) throw new Error(changes.error);
-      const result = changeImpact(index, changes.changes);
+      if (sha) setImpact({ title, loading: true, snapshot: true });
+      const traced = sha ? await snapshotIndex(sha) : index;
+      const result = changeImpact(traced, changes.changes);
       setImpact({
         title,
         note,
         result,
+        index: traced,
         changes: changes.changes,
         truncated: changes.truncated,
         markdown: changeImpactMarkdown(result, title),
@@ -200,7 +227,10 @@ export function GitView({ git, busy, onRefresh, onSelect, project, index, onOpen
     analyse(
       `Commit ${entry.hash.slice(0, 10)}`,
       () => commitChanges(project.rootHandle, entry.hash),
-      'Symbols changed by an older commit are traced through today’s code.',
+      atCommit
+        ? `Traced against the code at this commit (${entry.hash.slice(0, 10)}).`
+        : 'Traced through today’s code: symbols renamed or removed since this commit are missed.',
+      atCommit ? entry.hash : null,
     );
 
   if (!git?.available)
@@ -297,6 +327,15 @@ export function GitView({ git, busy, onRefresh, onSelect, project, index, onOpen
           From the local reflog. Impact reads that commit from .git on this device; nothing is
           uploaded.
         </p>
+        <label className="context-option">
+          <input
+            type="checkbox"
+            checked={atCommit}
+            onChange={(e) => setAtCommit(e.target.checked)}
+          />{' '}
+          Trace against the code at that commit (indexes the commit&apos;s files; otherwise
+          today&apos;s index is used)
+        </label>
         <PaginatedList
           items={git.activity || []}
           searchPlaceholder="Search Git activity"

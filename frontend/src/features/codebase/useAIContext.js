@@ -53,8 +53,9 @@ export function useAIContext({ index, project, analyzerResults }) {
     setSource((current) => (current === 'investigation' ? 'question' : current));
   }, [index]);
 
-  async function build(files, sections = []) {
-    return buildGroundedContext(index, {
+  // `source`: an investigation of an older commit brings the index of that commit's code.
+  async function build(files, sections = [], source = index) {
+    return buildGroundedContext(source, {
       ...options,
       files,
       sections,
@@ -98,7 +99,7 @@ export function useAIContext({ index, project, analyzerResults }) {
               reason: x.reasons.join('; '),
             }))
           : [...selected];
-      const next = await build(files, inv ? inv.sections(options.budget) : []);
+      const next = await build(files, inv ? inv.sections(options.budget) : [], inv?.index || index);
       setContext(next);
       const text = formatPrompt(use.task, next.content);
       setPrompt(text);

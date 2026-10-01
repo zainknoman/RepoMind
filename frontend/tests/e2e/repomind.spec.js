@@ -155,6 +155,7 @@ test.describe('RepoMind parent navigation', () => {
       'Quick Analysis',
       'Transform',
       'Compare',
+      'Routine Creator',
       'Markdown',
     ]);
     await expect(nav.getByRole('button', { name: 'Developer Tools', exact: true })).toHaveCount(0);
