@@ -42,6 +42,7 @@ import { parseBasic, routineName } from './temenosBasic';
 import { parsePython } from './pythonParser';
 import { parseJava } from './javaParser';
 import { analysisCoverage } from './coverage';
+import { manifestDependencies, packagesFromManifest } from './frameworks';
 import { createModuleResolver, isModuleConfigFile, parseModuleConfig } from './moduleResolution';
 
 const BABEL_PLUGINS = [
@@ -214,8 +215,17 @@ function patternIdentifiers(pattern, out = []) {
   return out;
 }
 
-// Nodes that open a scope for resolving references. Block scopes are not modelled: a let/const is
-// treated as visible in its whole enclosing function.
+// Nodes that open a scope for resolving references: the program and functions, plus blocks and
+// loops for block-scoped declarations (let, const, class, functions in blocks). `var` and
+// parameters ignore blocks.
+const BLOCK_SCOPE_NODES = new Set([
+  'BlockStatement',
+  'ForStatement',
+  'ForInStatement',
+  'ForOfStatement',
+  'SwitchStatement',
+  'StaticBlock',
+]);
 const SCOPE_NODES = new Set([
   'Program',
   'FunctionDeclaration',
@@ -225,6 +235,12 @@ const SCOPE_NODES = new Set([
   'ClassPrivateMethod',
   'ObjectMethod',
 ]);
+
+/** The innermost scope a declaration belongs to (the function's, for `var`). */
+const declarationScope = (ancestors, functionScoped = false) =>
+  ancestors.findLast(
+    (x) => SCOPE_NODES.has(x.type) || (!functionScoped && BLOCK_SCOPE_NODES.has(x.type)),
+  );
 
 /** `Foo` for a `: Foo` annotation, else null. */
 const annotatedClass = (node) => {
@@ -287,11 +303,11 @@ function parseJavaScript(content, file) {
       typedBindings.push({ name, type, scopeStart: scope.start, scopeEnd: scope.end });
   };
 
-  // A symbol declared inside a function records that function's source range as its scope;
-  // top-level symbols have none and are visible in the whole file.
-  const addSymbol = (name, kind, node, extra = {}) => {
+  // A symbol declared inside a function or block records that scope's source range; top-level
+  // symbols have none and are visible in the whole file.
+  const addSymbol = (name, kind, node, extra = {}, functionScoped = false) => {
     if (!name) return;
-    const scope = ancestorsOfNode.findLast((x) => SCOPE_NODES.has(x.type));
+    const scope = declarationScope(ancestorsOfNode, functionScoped);
     const symbol = {
       name,
       kind,
@@ -447,12 +463,12 @@ function parseJavaScript(content, file) {
       dynamicModule(node.init) === null
     ) {
       // const { a, b } = value; (require() destructuring is an import binding instead)
-      const scope = ancestors.findLast((x) => SCOPE_NODES.has(x.type)) || ast;
+      const scope = declarationScope(ancestors, parent?.kind === 'var') || ast;
       addBindings(node.id, scope);
     }
 
     if (node.type === 'VariableDeclarator' && node.id?.type === 'Identifier') {
-      const scope = ancestors.findLast((x) => SCOPE_NODES.has(x.type)) || ast;
+      const scope = declarationScope(ancestors, parent?.kind === 'var') || ast;
       addTyped(node.id.name, annotatedClass(node.id) || constructedClass(node.init), scope);
     }
 
@@ -460,14 +476,19 @@ function parseJavaScript(content, file) {
       const names = getBindingNames(node.id);
       const init = node.init;
       const instanceOf = constructedClass(init);
+      const isVar = parent?.kind === 'var';
       for (const name of names) {
         if (init?.type === 'ArrowFunctionExpression' || init?.type === 'FunctionExpression') {
-          addSymbol(name, 'function', node, {
-            functionKind: init.type === 'ArrowFunctionExpression' ? 'arrow' : 'expression',
-          });
+          addSymbol(
+            name,
+            'function',
+            node,
+            { functionKind: init.type === 'ArrowFunctionExpression' ? 'arrow' : 'expression' },
+            isVar,
+          );
         } else if (node.id.type === 'Identifier' && dynamicModule(init) === null) {
           // `const x = require('./x')` binds an import, not a variable of this file.
-          addSymbol(name, 'variable', node, instanceOf ? { instanceOf } : {});
+          addSymbol(name, 'variable', node, instanceOf ? { instanceOf } : {}, isVar);
         }
       }
     }
@@ -697,6 +718,11 @@ export function analyzeSource(file, content) {
   if (file.ext === '.b') return { ...fileSummary(file, content), ...parseBasic(file, content) };
   if (file.ext === '.py') return { ...fileSummary(file, content), ...parsePython(file, content) };
   if (file.ext === '.java') return { ...fileSummary(file, content), ...parseJava(file, content) };
+  if (file.path === 'package.json' || file.path.endsWith('/package.json')) {
+    // Kept on the analysis so packages are known without reading the file again (worker, reuse).
+    const manifest = manifestDependencies(content);
+    return { ...fallbackAnalyzeSource(file, content), ...(manifest ? { manifest } : {}) };
+  }
   if (isModuleConfigFile(file.path)) {
     // Kept on the analysis so an unchanged config still resolves aliases when it is reused.
     const moduleConfig = parseModuleConfig(content);
@@ -1361,6 +1387,12 @@ export async function buildRepositoryIndex(project, options = {}) {
   for (const binding of importBindings)
     for (const symbol of binding.resolvedSymbols) symbol.importedBy.push(binding);
   index.coverage = analysisCoverage(index);
+  const manifest = index.files
+    .filter((f) => f.manifest)
+    .sort((a, b) => a.path.split('/').length - b.path.split('/').length)[0];
+  index.project.packages = packagesFromManifest(manifest?.manifest);
+  // Symbols already point at reference objects: nothing for linkIndex to do.
+  index.linked = true;
 
   return index;
 }
@@ -1455,9 +1487,12 @@ export function detectCycles(index) {
   return cycles;
 }
 
-export function attachFileHandles(index, project) {
-  if (!index) return index;
-  index._fileHandles = new Map(project.files.filter(isTextFile).map((file) => [file.path, file]));
+/**
+ * Turns a cached snapshot (resolved symbols as keys, back-links as positions) back into a linked
+ * graph. Pure, so the index worker can do it; an index that is already linked is left as it is.
+ */
+export function linkIndex(index) {
+  if (!index || index.linked) return index;
 
   const symbolByKey = new Map(
     (index.symbols || []).map((symbol) => [
@@ -1503,7 +1538,15 @@ export function attachFileHandles(index, project) {
     symbol.references = relink(symbol.references, referencePosition, index.references);
     symbol.importedBy = relink(symbol.importedBy, bindingPosition, index.importBindings);
   }
+  index.linked = true;
+  return index;
+}
 
+/** Links the index if needed and attaches the project's file handles for reading source. */
+export function attachFileHandles(index, project) {
+  if (!index) return index;
+  linkIndex(index);
+  index._fileHandles = new Map(project.files.filter(isTextFile).map((file) => [file.path, file]));
   return index;
 }
 

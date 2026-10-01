@@ -7,11 +7,11 @@ Update at the end of every phase.
 
 **P1 GitHub Intelligence implementation is complete after P0 public GitHub import. Private repositories/OAuth remain P2.**
 
-**Phases B1–B3 and C1–C4 done and on `main`.** Plans with per-task status and outcomes:
+**Phases B1–B3 and C1–C5 done and on `main`.** Plans with per-task status and outcomes:
 `docs/superpowers/plans/2026-09-28-graph-trust.md` (B1), `…-transitive-impact.md` (B2),
 `…-git-change-impact.md` (B3), `…-member-calls.md` (C1), `…-ai-investigation.md` (C2),
-`…-import-resolution.md` (C3), `…-change-impact-followups.md` (C4). Phases C5–C7 follow in
-that order.
+`…-import-resolution.md` (C3), `…-change-impact-followups.md` (C4),
+`2026-10-01-worker-cache-scopes.md` (C5). Phases C6–C7 follow.
 Plans live in `docs/superpowers/plans/`.
 
 ## Roadmap
@@ -33,6 +33,7 @@ Plans live in `docs/superpowers/plans/`.
 | C2 | AI investigation of impact and changes; graph-aware and T24 file ranking | Done |
 | C3 | Import resolution: tsconfig/jsconfig paths, Python, Java | Done |
 | C4 | Tests to run; exact Git status; commits traced against their own code | Done |
+| C5 | Cache save/restore in the worker; block scopes; lower-case T24 names | Done |
 | P0 | Public GitHub import + production analysis parity | Done |
 | P1 | GitHub Intelligence: repository, branches, commits, PRs, issues, releases + impact integration | Done |
 | P2 | Product cleanup: consolidate navigation, remove unrelated legacy utility surfaces | Done |
@@ -283,14 +284,25 @@ Plans live in `docs/superpowers/plans/`.
   investigations may carry their own `index`.
 - Tests: 219 unit.
 
+## Completed work (Phase C5 — worker cache, block scopes, lower-case T24 names)
+
+- `indexCache.js`: `writeSnapshot(key, name, index)`, `readSnapshot(key)`, exported
+  `projectKey`. Worker messages `build` (+ `cacheKey`: posts `done`, writes, posts `saved`)
+  and `restore`. `indexClient.js`: `buildIndex({ cacheKey })`, `restoreIndex(project)`.
+- `repository.js`: `linkIndex` (pure) split from `attachFileHandles`; `index.linked`;
+  packages from `package.json` analyses (`manifest`); block scopes (`declarationScope`).
+- `lib/files.js`: `basicCandidate(path)` used by the walk, GitHub import and commit snapshots.
+- Cache version 9. Tests: 237 unit.
+
 ## Architectural decisions
 
 - **No router introduced.** Tab ids remain App state keys; navigation is still App state rather than a routing library.
 - **Temenos code intelligence stays in Codebase.** BASIC sources are indexed like any language, so Impact, Dependencies, Symbols, Search, Health, Diagram and AI context work on them, and the domain views are analyzers that appear in Codebase › Analyzers only for T24 folders. Runtime OFS and log-analysis utility surfaces were removed in P2.
 - **BASIC routines are linked by name, not path.** T24 has one global routine namespace; the first
   file with a given routine name wins and duplicates are flagged by `temenos-routines`.
-- **Extensionless BASIC is recognised by content, only for upper-case names**, to avoid reading every
-  binary or extensionless file in ordinary repositories. Lower-case extensionless routines are missed.
+- **Extensionless BASIC is recognised by content, for upper-case names anywhere and for any
+  routine-like name inside a BASIC source folder** (`BP`, `*.BP`, `BP.*`, `*_bp`), to avoid reading
+  every extensionless file in ordinary repositories.
 - **One Search workspace** (Explore → Search) for symbols, files and text; Codebase has no search view.
   Search stays usable without an index (files + text) and adds symbols when one exists.
 - **References view deferred** again; references are shown in the Symbol inspector.
@@ -314,7 +326,10 @@ Plans live in `docs/superpowers/plans/`.
   The "latest snapshot" pointer is per repository *name*, so two different folders with the same name
   share it: the second evicts the first's snapshot, and reuse still requires matching path, size and
   time.
-- **Scopes are function-level**, not block-level; parameters are not symbols.
+- **Scopes are block-level for `let`/`const`/classes/functions in blocks, function-level for
+  `var` and parameters**; parameters are local bindings, not symbols.
+- **The index cache is written and linked in the index worker**; the main thread computes the
+  cache key (file metadata) and attaches file handles.
 - **Python and Java use purpose-built scanners, not full parsers** (no new dependencies): comments
   and literals are blanked, then declarations, imports and references are read by indentation
   (Python) or braces (Java). Java references exclude lower-case non-call names (locals, fields).
@@ -345,9 +360,9 @@ Status of the issues listed at the end of Phase 5 (checked 2026-09-28):
 
 Carried forward:
 
-- Large repositories (~1 M dense lines) still block the main thread for ~10–19 s when a build finishes,
-  when saving the cache and when restoring it (index size). Next steps, in order: save the cache from
-  the worker; store references once instead of raw + linked; block scopes/parameters. Real code at
+- Large repositories still pay one structured clone on the main thread when an index arrives from
+  the worker (after a build or a cache restore; ~4–6 s at 240k synthetic lines). Saving and linking
+  moved to the worker in C5. Next step: store references once instead of raw + linked. Real code at
   ~100k lines stays under 0.3 s per step. See `docs/INDEXER_BENCHMARK.md`.
 - Dashboard profile statistics still read every file on the main thread on folder open (separate from
   the index); candidate to derive from the index or move to the worker.
@@ -364,7 +379,6 @@ Carried forward:
 ## Next recommended task
 
 Phases in progress, in order (owner's list, 2026-09-28):
-- **C5** Cache save/restore in the worker; block scopes; lower-case extensionless T24 routines.
 - **C6** Header light/dark theme toggle.
 - **C7** Temenos configuration records (VERSION, EB.API, PGM.FILE, BATCH / TSA.SERVICE) and
   validation on real T24 sources, using the Temenos-Skills reference

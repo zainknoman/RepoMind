@@ -2,6 +2,28 @@
 
 All notable changes to RepoMind are recorded here.
 
+## Unreleased — Worker cache, block scopes, lower-case T24 names (Phase C5)
+
+### Changed
+- **The index cache is written and linked in the index worker.** After a build, the worker posts
+  the index and then writes the snapshot itself; on folder open, the worker reads and links the
+  cached snapshot and the main thread only attaches file handles. On a synthetic 1,500-file
+  repository (240k lines) the main thread no longer spends ~5.5 s saving, and restoring costs it
+  ~5.8 s (receiving the index) instead of ~14 s.
+- **Block scopes.** `let`, `const`, classes and functions declared in a block or loop are
+  visible only there (`var` stays function-scoped), so same-name declarations in sibling blocks
+  no longer make references ambiguous. On RepoMind's own source, medium-confidence references
+  fell from ~414 to 0.
+- Packages (`package.json` dependencies) are part of the index, so they are cached and kept when
+  the file is reused unchanged.
+- The index cache version is 9; existing cached indexes are rebuilt once.
+
+### Added
+- **Lower-case T24 routine names.** Extensionless files inside a BASIC source folder (`BP`,
+  `T24.BP`, `BP.LOCAL`, `local_bp`, …) are recognised by content even when their names are
+  lower case (`BP/account.validate`), in local folders, GitHub imports and commit snapshots.
+  `CALL account.validate` links to them.
+
 ## Unreleased — Change impact follow-ups (Phase C4)
 
 ### Added

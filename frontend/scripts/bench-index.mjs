@@ -261,18 +261,22 @@ async function benchmark(label, records) {
   const cycles = repository.detectCycles(fresh);
   row.healthMs = (await time(() => health.buildArchitectureHealth(fresh, cycles))).ms;
 
-  // Cache. IndexedDB stores a structured clone, so saving costs serialize + clone and restoring
-  // costs clone + attaching handles; V8's serializer gives the stored size. fake-indexeddb clones in
-  // JavaScript, far slower than a browser, so it is only used for the key check.
+  // Cache. IndexedDB stores a structured clone, so saving costs serialize + clone, now in the
+  // worker (the main thread pays nothing). Restoring: the worker reads (clone) and links; the main
+  // thread receives the linked index (clone) and attaches handles. V8's serializer gives the stored
+  // size. fake-indexeddb clones in JavaScript, far slower than a browser, so it is only used for
+  // the key check.
   const save = await time(() => structuredClone(cache.serializeIndex(fresh)));
   row.cacheSaveMs = save.ms;
   row.cacheSnapshotMb = v8.serialize(save.value).length / 1024 / 1024;
   const miss = await time(() => cache.loadCachedIndex({ ...project, name: `${label}-miss` }));
   row.cacheKeyMs = miss.ms;
-  const restore = await time(() =>
-    repository.attachFileHandles(structuredClone(save.value), project),
+  const restoreWorker = await time(() => repository.linkIndex(structuredClone(save.value)));
+  row.cacheRestoreWorkerMs = restoreWorker.ms;
+  const restoreMain = await time(() =>
+    repository.attachFileHandles(structuredClone(restoreWorker.value), project),
   );
-  row.cacheRestoreMs = restore.ms;
+  row.cacheRestoreMs = restoreMain.ms;
 
   // Search latency (symbols, files and full text) with the index.
   const found = await time(() =>
@@ -330,9 +334,10 @@ const COLUMNS = [
   ['heapMb', 'Retained heap (MB)'],
   ['cyclesMs', 'Cycle detection (ms)'],
   ['healthMs', 'Health (ms)'],
-  ['cacheSaveMs', 'Cache save: serialize + clone (ms, main)'],
+  ['cacheSaveMs', 'Cache save: serialize + clone (ms, worker)'],
   ['cacheKeyMs', 'Cache key check (ms)'],
-  ['cacheRestoreMs', 'Cache restore: clone + attach (ms, main)'],
+  ['cacheRestoreWorkerMs', 'Cache restore: read + link (ms, worker)'],
+  ['cacheRestoreMs', 'Cache restore: receive + attach handles (ms, main)'],
   ['cacheSnapshotMb', 'Cache snapshot (MB)'],
   ['searchMs', 'Search: symbols + files + text (ms)'],
   ['incrementalChanged', 'Files changed for rebuild'],

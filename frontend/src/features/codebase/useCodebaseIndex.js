@@ -1,13 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { buildIndex } from '../../services/indexClient';
+import { buildIndex, restoreIndex } from '../../services/indexClient';
 import { attachFileHandles, detectCycles } from '../../services/repository';
-import { detectProjectPackages } from '../../services/frameworks';
-import {
-  loadCachedIndex,
-  loadLatestCachedIndex,
-  saveCachedIndex,
-  clearCachedIndex,
-} from '../../services/indexCache';
+import { loadLatestCachedIndex, clearCachedIndex, projectKey } from '../../services/indexCache';
 import { buildArchitectureHealth } from '../../services/health';
 import { toast } from '../../lib/toast';
 
@@ -44,7 +38,8 @@ export function useCodebaseIndex(project) {
     if (!project) return;
     (async () => {
       try {
-        const cached = await loadCachedIndex(project);
+        // Read and linked in the index worker; only the file handles are attached here.
+        const cached = await restoreIndex(project);
         // A fresh index built while the cache was loading must not be replaced by the older copy.
         if (generation === generationRef.current && cached && !freshIndexRef.current) {
           setIndex(attachFileHandles(cached, project));
@@ -76,17 +71,22 @@ export function useCodebaseIndex(project) {
       // skip parsing; only its per-file analysis is used.
       const previous = indexRef.current || (await loadLatestCachedIndex(project).catch(() => null));
       if (generation !== generationRef.current) return;
+      // The worker writes the cache under this key after posting the index.
+      const cacheKey = await projectKey(project);
       const next = attachFileHandles(
-        await buildIndex(project, { signal: controller.signal, onProgress: setProgress, previous }),
+        await buildIndex(project, {
+          signal: controller.signal,
+          onProgress: setProgress,
+          previous,
+          cacheKey,
+        }),
         project,
       );
-      next.project.packages = await detectProjectPackages(next);
       if (generation !== generationRef.current) return;
       freshIndexRef.current = true;
       setIndex(next);
       setSource('fresh');
       toast.success(`Index built · ${next.files.length.toLocaleString()} files`);
-      await saveCachedIndex(project, next);
     } catch (e) {
       if (generation !== generationRef.current) return;
       if (e?.name === 'AbortError') {

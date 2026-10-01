@@ -1,6 +1,6 @@
-// Framework and package detection in one place. The index worker detects languages and UI
-// frameworks from file extensions (`frameworkSignals` in repository.js); after a build, the main
-// thread reads package.json here (`index.project.packages`).
+// Framework and package detection in one place. The indexer detects languages and UI frameworks
+// from file extensions (`frameworkSignals` in repository.js) and fills `index.project.packages`
+// from the root-most package.json's dependencies (stored on its analysis as `manifest`).
 
 export const PACKAGE_FRAMEWORKS = new Map([
   ['react', 'React'],
@@ -20,32 +20,26 @@ export const PACKAGE_FRAMEWORKS = new Map([
   ['django', 'Django'],
 ]);
 
-const readText = async (file) => {
-  if (typeof file?.content === 'string') return file.content;
-  return file?.handle ? (await file.handle.getFile()).text() : '';
-};
+/** Declared dependencies (`{ name: version }`), each tagged with its framework if known. */
+export const packagesFromManifest = (deps) =>
+  Object.entries(deps || {}).map(([pkg, version]) => ({
+    package: pkg,
+    version,
+    category: PACKAGE_FRAMEWORKS.get(pkg) || 'Dependency',
+    known: PACKAGE_FRAMEWORKS.has(pkg),
+  }));
 
-/** Dependencies declared in the root-most package.json, each tagged with its framework if known. */
-export async function detectProjectPackages(index) {
-  const packageFile = (index?.files || [])
-    .filter((f) => f.path === 'package.json' || f.path.endsWith('/package.json'))
-    .sort((a, b) => a.path.split('/').length - b.path.split('/').length)[0];
-  if (!packageFile) return [];
+/** The dependencies a package.json declares (runtime, development and peer), or null. */
+export function manifestDependencies(text) {
   try {
-    const json = JSON.parse(await readText(index._fileHandles?.get(packageFile.path)));
-    const deps = {
+    const json = JSON.parse(text);
+    return {
       ...(json.dependencies || {}),
       ...(json.devDependencies || {}),
       ...(json.peerDependencies || {}),
     };
-    return Object.entries(deps).map(([pkg, version]) => ({
-      package: pkg,
-      version,
-      category: PACKAGE_FRAMEWORKS.get(pkg) || 'Dependency',
-      known: PACKAGE_FRAMEWORKS.has(pkg),
-    }));
   } catch {
-    return [];
+    return null;
   }
 }
 

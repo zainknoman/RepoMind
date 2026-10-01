@@ -4,9 +4,11 @@ import {
   clearCachedIndex,
   loadCachedIndex,
   loadLatestCachedIndex,
+  readSnapshot,
   saveCachedIndex,
+  writeSnapshot,
 } from './indexCache';
-import { attachFileHandles, buildRepositoryIndex } from './repository';
+import { attachFileHandles, buildRepositoryIndex, linkIndex } from './repository';
 import { toWorkerProject } from './indexProject';
 
 function project(name, files) {
@@ -26,7 +28,7 @@ describe('index cache', () => {
     expect(await saveCachedIndex(p, { files: [{ path: 'a.js' }], symbols: [] })).toBe(true);
     const restored = await loadCachedIndex(project('cache-a', [{ path: 'a.js' }]));
     expect(restored.files).toEqual([{ path: 'a.js' }]);
-    expect(restored.cacheVersion).toBe(8);
+    expect(restored.cacheVersion).toBe(9);
     expect(restored.cachedAt).toEqual(expect.any(String));
   });
   it('misses when a file changed since the index was saved', async () => {
@@ -86,5 +88,60 @@ describe('index cache', () => {
     await saveCachedIndex(after, { files: [{ path: 'a.js', modified: 2 }] });
     expect(await loadCachedIndex(before)).toBeNull();
     expect((await loadLatestCachedIndex(before)).files).toEqual([{ path: 'a.js', modified: 2 }]);
+  });
+});
+
+describe('cache written and linked off the main thread', () => {
+  const SOURCES = {
+    'package.json': JSON.stringify({
+      dependencies: { react: '^19' },
+      devDependencies: { vite: '7' },
+    }),
+    'a.js': "import { b } from './b';\nexport function a() {\n  return b();\n}\n",
+    'b.js': 'export function b() { return 1; }\n',
+  };
+  const records = () =>
+    Object.entries(SOURCES).map(([path, content]) => ({
+      path,
+      name: path,
+      ext: '.' + path.split('.').pop(),
+      content,
+      size: content.length,
+      lastModified: 1,
+    }));
+
+  it('stores packages in the index, also when package.json is reused', async () => {
+    const first = await buildRepositoryIndex(toWorkerProject('pk', records()));
+    const names = (index) => index.project.packages.map((p) => `${p.package}:${p.known}`);
+    expect(names(first)).toEqual(['react:true', 'vite:true']);
+    const reused = await buildRepositoryIndex(
+      toWorkerProject(
+        'pk',
+        first.files.map((analysis) => ({
+          path: analysis.path,
+          name: analysis.path,
+          ext: analysis.extension,
+          analysis,
+        })),
+      ),
+    );
+    expect(names(reused)).toEqual(names(first));
+  });
+
+  it('a snapshot written by key and linked by linkIndex matches a main-thread restore', async () => {
+    const index = await buildRepositoryIndex(toWorkerProject('linked', records()));
+    expect(await writeSnapshot('key-linked', 'linked', index)).toBe(true);
+    const raw = await readSnapshot('key-linked');
+    expect(raw.cacheVersion).toBe(9);
+    const linked = linkIndex(raw);
+    expect(linked.linked).toBe(true);
+    const b = linked.symbols.find((s) => s.name === 'b');
+    expect(b.references.map((r) => `${r.from}:${r.line}`)).toEqual(['a.js:3']);
+    expect(b.references[0].resolvedSymbols[0]).toBe(b);
+    // The main thread only attaches handles to an index the worker already linked.
+    const attached = attachFileHandles(linked, toWorkerProject('linked', records()));
+    expect(attached.symbols.find((s) => s.name === 'b')).toBe(b);
+    expect(attached._fileHandles.has('a.js')).toBe(true);
+    expect(await readSnapshot('missing-key')).toBeNull();
   });
 });

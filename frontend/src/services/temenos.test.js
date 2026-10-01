@@ -262,3 +262,18 @@ describe('Temenos analyzers', () => {
     );
   });
 });
+
+describe('lower-case routine names', () => {
+  it('links CALL to a routine whose file name is lower case', async () => {
+    const index = await indexOf({
+      'BP/account.validate': '    SUBROUTINE account.validate\n    RETURN\n',
+      'BP/MAIN.RTN': '    SUBROUTINE MAIN.RTN\n    CALL account.validate\n    RETURN\n',
+    });
+    expect(index.dependencies.map((e) => `${e.from} -> ${e.to}`)).toEqual([
+      'BP/MAIN.RTN -> BP/account.validate',
+    ]);
+    expect(index.symbols.find((s) => s.path === 'BP/account.validate').name).toBe(
+      'account.validate',
+    );
+  });
+});

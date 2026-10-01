@@ -57,7 +57,19 @@ export const maybeBasicName = (name) =>
 // packages, common blocks and equates. Upper case only, as T24 code is written, so prose such as a
 // LICENSE ("program is ...") does not match.
 const BASIC_MARKER =
-  /^ *(?:\$(?:PACKAGE|INSERT|INCLUDE|USING) +\S|(?:SUBROUTINE|PROGRAM) +[A-Z][\w.$%]* *(?:\(|\r?$)|FUNCTION +[A-Z][\w.$%]* *\(|COM(?:MON)? *\/|EQU(?:ATE)? +[A-Z][\w.$%]* +TO )/m;
+  /^ *(?:\$(?:PACKAGE|INSERT|INCLUDE|USING) +\S|(?:SUBROUTINE|PROGRAM) +[A-Za-z][\w.$%]* *(?:\(|\r?$)|FUNCTION +[A-Za-z][\w.$%]* *\(|COM(?:MON)? *\/|EQU(?:ATE)? +[A-Z][\w.$%]* +TO )/m;
+// T24 source folders: BP, T24.BP, BP.LOCAL, local_bp, … (any case).
+const BASIC_FOLDER = /(?:^|\/)(?:bp|[^/]+[._]bp|bp[._][^/]+)\//i;
+
+/**
+ * Whether a file without a known text extension may be a BASIC routine, to be confirmed by its
+ * content: an upper-case name (T24 naming) anywhere, or any routine-like name inside a BASIC
+ * source folder (lower-case routine names such as BP/account.validate).
+ */
+export const basicCandidate = (path, name = path.split('/').pop()) =>
+  maybeBasicName(name) ||
+  (BASIC_FOLDER.test(path) && /^[A-Za-z0-9_$%][\w.$%-]*$/.test(name) && !BINARY_NAME.test(name));
+
 export const looksLikeBasic = (text) => BASIC_MARKER.test((text || '').replace(/\t/g, ' '));
 
 export const read = async (f) =>
@@ -83,14 +95,14 @@ export async function walk(h, p = '', a = [], includeSensitive = false, maxFiles
         path = p ? p + '/' + n : n,
         isText = EXTS.has(e) || ['Dockerfile', 'Makefile', '.gitignore'].includes(n);
       if (isText && !includeSensitive && sensitiveName.test(path)) isText = false;
-      const basicCandidate = !isText && maybeBasicName(n);
-      if (isText || basicCandidate) {
+      const maybeBasic = !isText && basicCandidate(path, n);
+      if (isText || maybeBasic) {
         try {
           const f = await x.getFile();
           if (f.size > 2 * 1024 * 1024) isText = false;
           // T24 routines are usually stored without an extension (ACCOUNT.VALIDATE, I_COMMON):
           // they are recognised by their content and classified as '.b' from here on.
-          else if (basicCandidate && looksLikeBasic(await f.slice(0, 4096).text())) {
+          else if (maybeBasic && looksLikeBasic(await f.slice(0, 4096).text())) {
             isText = true;
             e = '.b';
           }

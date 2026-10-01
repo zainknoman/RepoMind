@@ -6,7 +6,8 @@ const LATEST = 'latest';
 const VERSION = 2;
 // Version 3 stores symbol back-links as positions instead of copies of every reference.
 // Version 4: Temenos BASIC sources are indexed; external imports exclude unresolved relative ones.
-const CACHE_VERSION = 8;
+// Version 9: package.json dependencies are part of the index (`manifest`).
+const CACHE_VERSION = 9;
 
 function openDb() {
   if (typeof indexedDB === 'undefined') return Promise.resolve(null);
@@ -24,7 +25,8 @@ function openDb() {
   });
 }
 
-async function projectKey(project) {
+/** The cache key of a project: its name and every text file's path, size and time. */
+export async function projectKey(project) {
   // Imported snapshots are immutable at a specific GitHub commit, so use the commit/ref as the
   // identity instead of requiring local File System Access handles.
   if (project?.source?.type === 'github') {
@@ -83,7 +85,9 @@ const symbolKey = (symbol) =>
  * each symbol's references/importers stored as positions in `references`/`importBindings`.
  */
 export function serializeIndex(index) {
-  const { _fileHandles, ...rest } = index;
+  // `linked` describes the in-memory graph; a snapshot holds keys and positions instead.
+  // eslint-disable-next-line no-unused-vars
+  const { _fileHandles, linked, ...rest } = index;
   const references = index.references || [];
   const importBindings = index.importBindings || [];
   const referencePosition = new Map(references.map((item, i) => [item, i]));
@@ -121,10 +125,14 @@ function request(req) {
 const current = (record) => (record?.index?.cacheVersion === CACHE_VERSION ? record.index : null);
 
 export async function loadCachedIndex(project) {
+  // Resolve the key before opening the transaction: awaiting inside it would let IndexedDB auto-commit.
+  return readSnapshot(await projectKey(project));
+}
+
+/** The current-version snapshot stored under `key` (unlinked: see `linkIndex`), or null. */
+export async function readSnapshot(key) {
   const db = await openDb();
   if (!db) return null;
-  // Resolve the key before opening the transaction: awaiting inside it would let IndexedDB auto-commit.
-  const key = await projectKey(project);
   return current(await request(db.transaction(STORE, 'readonly').objectStore(STORE).get(key)));
 }
 
@@ -149,13 +157,20 @@ export async function loadLatestCachedIndex(project) {
 }
 
 export async function saveCachedIndex(project, index) {
+  return writeSnapshot(await projectKey(project), project.name, index);
+}
+
+/**
+ * Serialises and stores `index` under `key`, and makes it the latest snapshot of repository
+ * `name` (deleting the one it supersedes). Works in the index worker as on the main thread.
+ */
+export async function writeSnapshot(key, name, index) {
   const db = await openDb();
   if (!db) return false;
   try {
     const snapshot = serializeIndex(index);
     snapshot.cacheVersion = CACHE_VERSION;
     snapshot.cachedAt = new Date().toISOString();
-    const key = await projectKey(project);
     const tx = db.transaction([STORE, LATEST], 'readwrite');
     const done = new Promise((resolve) => {
       tx.oncomplete = () => resolve(true);
@@ -165,10 +180,10 @@ export async function saveCachedIndex(project, index) {
     const indexes = tx.objectStore(STORE);
     const latest = tx.objectStore(LATEST);
     indexes.put({ index: snapshot }, key);
-    const previous = latest.get(project.name);
+    const previous = latest.get(name);
     previous.onsuccess = () => {
       if (previous.result !== undefined && previous.result !== key) indexes.delete(previous.result);
-      latest.put(key, project.name);
+      latest.put(key, name);
     };
     return await done;
   } catch {

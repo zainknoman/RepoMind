@@ -2,7 +2,7 @@ import {
   EXTS,
   IGN,
   MAX_FILES,
-  maybeBasicName,
+  basicCandidate as basicPath,
   looksLikeBasic,
   sensitiveName,
   gitignoreMatcher,
@@ -77,8 +77,8 @@ function isCandidate(name) {
   return EXTS.has(extensionOf(name)) || ['Dockerfile', 'Makefile', '.gitignore'].includes(name);
 }
 
-function basicCandidate(name) {
-  return !isCandidate(name) && maybeBasicName(name);
+function basicCandidate(path) {
+  return !isCandidate(path.split('/').pop()) && basicPath(path);
 }
 
 function ignoredByGitignore(path, matcher) {
@@ -152,7 +152,7 @@ export async function importGithubRepository(value, options = {}) {
     const name = entry.path.split('/').pop();
     if (ignoredByGitignore(entry.path, ignoreMatcher)) return false;
     if (entry.path.split('/').some((part) => IGN.has(part))) return false;
-    if (!isCandidate(name) && !basicCandidate(name)) return false;
+    if (!isCandidate(name) && !basicCandidate(entry.path)) return false;
     if (!includeSensitive && sensitiveName.test(entry.path)) return false;
     if (typeof entry.size === 'number' && entry.size > MAX_TEXT_BYTES) return false;
     return true;
@@ -177,7 +177,7 @@ export async function importGithubRepository(value, options = {}) {
       let ext = extensionOf(name);
       let text = content.length <= MAX_TEXT_BYTES;
 
-      if (text && !isCandidate(name) && basicCandidate(name)) {
+      if (text && !isCandidate(name) && basicCandidate(entry.path)) {
         if (looksLikeBasic(content.slice(0, 4096))) ext = '.b';
         else text = false;
       }

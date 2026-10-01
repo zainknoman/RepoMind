@@ -4,7 +4,7 @@
  */
 import { createObjectStore, flattenTree, parseCommit } from './gitObjects';
 import { parseIndex, readGitRepository } from './git';
-import { EXTS, IGN, looksLikeBasic, maybeBasicName, sensitiveName } from '../lib/files';
+import { EXTS, IGN, basicCandidate, looksLikeBasic, sensitiveName } from '../lib/files';
 
 const MAX_BYTES = 1_000_000;
 const MAX_CHANGES = 500;
@@ -228,7 +228,7 @@ export async function commitSnapshot(root, sha, { signal } = {}) {
     const parts = path.split('/');
     const name = parts[parts.length - 1];
     if (parts.some((part) => IGN.has(part)) || sensitiveName.test(path)) continue;
-    const basic = !isTextName(name) && maybeBasicName(name);
+    const basic = !isTextName(name) && basicCandidate(path, name);
     if (!isTextName(name) && !basic) continue;
     const bytes = (await store.read(blob))?.bytes;
     if (!bytes || bytes.length > MAX_SNAPSHOT_BYTES || isBinary(bytes)) continue;

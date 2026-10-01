@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { gitignoreMatcher, walk, sensitiveName } from './files';
+import { basicCandidate, gitignoreMatcher, walk, sensitiveName } from './files';
 
 describe('gitignoreMatcher', () => {
   const ignored = gitignoreMatcher(
@@ -102,5 +102,38 @@ describe('walk', () => {
     expect(sensitiveName.test('config/.env.production')).toBe(true);
     expect(sensitiveName.test('keys/id_rsa')).toBe(true);
     expect(sensitiveName.test('src/index.js')).toBe(false);
+  });
+});
+
+describe('basicCandidate', () => {
+  it.each([
+    ['BP/ACCOUNT.VALIDATE', true],
+    ['src/I_COMMON', true],
+    ['BP/account.validate', true],
+    ['T24.BP/acc.limit.check', true],
+    ['BP.LOCAL/rates', true],
+    ['local_bp/fmt.amount', true],
+    ['src/readme', false],
+    ['docs/notes', false],
+    ['BP/logo.png', false],
+    ['bpm/flow.chart', false],
+  ])('%s → %s', (path, expected) => {
+    expect(basicCandidate(path)).toBe(expected);
+  });
+
+  it('walk sniffs lower-case names only in BASIC source folders', async () => {
+    const source = (text) => ({
+      kind: 'file',
+      getFile: async () => ({ size: text.length, slice: () => ({ text: async () => text }) }),
+    });
+    const files = await walk(
+      dir({
+        BP: dir({ 'account.validate': source('    SUBROUTINE account.validate\n    RETURN') }),
+        docs: dir({ notes: source('    SUBROUTINE looks.like.basic\n') }),
+      }),
+    );
+    const byPath = Object.fromEntries(files.map((f) => [f.path, f]));
+    expect(byPath['BP/account.validate']).toMatchObject({ ext: '.b', text: true });
+    expect(byPath['docs/notes'].text).toBe(false);
   });
 });

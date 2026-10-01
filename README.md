@@ -81,7 +81,7 @@ After indexing a repository, RepoMind can understand:
 
 JavaScript, JSX, TypeScript and TSX use Babel AST parsing with conservative fallback for malformed source.
 
-Additional language analysis is available where supported, including Python, Java and Temenos BASIC.
+Additional language analysis is available where supported, including Python, Java and Temenos BASIC. T24 routines are recognised without an extension by their content: upper-case names anywhere, and lower-case names (`BP/account.validate`) inside BASIC source folders such as `BP`, `T24.BP` or `BP.LOCAL`.
 
 ---
 

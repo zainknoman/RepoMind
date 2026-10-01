@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { attachFileHandles, buildRepositoryIndex } from './repository';
 import { toWorkerProject } from './indexProject';
-import { detectProjectPackages } from './frameworks';
 import {
   analyzerSummary,
   defineAnalyzer,
@@ -130,7 +129,6 @@ describe('analyzer contract', () => {
       await buildRepositoryIndex(toWorkerProject(project.name, files)),
       project,
     );
-    index.project.packages = await detectProjectPackages(index);
     const results = await runAnalyzers(index, ['routes', 'framework-structure']);
     expect(results.routes.findings).toEqual([
       expect.objectContaining({
