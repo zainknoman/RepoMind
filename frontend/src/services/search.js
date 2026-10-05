@@ -1,8 +1,10 @@
 import { esc } from '../lib/text';
 import { languageFor } from './repository';
+import { closestNames, nameLengths } from './closeNames';
 
 // One search for the whole product: symbols and files from the code index when it exists, plus
-// full-text matches read from the files themselves (which works with or without an index).
+// full-text matches read from the files themselves (which works with or without an index). When no
+// symbol matches, close symbol names are suggested.
 
 export const MAX_TEXT_RESULTS = 2000;
 const MAX_NAME_RESULTS = 200;
@@ -14,6 +16,26 @@ const MAX_LINE_LENGTH = 400;
  */
 export function searchPattern(query, { regex = false, caseSensitive = false } = {}, flags = '') {
   return new RegExp(regex ? query : esc(query), (caseSensitive ? '' : 'i') + flags);
+}
+
+const MAX_SUGGESTIONS = 5;
+
+/**
+ * Symbols whose whole name is close to `term` in any case (a typo or a missing letter), closest
+ * first, one per distinct name: for a search that found no symbol.
+ */
+function symbolSuggestions(symbols, term) {
+  const byKey = new Map(); // NAME → Map(name → first symbol with that name)
+  for (const symbol of symbols) {
+    const key = symbol.name.toUpperCase();
+    if (!byKey.has(key)) byKey.set(key, new Map());
+    const names = byKey.get(key);
+    if (!names.has(symbol.name)) names.set(symbol.name, symbol);
+  }
+  return closestNames(term.toUpperCase(), nameLengths(byKey.keys()))
+    .flatMap(({ name }) => [...byKey.get(name).values()])
+    .slice(0, MAX_SUGGESTIONS)
+    .map((s) => ({ name: s.name, kind: s.kind, path: s.path, line: s.line }));
 }
 
 function nameMatches(items, name, pattern) {
@@ -28,7 +50,7 @@ function nameMatches(items, name, pattern) {
 
 /**
  * Searches a project. `files` are the project's files (with handles); `index` is the code index or
- * null. Returns { query, options, symbols, files, text, truncated, error }.
+ * null. Returns { query, options, symbols, suggestions, files, text, truncated, error }.
  */
 export async function searchProject({
   files,
@@ -38,7 +60,15 @@ export async function searchProject({
   limit = MAX_TEXT_RESULTS,
 }) {
   const term = query?.trim() || '';
-  const result = { query: term, options, symbols: [], files: [], text: [], truncated: false };
+  const result = {
+    query: term,
+    options,
+    symbols: [],
+    suggestions: [],
+    files: [],
+    text: [],
+    truncated: false,
+  };
   if (!term) return result;
   let pattern;
   try {
@@ -56,6 +86,8 @@ export async function searchProject({
       line: s.line,
       references: s.references?.length || 0,
     }));
+    if (!result.symbols.length && !options.regex)
+      result.suggestions = symbolSuggestions(index.symbols || [], term);
   }
   result.files = nameMatches(textFiles, (f) => f.path, pattern).map((f) => ({
     path: f.path,

@@ -84,6 +84,23 @@ export function SearchPanel({
         </div>
         {res?.error && <div className="error">{res.error}</div>}
         {!searching && current && empty && <p className="muted">No matches.</p>}
+        {res?.suggestions?.length > 0 && (
+          <>
+            <h2 className="search-group">Did you mean</h2>
+            <div className="list">
+              {res.suggestions.map((s) => (
+                <button key={s.path + '|' + s.name + '|' + s.line} onClick={() => openPath(s.path)}>
+                  <b>
+                    {s.name} <span className="muted">· {s.kind}</span>
+                  </b>
+                  <code>
+                    {s.path}:{s.line}
+                  </code>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
         {res?.symbols.length > 0 && (
           <>
             <h2 className="search-group">Symbols ({res.symbols.length})</h2>

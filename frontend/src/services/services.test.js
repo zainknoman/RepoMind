@@ -275,6 +275,50 @@ describe('search', () => {
     expect(results.text).toHaveLength(2);
     expect(results.truncated).toBe(true);
   });
+  it('suggests close symbol names when no symbol matches', async () => {
+    const project = { name: 'search', files: files() };
+    const index = attachFileHandles(await buildRepositoryIndex(project), project);
+    const typo = await searchProject({ files: project.files, index, query: 'greting' });
+    expect(typo.symbols).toEqual([]);
+    expect(typo.suggestions).toEqual([
+      expect.objectContaining({ name: 'Greeting', path: 'src/greet.js', line: 2 }),
+    ]);
+    const regex = await searchProject({
+      files: project.files,
+      index,
+      query: 'greting',
+      options: { regex: true },
+    });
+    expect(regex.suggestions).toEqual([]);
+    const noIndex = await searchProject({ files: project.files, index: null, query: 'greting' });
+    expect(noIndex.suggestions).toEqual([]);
+  });
+  it('does not suggest when a symbol matches or nothing is close', async () => {
+    const project = { name: 'search', files: files() };
+    const index = attachFileHandles(await buildRepositoryIndex(project), project);
+    expect(
+      (await searchProject({ files: project.files, index, query: 'greet' })).suggestions,
+    ).toEqual([]);
+    expect(
+      (await searchProject({ files: project.files, index, query: 'checkout' })).suggestions,
+    ).toEqual([]);
+  });
+  it('suggests T24 routine names written in lower case with a typo', async () => {
+    const project = {
+      name: 't24',
+      files: toWorkerProject('t24', [
+        {
+          path: 'BP/ACCOUNT.VALIDATE.b',
+          name: 'ACCOUNT.VALIDATE.b',
+          ext: '.b',
+          content: '    SUBROUTINE ACCOUNT.VALIDATE\n    RETURN\n',
+        },
+      ]).files,
+    };
+    const index = attachFileHandles(await buildRepositoryIndex(project), project);
+    const result = await searchProject({ files: project.files, index, query: 'account.validte' });
+    expect(result.suggestions.map((s) => s.name)).toEqual(['ACCOUNT.VALIDATE']);
+  });
 });
 
 describe('AI requests', () => {

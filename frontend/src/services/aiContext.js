@@ -4,6 +4,7 @@ import { estimateTokens, findDependencies, findDependents } from './repository';
 import { fileCoupling } from './health';
 import { SEVERITIES, createSourceReader, looksSecret, redactSecret } from './analyzers';
 import { coverageGaps } from './coverage';
+import { CLOSE_NAME_MARGIN, CLOSE_NAME_MIN, closestNames, nameLengths } from './closeNames';
 
 export const TOKEN_BUDGETS = [8000, 16000, 32000, 64000, 128000];
 export const DEFAULT_BUDGET = 32000;
@@ -50,6 +51,55 @@ export function questionTerms(question) {
       if (part.length >= 3 && !STOPWORDS.has(part)) terms.add(part);
   }
   return [...terms];
+}
+
+// T24 names a question writes in lower case, with a typo, or as words ("funds transfer") still
+// count, but only when one name is clearly closest, and always below an exact match.
+const CLOSE_NAME_WEIGHT = { routine: 5, application: 3 };
+
+/** Possible T24 names in a question: dotted words and runs of 1–4 words, joined by dots. */
+function t24Mentions(text) {
+  const words = text.match(/[A-Za-z0-9]+(?:\.[A-Za-z0-9]+)*/g) || [];
+  const mentions = new Set();
+  for (let i = 0; i < words.length; i++)
+    for (let n = 1; n <= 4 && i + n <= words.length; n++) {
+      const name = words
+        .slice(i, i + n)
+        .join('.')
+        .toUpperCase();
+      if (name.length >= 5) mentions.add(name);
+    }
+  return mentions;
+}
+
+/** Adds the routines and applications that a question names only approximately. */
+function closeT24Names(files, text, exact, add) {
+  const targets = new Map(); // name → [{ path, kind }]
+  const target = (name, path, kind) => {
+    if (!name || exact.has(name)) return;
+    if (!targets.has(name)) targets.set(name, []);
+    targets.get(name).push({ path, kind });
+  };
+  for (const file of files) {
+    const t24 = file.temenos;
+    if (!t24) continue;
+    target(t24.routine, file.path, 'routine');
+    for (const app of t24.applications || []) target(app.name, file.path, 'application');
+  }
+  if (!targets.size) return;
+  const lengths = nameLengths(targets.keys());
+  for (const mention of t24Mentions(text)) {
+    // Measured down to the runner-up floor, so a close second still blocks the match.
+    const [best, second] = closestNames(mention, lengths, CLOSE_NAME_MIN - CLOSE_NAME_MARGIN);
+    if (
+      !best ||
+      best.score < CLOSE_NAME_MIN ||
+      best.score - (second?.score || 0) < CLOSE_NAME_MARGIN
+    )
+      continue;
+    for (const { path, kind } of targets.get(best.name))
+      add(path, CLOSE_NAME_WEIGHT[kind], 'close to ' + best.name);
+  }
 }
 
 /**
@@ -123,6 +173,7 @@ export function rankFilesForQuestion(index, question, { limit = 12 } = {}) {
             `${ACCESS_VERB[app.access] || 'uses'} ${app.name}`,
           );
     }
+  closeT24Names(files, text, upper, add);
 
   // Graph neighbours of the best matches: callers of the symbols the question names, and the
   // files the top matches import or are imported by. They stay below the files they came from.

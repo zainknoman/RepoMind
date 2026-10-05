@@ -236,6 +236,17 @@ test.describe('RepoMind Codebase Intelligence end-to-end', () => {
     await expect(page.locator('.editor textarea')).toHaveValue(/export function unusedHelper/);
   });
 
+  test('Search suggests a close symbol name, and the suggestion opens its file', async ({
+    page,
+  }) => {
+    await page.getByRole('navigation').getByRole('button', { name: 'Search', exact: true }).click();
+    await page.getByPlaceholder('Find symbols, files and text').fill('unusedHelpr');
+    await page.getByRole('button', { name: '🔎 Search' }).click();
+    await expect(page.getByRole('heading', { name: 'Did you mean' })).toBeVisible();
+    await page.getByRole('button', { name: /unusedHelper · function/ }).click();
+    await expect(page.getByText('📄 src/service.js')).toBeVisible();
+  });
+
   test('Search regex reports an invalid pattern', async ({ page }) => {
     await page.getByRole('navigation').getByRole('button', { name: 'Search', exact: true }).click();
     await page.getByLabel('Regex').check();

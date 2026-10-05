@@ -81,28 +81,61 @@ describe('question terms and ranking', () => {
     expect(session.score).toBeLessThan(ranked[0].score);
   });
 
-  it('ranks T24 routines by routine and application names', async () => {
-    const basic = (name, body) => ['    SUBROUTINE ' + name, ...body, '    RETURN'].join('\n');
-    const project = toWorkerProject(
-      't24',
-      Object.entries({
-        'BP/ACCOUNT.VALIDATE.b': basic('ACCOUNT.VALIDATE', ['    CALL ACCOUNT.VALIDATE.CHARGES']),
-        'BP/ACCOUNT.VALIDATE.CHARGES.b': basic('ACCOUNT.VALIDATE.CHARGES', ['    X = 1']),
-        'BP/CUSTOMER.UPDATE.b': basic('CUSTOMER.UPDATE', [
-          "    FN.CUS = 'F.CUSTOMER'",
-          "    F.CUS = ''",
-          '    CALL OPF(FN.CUS, F.CUS)',
-          '    WRITE R.CUS ON F.CUS, ID',
-        ]),
-      }).map(([path, content]) => ({ path, name: path.split('/').pop(), ext: '.b', content })),
+  const basic = (name, body) => ['    SUBROUTINE ' + name, ...body, '    RETURN'].join('\n');
+  const t24Index = (sources) =>
+    buildRepositoryIndex(
+      toWorkerProject(
+        't24',
+        Object.entries(sources).map(([path, content]) => ({
+          path,
+          name: path.split('/').pop(),
+          ext: '.b',
+          content,
+        })),
+      ),
     );
-    const index = await buildRepositoryIndex(project);
+  const T24_SOURCES = {
+    'BP/ACCOUNT.VALIDATE.b': basic('ACCOUNT.VALIDATE', ['    CALL ACCOUNT.VALIDATE.CHARGES']),
+    'BP/ACCOUNT.VALIDATE.CHARGES.b': basic('ACCOUNT.VALIDATE.CHARGES', ['    X = 1']),
+    'BP/CUSTOMER.UPDATE.b': basic('CUSTOMER.UPDATE', [
+      "    FN.CUS = 'F.CUSTOMER'",
+      "    F.CUS = ''",
+      '    CALL OPF(FN.CUS, F.CUS)',
+      '    WRITE R.CUS ON F.CUS, ID',
+    ]),
+  };
+
+  it('ranks T24 routines by routine and application names', async () => {
+    const index = await t24Index(T24_SOURCES);
     const routine = rankFilesForQuestion(index, 'What does ACCOUNT.VALIDATE do?');
     expect(routine[0]).toMatchObject({ path: 'BP/ACCOUNT.VALIDATE.b' });
     expect(routine[0].reasons).toContain('routine ACCOUNT.VALIDATE');
+    expect(routine[0].reasons).not.toContain('close to ACCOUNT.VALIDATE');
     const writers = rankFilesForQuestion(index, 'Which routines write CUSTOMER records?');
     expect(writers[0]).toMatchObject({ path: 'BP/CUSTOMER.UPDATE.b' });
     expect(writers[0].reasons).toContain('writes CUSTOMER');
+  });
+
+  it('ranks T24 names written in lower case or with a typo, below exact matches', async () => {
+    const index = await t24Index(T24_SOURCES);
+    const exact = rankFilesForQuestion(index, 'What does ACCOUNT.VALIDATE do?')[0];
+    const typo = rankFilesForQuestion(index, 'What does account.validte do?')[0];
+    expect(typo).toMatchObject({ path: 'BP/ACCOUNT.VALIDATE.b' });
+    expect(typo.reasons).toContain('close to ACCOUNT.VALIDATE');
+    expect(typo.score).toBeLessThan(exact.score);
+
+    const words = rankFilesForQuestion(index, 'Where is account validate charges used?');
+    const charges = words.find((x) => x.path === 'BP/ACCOUNT.VALIDATE.CHARGES.b');
+    expect(charges.reasons).toContain('close to ACCOUNT.VALIDATE.CHARGES');
+  });
+
+  it('does not guess between equally close T24 names', async () => {
+    const index = await t24Index({
+      'BP/ACCOUNT.VALIDATE.A.b': basic('ACCOUNT.VALIDATE.A', ['    X = 1']),
+      'BP/ACCOUNT.VALIDATE.B.b': basic('ACCOUNT.VALIDATE.B', ['    X = 1']),
+    });
+    const ranked = rankFilesForQuestion(index, 'What does account.validate.c do?');
+    expect(ranked.flatMap((x) => x.reasons).filter((r) => r.startsWith('close to'))).toEqual([]);
   });
 
   it('falls back to the most coupled files when the question has no usable terms', async () => {
