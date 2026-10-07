@@ -139,6 +139,17 @@ test.describe('RepoMind parent navigation', () => {
     ['Markdown', /Markdown/],
   ];
 
+  test('exports the indexed project snapshot from the header', async ({ page }) => {
+    await openFixture(page);
+    await expect(page.getByRole('button', { name: 'Export Project', exact: true })).toBeDisabled();
+    await buildIndex(page);
+    const download = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'Export Project', exact: true }).click();
+    const file = await download;
+    await expect(page.getByRole('button', { name: 'Export Project', exact: true })).toBeEnabled();
+    expect(file.suggestedFilename()).toBe('RepoMind E2E Fixture-repomind-export.json');
+  });
+
   test('Header groups follow the product hierarchy', async ({ page }) => {
     await openFixture(page);
     const nav = page.getByRole('navigation');
