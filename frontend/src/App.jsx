@@ -304,7 +304,13 @@ function App() {
           <button
             onClick={exportProject}
             disabled={!p || !codebase.index || githubLoading || codebase.indexing}
-            title={!p ? 'Open a project first' : !codebase.index ? 'Build the project index first' : 'Export the complete RepoMind project snapshot'}
+            title={
+              !p
+                ? 'Open a project first'
+                : !codebase.index
+                  ? 'Build the project index first'
+                  : 'Export the complete RepoMind project snapshot'
+            }
           >
             <span aria-hidden="true">⬇</span> Export Project
           </button>
