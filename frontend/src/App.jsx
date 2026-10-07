@@ -10,6 +10,7 @@ import { toast } from './lib/toast';
 import { NAV_GROUPS, PRIMARY_TAB, SECONDARY_GROUP } from './navigation';
 import { useCodebaseIndex } from './features/codebase/useCodebaseIndex';
 import { importGithubRepository } from './services/githubImport';
+import { downloadProjectExport } from './services/projectExport';
 import { applyTheme, loadTheme, nextTheme, saveTheme } from './lib/theme';
 
 // Workspaces are loaded on first use so the initial bundle only carries the shell and the dashboard.
@@ -140,6 +141,17 @@ function App() {
 
   function cancelGithub() {
     githubAbortRef.current?.abort();
+  }
+
+  function exportProject() {
+    try {
+      if (!p) throw new Error('Open a project before exporting');
+      if (!codebase.index) throw new Error('Build the project index before exporting');
+      downloadProjectExport(p, codebase.index);
+      toast.success(`Exported ${p.name} project details`);
+    } catch (e) {
+      toast.error(e?.message || 'Unable to export project');
+    }
   }
 
   async function folder() {
@@ -288,6 +300,13 @@ function App() {
           </label>
           <button onClick={() => setGithubOpen((open) => !open)} disabled={githubLoading}>
             <span aria-hidden="true">🔗</span> GitHub Repository
+          </button>
+          <button
+            onClick={exportProject}
+            disabled={!p || !codebase.index || githubLoading || codebase.indexing}
+            title={!p ? 'Open a project first' : !codebase.index ? 'Build the project index first' : 'Export the complete RepoMind project snapshot'}
+          >
+            <span aria-hidden="true">⬇</span> Export Project
           </button>
           <button onClick={folder} disabled={!folderSupported || githubLoading}>
             <span aria-hidden="true">📂</span> Open Folder
