@@ -26,16 +26,17 @@ export function buildProjectExport(project, index, { exportedAt = new Date().toI
 
   const snapshot = serializeIndex(index);
   return {
+    ...snapshot,
     schemaVersion: PROJECT_EXPORT_SCHEMA_VERSION,
     toolVersion: 'repomind-ui-0.11.0',
     exportedAt,
     project: {
+      ...(snapshot.project || {}),
       name: project.name,
       source: cleanSource(project.source),
       openedAt: project.openedAt || null,
       truncated: Boolean(project.truncated),
     },
-    ...snapshot,
   };
 }
 
